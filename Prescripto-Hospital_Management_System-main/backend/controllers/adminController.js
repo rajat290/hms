@@ -14,6 +14,21 @@ import crypto from 'crypto';
 import PDFDocument from 'pdfkit';
 import auditLogModel from "../models/auditLogModel.js";
 
+// Helper function for audit logging
+const logAdminAction = async (actorEmail, action, targetType, targetId, metadata) => {
+    try {
+        await auditLogModel.create({
+            actorEmail,
+            action,
+            targetType,
+            targetId,
+            metadata,
+        });
+    } catch (error) {
+        console.error("Audit log failed:", error);
+    }
+}
+
 // API for admin login
 const loginAdmin = async (req, res) => {
     try {
@@ -278,6 +293,8 @@ const addDoctor = async (req, res) => {
 
         const doctor = new doctorModel(doctorData);
         await doctor.save();
+
+        await logAdminAction(process.env.ADMIN_EMAIL, 'ADD_DOCTOR', 'doctor', doctor._id, { name });
 
         res.json({ success: true, message: "Doctor added successfully" });
 
@@ -777,16 +794,15 @@ const getPaymentHistory = async (req, res) => {
 // API to get billing metrics for analytics
 const getBillingMetrics = async (req, res) => {
     try {
-        // Current month revenue
         const currentDate = new Date();
         const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
         const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
+        // Revenue this month
         const currentMonthAppointments = await appointmentModel.find({
             date: { $gte: startOfMonth, $lte: endOfMonth },
             payment: true
         });
-
         const totalRevenueThisMonth = currentMonthAppointments.reduce((sum, apt) => sum + apt.amount, 0);
 
         // Outstanding payments
@@ -794,7 +810,6 @@ const getBillingMetrics = async (req, res) => {
             paymentStatus: { $in: ['unpaid', 'partially paid'] },
             cancelled: false
         });
-
         const outstandingPayments = outstandingAppointments.reduce((sum, apt) => {
             const paid = apt.partialAmount || 0;
             return sum + (apt.amount - paid);
@@ -833,12 +848,12 @@ const getBillingMetrics = async (req, res) => {
         }
 
         // Payment methods distribution
-        const paymentMethods = await paymentLogModel.aggregate([
+        const paymentMethodsData = await paymentLogModel.aggregate([
             { $group: { _id: '$method', count: { $sum: 1 }, total: { $sum: '$amount' } } }
         ]);
 
         const methodsData = { cash: 0, online: 0, card: 0 };
-        paymentMethods.forEach(method => {
+        paymentMethodsData.forEach(method => {
             if (method._id === 'cash') methodsData.cash = method.total;
             else if (method._id === 'online') methodsData.online = method.total;
             else if (method._id === 'card') methodsData.card = method.total;
@@ -883,7 +898,9 @@ const getBillingMetrics = async (req, res) => {
                 totalRevenueThisMonth,
                 outstandingPayments,
                 averageTransaction,
-                paymentSuccessRate
+                paymentSuccessRate,
+                totalAppointments,
+                totalPatients: await userModel.countDocuments({})
             },
             revenueTrends: {
                 labels: revenueTrends.map(r => r.month),
@@ -908,7 +925,43 @@ const getBillingMetrics = async (req, res) => {
         console.log(error);
         res.json({ success: false, message: error.message });
     }
-};
+}
+
+// API to export financials as CSV
+const exportFinancialsCSV = async (req, res) => {
+    try {
+        const payments = await paymentLogModel.find({}).populate('patientId', 'name email').sort({ timestamp: -1 });
+
+        let csv = 'Date,Patient,Email,Amount,Type,Method,Status,Processed By\n';
+
+        payments.forEach(log => {
+            const date = new Date(log.timestamp).toLocaleDateString();
+            const patientName = log.patientId?.name || 'Deleted User';
+            const patientEmail = log.patientId?.email || 'N/A';
+            csv += `"${date}","${patientName}","${patientEmail}",${log.amount},"${log.type}","${log.method}","${log.status}","${log.processedBy}"\n`;
+        });
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=financial_report.csv');
+        res.status(200).send(csv);
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// API to get audit logs
+const getAuditLogs = async (req, res) => {
+    try {
+        const logs = await auditLogModel.find({}).sort({ timestamp: -1 }).limit(100);
+        res.json({ success: true, logs });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
 
 export {
     loginAdmin,
@@ -933,5 +986,7 @@ export {
     downloadInvoicePDF,
     processRefund,
     getPaymentHistory,
-    getBillingMetrics
+    getBillingMetrics,
+    exportFinancialsCSV,
+    getAuditLogs
 }

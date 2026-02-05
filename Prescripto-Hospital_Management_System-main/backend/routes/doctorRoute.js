@@ -1,6 +1,7 @@
 import express from 'express';
-import { loginDoctor, appointmentsDoctor, appointmentCancel, appointmentAccept, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, addAppointmentNotes, generatePrescriptionDoctor, getPatientFinancialSummary, getAvailability, updateAvailability } from '../controllers/doctorController.js';
+import { loginDoctor, appointmentsDoctor, appointmentCancel, appointmentAccept, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, addAppointmentNotes, generatePrescriptionDoctor, getPatientFinancialSummary, getAvailability, updateAvailability, addReview, getDoctorReviews } from '../controllers/doctorController.js';
 import authDoctor from '../middleware/authDoctor.js';
+import authUser from '../middleware/authUser.js';
 const doctorRouter = express.Router();
 
 doctorRouter.post("/login", loginDoctor)
@@ -18,5 +19,7 @@ doctorRouter.post("/generate-prescription", authDoctor, generatePrescriptionDoct
 doctorRouter.post("/patient-financial", authDoctor, getPatientFinancialSummary)
 doctorRouter.post("/get-availability", authDoctor, getAvailability)
 doctorRouter.post("/update-availability", authDoctor, updateAvailability)
+doctorRouter.get("/reviews/:docId", getDoctorReviews)
+doctorRouter.post("/add-review", authUser, addReview) // Use authUser for patients
 
 export default doctorRouter;

@@ -15,6 +15,14 @@ const MyAppointments = () => {
     const [prescriptions, setPrescriptions] = useState({})
     const [payment, setPayment] = useState('')
 
+    // Reschedule states
+    const [showReschedule, setShowReschedule] = useState(false)
+    const [selectedApp, setSelectedApp] = useState(null)
+    const [docSlots, setDocSlots] = useState([])
+    const [slotIndex, setSlotIndex] = useState(0)
+    const [slotTime, setSlotTime] = useState('')
+    const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
     // Function to format the date eg. ( 20_01_2000 => 20 Jan 2000 )
@@ -159,6 +167,56 @@ const MyAppointments = () => {
         }
     }
 
+    // Reschedule logic
+    const openRescheduleModal = async (appointment) => {
+        setSelectedApp(appointment)
+        setSlotTime('')
+        setSlotIndex(0)
+        setShowReschedule(true)
+        try {
+            const { data } = await axios.get(backendUrl + `/api/user/doctor-slots/${appointment.docId}`)
+            if (data.success) {
+                const slotsWithDates = data.slots.map(daySlots =>
+                    daySlots.map(slot => ({
+                        ...slot,
+                        datetime: new Date(slot.datetime)
+                    }))
+                )
+                setDocSlots(slotsWithDates)
+            }
+        } catch (error) {
+            toast.error("Failed to load available slots")
+        }
+    }
+
+    const confirmReschedule = async () => {
+        if (!slotTime) return toast.warning("Please select a slot")
+
+        const date = docSlots[slotIndex][0].datetime
+        let day = date.getDate()
+        let month = date.getMonth() + 1
+        let year = date.getFullYear()
+        const slotDate = day + "_" + month + "_" + year
+
+        try {
+            const { data } = await axios.post(backendUrl + '/api/user/reschedule-appointment', {
+                appointmentId: selectedApp._id,
+                newSlotDate: slotDate,
+                newSlotTime: slotTime
+            }, { headers: { token } })
+
+            if (data.success) {
+                toast.success(data.message)
+                setShowReschedule(false)
+                getUserAppointments()
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
+    }
+
 
 
     useEffect(() => {
@@ -195,10 +253,49 @@ const MyAppointments = () => {
                             {!item.cancelled && !item.isCompleted && !item.isAccepted && (item.payment || item.paymentStatus === 'paid') && <span className='text-blue-600 bg-blue-50 border border-blue-200 px-2 py-1 rounded'>Pending</span>}
 
                             <button onClick={() => navigate(`/my-appointments/${item._id}`)} className='sm:min-w-48 py-2 border rounded hover:bg-primary hover:text-white transition-all duration-300'>View Details</button>
+                            {!item.cancelled && !item.isCompleted && (
+                                <button onClick={() => openRescheduleModal(item)} className='sm:min-w-48 py-2 border rounded hover:bg-blue-500 hover:text-white transition-all duration-300'>Reschedule</button>
+                            )}
+                            {!item.cancelled && !item.isCompleted && <button onClick={() => cancelAppointment(item._id)} className='sm:min-w-48 py-2 border rounded hover:bg-red-600 hover:text-white transition-all duration-300'>Cancel appointment</button>}
                         </div>
                     </div>
                 ))}
             </div>
+
+            {/* Reschedule Modal */}
+            {showReschedule && (
+                <div className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'>
+                    <div className='bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto'>
+                        <h3 className='text-xl font-medium mb-4'>Reschedule Appointment</h3>
+                        <p className='text-sm text-gray-600 mb-6'>Pick a new slot for Dr. {selectedApp.docData.name}</p>
+
+                        <div className='font-medium text-[#565656]'>
+                            <p>Booking slots</p>
+                            <div className='flex gap-3 items-center w-full overflow-x-scroll mt-4 pb-2'>
+                                {docSlots.length > 0 && docSlots.map((item, index) => (
+                                    <div onClick={() => setSlotIndex(index)} key={index} className={`text-center py-4 min-w-14 rounded-full cursor-pointer flex-shrink-0 ${slotIndex === index ? 'bg-primary text-white' : 'border border-[#DDDDDD]'}`}>
+                                        <p className='text-xs'>{item[0] && daysOfWeek[item[0].datetime.getDay()]}</p>
+                                        <p>{item[0] && item[0].datetime.getDate()}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className='flex items-center gap-3 w-full overflow-x-scroll mt-4 pb-2'>
+                                {docSlots.length > 0 && docSlots[slotIndex].map((item, index) => (
+                                    <p onClick={() => setSlotTime(item.time)} key={index} className={`text-xs font-light flex-shrink-0 px-4 py-2 rounded-full cursor-pointer ${item.time === slotTime ? 'bg-primary text-white' : 'text-[#949494] border border-[#B4B4B4]'}`}>
+                                        {item.time.toLowerCase()}
+                                    </p>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className='flex gap-4 mt-8'>
+                            <button onClick={() => setShowReschedule(false)} className='flex-1 py-2 border rounded text-gray-600'>Cancel</button>
+                            <button onClick={confirmReschedule} className='flex-1 py-2 bg-primary text-white rounded'>Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

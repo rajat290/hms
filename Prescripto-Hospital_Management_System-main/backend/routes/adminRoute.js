@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginAdmin, appointmentsAdmin, appointmentCancel, appointmentAccept, addDoctor, allDoctors, adminDashboard, getAllPatients, updatePaymentStatus, getSettings, updateSettings, getPatientDetails, getAnalytics, updatePaymentMethods, updateDoctor, createPatientAdmin, generateInvoice, getAllInvoices, updateInvoiceStatus, getBillingMetrics } from '../controllers/adminController.js';
+import { loginAdmin, appointmentsAdmin, appointmentCancel, appointmentAccept, addDoctor, allDoctors, adminDashboard, getAllPatients, updatePaymentStatus, getSettings, updateSettings, getPatientDetails, getAnalytics, updatePaymentMethods, updateDoctor, createPatientAdmin, generateInvoice, getAllInvoices, updateInvoiceStatus, getBillingMetrics, exportFinancialsCSV, getAuditLogs } from '../controllers/adminController.js';
 import { changeAvailablity } from '../controllers/doctorController.js';
 import authAdmin from '../middleware/authAdmin.js';
 import upload from '../middleware/multer.js';
@@ -30,5 +30,7 @@ adminRouter.get("/all-invoices", authAdmin, getAllInvoices)
 adminRouter.post("/update-invoice-status", authAdmin, updateInvoiceStatus)
 // Billing analytics
 adminRouter.get("/billing-analytics", authAdmin, getBillingMetrics)
+adminRouter.get("/export-financials", authAdmin, exportFinancialsCSV)
+adminRouter.get("/audit-logs", authAdmin, getAuditLogs)
 
 export default adminRouter;

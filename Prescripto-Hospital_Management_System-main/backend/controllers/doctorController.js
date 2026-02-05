@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import prescriptionModel from "../models/prescriptionModel.js";
+import reviewModel from "../models/reviewModel.js";
 
 // API for doctor Login 
 const loginDoctor = async (req, res) => {
@@ -105,11 +106,20 @@ const appointmentComplete = async (req, res) => {
 
 }
 
-// API to get all doctors list for Frontend
+// API to get all doctors list for Frontend with Advanced Filters
 const doctorList = async (req, res) => {
     try {
+        const { speciality, gender, maxFees, search } = req.query;
+        let filter = {};
 
-        const doctors = await doctorModel.find({}).select(['-password', '-email'])
+        if (speciality) filter.speciality = speciality;
+        if (gender) filter.gender = gender;
+        if (maxFees) filter.fees = { $lte: Number(maxFees) };
+        if (search) {
+            filter.name = { $regex: search, $options: 'i' };
+        }
+
+        const doctors = await doctorModel.find(filter).select(['-password', '-email'])
         res.json({ success: true, doctors })
 
     } catch (error) {
@@ -298,6 +308,45 @@ const getAvailability = async (req, res) => {
     }
 };
 
+// API to add a review for a doctor
+const addReview = async (req, res) => {
+    try {
+        const { userId, docId, appointmentId, rating, comment } = req.body;
+
+        // Verify appointment completion and ownership
+        const appointment = await appointmentModel.findById(appointmentId);
+        if (!appointment || appointment.userId.toString() !== userId || !appointment.isCompleted) {
+            return res.json({ success: false, message: "You can only review completed appointments." });
+        }
+
+        // Check if already reviewed
+        const existingReview = await reviewModel.findOne({ appointmentId });
+        if (existingReview) {
+            return res.json({ success: false, message: "You have already reviewed this appointment." });
+        }
+
+        const newReview = new reviewModel({ userId, docId, appointmentId, rating, comment });
+        await newReview.save();
+
+        res.json({ success: true, message: "Review added successfully" });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// API to get reviews for a doctor
+const getDoctorReviews = async (req, res) => {
+    try {
+        const { docId } = req.params;
+        const reviews = await reviewModel.find({ docId }).populate('userId', 'name image');
+        res.json({ success: true, reviews });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
 // API to update doctor's availability settings
 const updateAvailability = async (req, res) => {
     try {
@@ -327,5 +376,7 @@ export {
     generatePrescriptionDoctor,
     getPatientFinancialSummary,
     getAvailability,
-    updateAvailability
+    updateAvailability,
+    addReview,
+    getDoctorReviews
 }

@@ -48,6 +48,8 @@ const Navbar = () => {
                 <div className='min-w-48 bg-gray-50 rounded flex flex-col gap-4 p-4'>
                   <p onClick={() => navigate('/my-profile')} className='hover:text-black cursor-pointer'>My Profile</p>
                   <p onClick={() => navigate('/my-appointments')} className='hover:text-black cursor-pointer'>My Appointments</p>
+                  <p onClick={() => navigate('/notifications')} className='hover:text-black cursor-pointer'>Notifications</p>
+                  <p onClick={() => navigate('/my-billing')} className='hover:text-black cursor-pointer'>My Billing</p>
                   <p onClick={logout} className='hover:text-black cursor-pointer'>Logout</p>
                 </div>
               </div>
@@ -67,6 +69,19 @@ const Navbar = () => {
             <NavLink onClick={() => setShowMenu(false)} to='/doctors' ><p className='px-4 py-2 rounded full inline-block'>ALL DOCTORS</p></NavLink>
             <NavLink onClick={() => setShowMenu(false)} to='/about' ><p className='px-4 py-2 rounded full inline-block'>ABOUT</p></NavLink>
             <NavLink onClick={() => setShowMenu(false)} to='/contact' ><p className='px-4 py-2 rounded full inline-block'>CONTACT</p></NavLink>
+            {token && userData && (
+              <>
+                <hr className='w-full border-gray-300 my-2' />
+                <NavLink onClick={() => setShowMenu(false)} to='/my-profile'><p className='px-4 py-2 rounded full inline-block'>MY PROFILE</p></NavLink>
+                <NavLink onClick={() => setShowMenu(false)} to='/my-appointments'><p className='px-4 py-2 rounded full inline-block'>MY APPOINTMENTS</p></NavLink>
+                <NavLink onClick={() => setShowMenu(false)} to='/notifications'><p className='px-4 py-2 rounded full inline-block'>NOTIFICATIONS</p></NavLink>
+                <NavLink onClick={() => setShowMenu(false)} to='/my-billing'><p className='px-4 py-2 rounded full inline-block'>MY BILLING</p></NavLink>
+                <p onClick={() => { logout(); setShowMenu(false); }} className='px-4 py-2 rounded full inline-block cursor-pointer text-red-500'>LOGOUT</p>
+              </>
+            )}
+            {!token && (
+              <button onClick={() => { navigate('/login'); setShowMenu(false); }} className='bg-primary text-white px-8 py-3 rounded-full font-light mt-4 w-full'>Create account</button>
+            )}
           </ul>
         </div>
       </div>

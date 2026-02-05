@@ -3,6 +3,7 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import { useContext } from 'react'
 import { AppContext } from '../context/AppContext'
+import { useNavigate } from 'react-router-dom'
 
 const PasswordReset = () => {
   const [email, setEmail] = useState('')
@@ -10,6 +11,7 @@ const PasswordReset = () => {
   const [newPassword, setNewPassword] = useState('')
   const [step, setStep] = useState(1) // 1: request reset, 2: enter token and new password
   const { backendUrl } = useContext(AppContext)
+  const navigate = useNavigate()
 
   const requestReset = async (event) => {
     event.preventDefault()
@@ -32,7 +34,9 @@ const PasswordReset = () => {
       const { data } = await axios.post(backendUrl + '/api/user/reset-password', { token, newPassword })
       if (data.success) {
         toast.success('Password reset successfully!')
-        // Redirect to login
+        setTimeout(() => {
+          navigate('/login')
+        }, 2000)
       } else {
         toast.error(data.message)
       }
@@ -68,6 +72,7 @@ const PasswordReset = () => {
             <button className='bg-primary text-white w-full py-2 my-2 rounded-md text-base'>Reset Password</button>
           </>
         )}
+        <p onClick={() => navigate('/login')} className='text-primary underline cursor-pointer mt-2 w-full text-center'>Back to Login</p>
       </div>
     </form>
   )

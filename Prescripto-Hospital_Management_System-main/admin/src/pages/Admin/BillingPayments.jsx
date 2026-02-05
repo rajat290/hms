@@ -200,7 +200,15 @@ const BillingPayments = () => {
 
     return (
         <div className='w-full max-w-6xl m-5'>
-            <p className='mb-3 text-lg font-medium'>Billing & Payments</p>
+            <div className='flex justify-between items-center mb-3'>
+                <p className='text-lg font-medium'>Billing & Payments</p>
+                <button
+                    onClick={() => window.open(`${backendUrl}/api/admin/export-financials`, '_blank')}
+                    className='bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 transition-all'
+                >
+                    Download Full Financial Report (CSV)
+                </button>
+            </div>
 
             {/* Search and Filter Controls */}
             <div className='bg-white p-4 rounded border mb-4'>

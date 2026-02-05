@@ -37,6 +37,12 @@ const MyProfile = () => {
             formData.append('address', JSON.stringify(userData.address))
             formData.append('gender', userData.gender)
             formData.append('dob', userData.dob)
+            formData.append('bloodGroup', userData.bloodGroup || '')
+            formData.append('knownAllergies', userData.knownAllergies || '')
+            formData.append('currentMedications', userData.currentMedications || '')
+            formData.append('insuranceProvider', userData.insuranceProvider || '')
+            formData.append('insuranceId', userData.insuranceId || '')
+            formData.append('emergencyContact', JSON.stringify(userData.emergencyContact))
 
             image && formData.append('image', image)
 
@@ -137,6 +143,72 @@ const MyProfile = () => {
                     }
 
                 </div>
+            </div>
+
+            <hr className='bg-[#ADADAD] h-[1px] border-none mt-4' />
+
+            <div>
+                <p className='text-gray-600 underline mt-3'>MEDICAL HISTORY</p>
+                <div className='grid grid-cols-[1fr_3fr] gap-y-2.5 mt-3 text-gray-600'>
+                    <p className='font-medium'>Blood Group:</p>
+                    {isEdit
+                        ? <input className='bg-gray-50 max-w-20' type="text" onChange={(e) => setUserData(prev => ({ ...prev, bloodGroup: e.target.value }))} value={userData.bloodGroup} />
+                        : <p className='text-gray-500'>{userData.bloodGroup || 'N/A'}</p>
+                    }
+
+                    <p className='font-medium'>Known Allergies:</p>
+                    {isEdit
+                        ? <textarea className='bg-gray-50' onChange={(e) => setUserData(prev => ({ ...prev, knownAllergies: e.target.value }))} value={userData.knownAllergies} />
+                        : <p className='text-gray-500 whitespace-pre-wrap'>{userData.knownAllergies || 'None'}</p>
+                    }
+
+                    <p className='font-medium'>Current Medications:</p>
+                    {isEdit
+                        ? <textarea className='bg-gray-50' onChange={(e) => setUserData(prev => ({ ...prev, currentMedications: e.target.value }))} value={userData.currentMedications} />
+                        : <p className='text-gray-500 whitespace-pre-wrap'>{userData.currentMedications || 'None'}</p>
+                    }
+                </div>
+            </div>
+
+            <hr className='bg-[#ADADAD] h-[1px] border-none mt-4' />
+
+            <div>
+                <p className='text-gray-600 underline mt-3'>INSURANCE & EMERGENCY</p>
+                <div className='grid grid-cols-[1fr_3fr] gap-y-2.5 mt-3 text-gray-600'>
+                    <p className='font-medium'>Provider:</p>
+                    {isEdit
+                        ? <input className='bg-gray-50' type="text" onChange={(e) => setUserData(prev => ({ ...prev, insuranceProvider: e.target.value }))} value={userData.insuranceProvider} />
+                        : <p className='text-gray-500'>{userData.insuranceProvider || 'N/A'}</p>
+                    }
+
+                    <p className='font-medium'>Insurance ID:</p>
+                    {isEdit
+                        ? <input className='bg-gray-50' type="text" onChange={(e) => setUserData(prev => ({ ...prev, insuranceId: e.target.value }))} value={userData.insuranceId} />
+                        : <p className='text-gray-500'>{userData.insuranceId || 'N/A'}</p>
+                    }
+
+                    <p className='font-medium'>Emergency Contact:</p>
+                    {isEdit
+                        ? <div className='flex flex-col gap-1'>
+                            <input className='bg-gray-50' placeholder='Name' type="text" onChange={(e) => setUserData(prev => ({ ...prev, emergencyContact: { ...prev.emergencyContact, name: e.target.value } }))} value={userData.emergencyContact?.name} />
+                            <input className='bg-gray-50' placeholder='Phone' type="text" onChange={(e) => setUserData(prev => ({ ...prev, emergencyContact: { ...prev.emergencyContact, phone: e.target.value } }))} value={userData.emergencyContact?.phone} />
+                        </div>
+                        : <p className='text-gray-500'>{userData.emergencyContact?.name || 'N/A'} - {userData.emergencyContact?.phone || ''}</p>
+                    }
+                </div>
+            </div>
+
+            <hr className='bg-[#ADADAD] h-[1px] border-none mt-4' />
+
+            <div className='mt-4 flex items-center gap-4'>
+                <p className='text-gray-600 font-medium'>Two-Factor Authentication (2FA)</p>
+                <button
+                    onClick={() => setUserData(prev => ({ ...prev, twoFactorEnabled: !prev.twoFactorEnabled }))}
+                    disabled={!isEdit}
+                    className={`px-4 py-1 rounded-full text-xs font-medium cursor-pointer transition-all ${userData.twoFactorEnabled ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                >
+                    {userData.twoFactorEnabled ? 'Enabled' : 'Disabled'}
+                </button>
             </div>
             <div className='mt-10'>
 

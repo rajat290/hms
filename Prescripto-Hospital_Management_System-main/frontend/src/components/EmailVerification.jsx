@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
+import { useContext } from 'react';
 
 const EmailVerification = () => {
+  const { backendUrl } = useContext(AppContext);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -21,7 +24,7 @@ const EmailVerification = () => {
 
   const verifyEmail = async (token) => {
     try {
-      const { data } = await axios.post('http://localhost:4000/api/user/verify-email', { token });
+      const { data } = await axios.post(backendUrl + '/api/user/verify-email', { token });
       if (data.success) {
         setVerified(true);
         toast.success(data.message);

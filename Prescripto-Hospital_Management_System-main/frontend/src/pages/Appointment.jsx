@@ -5,6 +5,7 @@ import { assets } from '../assets/assets'
 import RelatedDoctors from '../components/RelatedDoctors'
 import axios from 'axios'
 import { toast } from 'react-toastify'
+import ReviewSection from '../components/ReviewSection'
 
 const Appointment = () => {
 
@@ -264,12 +265,12 @@ const Appointment = () => {
             {/* ... (Existing Doctor Info UI preserved) ... */}
             {/* ---------- Doctor Details ----------- */}
             <div className='flex flex-col sm:flex-row gap-4'>
-                <div>
-                    <img className='bg-primary w-full sm:max-w-72 rounded-lg' src={docInfo.image} alt="" />
+                <div className='flex justify-center sm:block'>
+                    <img className='bg-primary w-full max-w-[280px] sm:max-w-72 rounded-lg' src={docInfo.image} alt="" />
                 </div>
 
-                <div className='flex-1 border border-[#ADADAD] rounded-lg p-8 py-7 bg-white mx-2 sm:mx-0 mt-[-80px] sm:mt-0'>
-                    <p className='flex items-center gap-2 text-3xl font-medium text-gray-700'>{docInfo.name} <img className='w-5' src={assets.verified_icon} alt="" /></p>
+                <div className='flex-1 border border-[#ADADAD] rounded-lg p-6 sm:p-8 py-7 bg-white mx-2 sm:mx-0 mt-[-40px] sm:mt-0 relative z-1'>
+                    <p className='flex items-center gap-2 text-2xl sm:text-3xl font-medium text-gray-700'>{docInfo.name} <img className='w-5' src={assets.verified_icon} alt="" /></p>
                     <div className='flex items-center gap-2 mt-1 text-gray-600'>
                         <p>{docInfo.degree} - {docInfo.speciality}</p>
                         <button className='py-0.5 px-2 border text-xs rounded-full'>{docInfo.experience}</button>
@@ -284,7 +285,7 @@ const Appointment = () => {
 
             {/* Booking slots */}
             <div className='sm:ml-72 sm:pl-4 mt-8 font-medium text-[#565656]'>
-                <p >Booking slots</p>
+                <p className='px-2 sm:px-0'>Booking slots</p>
                 <div className='flex gap-3 items-center w-full overflow-x-scroll mt-4'>
                     {docSlots.length && docSlots.filter(item => item.length > 0).map((item, index) => {
                         const originalIndex = docSlots.indexOf(item)
@@ -422,6 +423,8 @@ const Appointment = () => {
                     </div>
                 )}
             </div>
+
+            <ReviewSection docId={docId} />
 
             <RelatedDoctors speciality={docInfo.speciality} docId={docId} />
         </div>

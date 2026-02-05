@@ -16,7 +16,9 @@ const appointmentSchema = new mongoose.Schema({
     notes: [{ type: String }],
     paymentStatus: { type: String, enum: ['paid', 'partially paid', 'unpaid'], default: 'unpaid' },
     partialAmount: { type: Number, default: 0 },
-    patientInfo: { type: Object, default: null }
+    patientInfo: { type: Object, default: null },
+    reminderSent24h: { type: Boolean, default: false },
+    reminderSent2h: { type: Boolean, default: false }
 })
 
 const appointmentModel = mongoose.models.appointment || mongoose.model("appointment", appointmentSchema);

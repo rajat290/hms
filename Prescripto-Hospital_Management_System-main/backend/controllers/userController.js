@@ -12,6 +12,7 @@ import razorpay from 'razorpay';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { generateAvailableSlots } from "../utils/slotGenerator.js";
+import notificationModel from "../models/notificationModel.js";
 
 // Gateway Initialize
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
@@ -45,17 +46,50 @@ const registerUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10); // the more no. round the more time it will take
         const hashedPassword = await bcrypt.hash(password, salt)
 
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+
         const userData = {
             name,
             email,
             password: hashedPassword,
+            verificationToken
         }
 
         const newUser = new userModel(userData)
         const user = await newUser.save()
+
+        // Send verification email
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+
+        const verificationUrl = `${req.headers.origin}/verify-email?token=${verificationToken}`;
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Email Verification - Prescripto',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Welcome to Prescripto!</h2>
+                    <p>Please click the button below to verify your email address and activate your account:</p>
+                    <a href="${verificationUrl}" style="background-color: #5f6FFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Verify Email</a>
+                    <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                    <p>${verificationUrl}</p>
+                    <p>Thank you,<br>The Prescripto Team</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
 
-        res.json({ success: true, token })
+        res.json({ success: true, token, message: 'Registration successful! Please check your email to verify your account.' })
 
     } catch (error) {
         console.log(error)
@@ -77,9 +111,36 @@ const loginUser = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password)
 
         if (isMatch) {
-            // if (!user.isVerified) {
-            //     return res.json({ success: false, message: "Please verify your email before logging in." })
-            // }
+            if (!user.isVerified) {
+                return res.json({ success: false, message: "Please verify your email before logging in." })
+            }
+
+            if (user.twoFactorEnabled) {
+                // Generate and send 2FA code
+                const code = crypto.randomInt(100000, 999999).toString();
+                user.verificationToken = code; // Using verificationToken field to store temp code
+                await user.save();
+
+                // Send email
+                const transporter = nodemailer.createTransport({
+                    service: 'gmail',
+                    auth: {
+                        user: process.env.EMAIL_USER,
+                        pass: process.env.EMAIL_PASS
+                    }
+                });
+
+                const mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: '2FA Verification Code - Prescripto',
+                    html: `<h3>Your 2FA code is: ${code}</h3><p>Use this code to complete your login.</p>`
+                };
+                await transporter.sendMail(mailOptions);
+
+                return res.json({ success: true, twoFactorRequired: true, userId: user._id, message: "2FA code sent to your email." });
+            }
+
             const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
             res.json({ success: true, token })
         }
@@ -129,6 +190,7 @@ const updateProfile = async (req, res) => {
         if (emergencyContact) updateData.emergencyContact = typeof emergencyContact === 'string' ? JSON.parse(emergencyContact) : emergencyContact
         if (insuranceProvider) updateData.insuranceProvider = insuranceProvider
         if (insuranceId) updateData.insuranceId = insuranceId
+        if (req.body.twoFactorEnabled !== undefined) updateData.twoFactorEnabled = req.body.twoFactorEnabled === 'true' || req.body.twoFactorEnabled === true
 
         await userModel.findByIdAndUpdate(userId, updateData)
 
@@ -195,6 +257,15 @@ const bookAppointment = async (req, res) => {
 
         // save new slots data in docData
         await doctorModel.findByIdAndUpdate(docId, { slots_booked })
+
+        // Create Notification
+        const newNotification = new notificationModel({
+            userId,
+            title: "Appointment Booked",
+            message: `Your appointment with Dr. ${docData.name} on ${slotDate} at ${slotTime} has been successfully booked.`,
+            type: "appointment"
+        })
+        await newNotification.save()
 
         res.json({ success: true, message: 'Appointment Booked', appointmentId: newAppointment._id })
 
@@ -360,6 +431,9 @@ const paymentRazorpay = async (req, res) => {
             amount: appointmentData.amount * 100,
             currency: 'INR',
             receipt: appointmentId,
+            notes: {
+                appointmentId: appointmentId
+            }
         }
 
         // creation of an order
@@ -423,6 +497,10 @@ const paymentStripe = async (req, res) => {
             cancel_url: `${origin}/verify?success=false&appointmentId=${appointmentData._id}`,
             line_items: line_items,
             mode: 'payment',
+            client_reference_id: appointmentData._id.toString(),
+            metadata: {
+                appointmentId: appointmentData._id.toString()
+            }
         })
 
         res.json({ success: true, session_url: session.url });
@@ -490,11 +568,23 @@ const forgotPassword = async (req, res) => {
                 pass: process.env.EMAIL_PASS
             }
         });
+
+        const resetUrl = `${req.headers.origin}/reset-password?token=${resetToken}`;
+
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
-            subject: 'Password Reset',
-            text: `Your reset token is ${resetToken}`
+            subject: 'Password Reset - Prescripto',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Password Reset Request</h2>
+                    <p>You requested a password reset. Please click the button below to set a new password:</p>
+                    <a href="${resetUrl}" style="background-color: #5f6FFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Reset Password</a>
+                    <p>This link will expire in 1 hour.</p>
+                    <p>If you did not request this, please ignore this email.</p>
+                    <p>Thank you,<br>The Prescripto Team</p>
+                </div>
+            `
         };
         transporter.sendMail(mailOptions, (error, info) => {
             if (error) {
@@ -564,7 +654,83 @@ const verify2FA = async (req, res) => {
         }
         user.verificationToken = undefined;
         await user.save();
-        res.json({ success: true, message: '2FA verified' });
+
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
+        res.json({ success: true, message: '2FA verified', token });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// API to reschedule appointment
+const rescheduleAppointment = async (req, res) => {
+    try {
+        const { userId, appointmentId, newSlotDate, newSlotTime } = req.body;
+
+        const appointment = await appointmentModel.findById(appointmentId);
+        if (!appointment || appointment.userId.toString() !== userId) {
+            return res.json({ success: false, message: 'Appointment not found' });
+        }
+
+        if (appointment.cancelled || appointment.isCompleted) {
+            return res.json({ success: false, message: 'Cannot reschedule cancelled or completed appointment' });
+        }
+
+        // Release old slot
+        const doctorData = await doctorModel.findById(appointment.docId);
+        let slots_booked = doctorData.slots_booked;
+        slots_booked[appointment.slotDate] = slots_booked[appointment.slotDate].filter(e => e !== appointment.slotTime);
+
+        // Check and book new slot
+        if (slots_booked[newSlotDate]) {
+            if (slots_booked[newSlotDate].includes(newSlotTime)) {
+                return res.json({ success: false, message: 'New slot requested is not available' });
+            }
+            slots_booked[newSlotDate].push(newSlotTime);
+        } else {
+            slots_booked[newSlotDate] = [newSlotTime];
+        }
+
+        // Update appointment and doctor
+        await appointmentModel.findByIdAndUpdate(appointmentId, { slotDate: newSlotDate, slotTime: newSlotTime });
+        await doctorModel.findByIdAndUpdate(appointment.docId, { slots_booked });
+
+        // Create Notification
+        const newNotification = new notificationModel({
+            userId,
+            title: "Appointment Rescheduled",
+            message: `Your appointment with Dr. ${doctorData.name} has been moved to ${newSlotDate} at ${newSlotTime}.`,
+            type: "appointment"
+        })
+        await newNotification.save()
+
+        res.json({ success: true, message: 'Appointment Rescheduled Successfully' });
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// API to get notifications
+const getNotifications = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const notifications = await notificationModel.find({ userId }).sort({ date: -1 }).limit(20);
+        res.json({ success: true, notifications });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// API to mark notifications as read
+const markNotificationsRead = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        await notificationModel.updateMany({ userId, read: false }, { read: true });
+        res.json({ success: true, message: "Notifications marked as read" });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -620,5 +786,8 @@ export {
     verify2FA,
     getFinancialSummary,
     getUserPrescriptions,
-    getDoctorSlots
+    getDoctorSlots,
+    rescheduleAppointment,
+    getNotifications,
+    markNotificationsRead
 }

@@ -1,7 +1,7 @@
+import nodemailer from 'nodemailer';
 import cron from 'node-cron';
 import invoiceModel from '../models/invoiceModel.js';
-import userModel from '../models/userModel.js';
-import nodemailer from 'nodemailer';
+import { sendReminders } from '../controllers/notificationController.js';
 
 const checkOverdueInvoices = async () => {
     try {
@@ -22,7 +22,7 @@ const checkOverdueInvoices = async () => {
         console.log(`Found ${overdueInvoices.length} overdue invoices.`);
 
         // Email Config
-        const transporter = nodemailer.createTransporter({
+        const transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
             port: 587,
             secure: false,
@@ -65,11 +65,17 @@ const checkOverdueInvoices = async () => {
 
 // Initialize Cron Jobs
 const initCronJobs = () => {
-    // Run every day at 9:00 AM
+    // Run every day at 9:00 AM for overdue invoices
     cron.schedule('0 9 * * *', () => {
         checkOverdueInvoices();
     });
-    console.log('Cron jobs initialized: Overdue checks scheduled for 09:00 daily.');
+
+    // Run every hour to check for upcoming appointment reminders
+    cron.schedule('0 * * * *', () => {
+        sendReminders();
+    });
+
+    console.log('Cron jobs initialized: Overdue checks (09:00) and Appointment reminders (hourly).');
 };
 
 export default initCronJobs;

@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, verifyEmail, forgotPassword, resetPassword, enable2FA, verify2FA, getFinancialSummary, getUserPrescriptions, getDoctorSlots } from '../controllers/userController.js';
+import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, verifyEmail, forgotPassword, resetPassword, enable2FA, verify2FA, getFinancialSummary, getUserPrescriptions, getDoctorSlots, rescheduleAppointment, getNotifications, markNotificationsRead } from '../controllers/userController.js';
 import upload from '../middleware/multer.js';
 import authUser from '../middleware/authUser.js';
 const userRouter = express.Router();
@@ -24,5 +24,8 @@ userRouter.post("/verify-2fa", authUser, verify2FA)
 userRouter.get("/financial-summary", authUser, getFinancialSummary)
 userRouter.get("/prescriptions", authUser, getUserPrescriptions)
 userRouter.get('/doctor-slots/:docId', getDoctorSlots)
+userRouter.post("/reschedule-appointment", authUser, rescheduleAppointment)
+userRouter.get("/notifications", authUser, getNotifications)
+userRouter.post("/mark-notifications-read", authUser, markNotificationsRead)
 
 export default userRouter;
