@@ -25,9 +25,37 @@ const Sidebar = () => {
           <img className='min-w-5' src={assets.add_icon} alt='' />
           <p className='hidden md:block'>Add Doctor</p>
         </NavLink>
+        <NavLink to={'/add-patient'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.add_icon} alt='' />
+          <p className='hidden md:block'>Add Patient</p>
+        </NavLink>
         <NavLink to={'/doctor-list'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
           <img className='min-w-5' src={assets.people_icon} alt='' />
           <p className='hidden md:block'>Doctors List</p>
+        </NavLink>
+        <NavLink to={'/all-patients'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.people_icon} alt='' />
+          <p className='hidden md:block'>Patients</p>
+        </NavLink>
+        <NavLink to={'/billing'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.appointment_icon} alt='' />
+          <p className='hidden md:block'>Billing/Payments</p>
+        </NavLink>
+        <NavLink to={'/settings'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.info_icon} alt='' />
+          <p className='hidden md:block'>Settings</p>
+        </NavLink>
+        <NavLink to={'/analytics'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.appointment_icon} alt='' />
+          <p className='hidden md:block'>Analytics</p>
+        </NavLink>
+        <NavLink to={'/billing-analytics'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.earning_icon} alt='' />
+          <p className='hidden md:block'>Billing Analytics</p>
+        </NavLink>
+        <NavLink to={'/payment-settings'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.earning_icon} alt='' />
+          <p className='hidden md:block'>Payment Settings</p>
         </NavLink>
       </ul>}
 
@@ -43,6 +71,10 @@ const Sidebar = () => {
         <NavLink to={'/doctor-profile'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
           <img className='min-w-5' src={assets.people_icon} alt='' />
           <p className='hidden md:block'>Profile</p>
+        </NavLink>
+        <NavLink to={'/doctor-availability'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.appointment_icon} alt='' />
+          <p className='hidden md:block'>Availability</p>
         </NavLink>
       </ul>}
     </div>

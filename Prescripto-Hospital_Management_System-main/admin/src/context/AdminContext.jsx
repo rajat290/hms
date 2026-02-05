@@ -90,6 +90,24 @@ const AdminContextProvider = (props) => {
             console.log(error)
         }
 
+
+    }
+
+
+    // Function to Mark appointment accepted using API
+    const acceptAppointment = async (appointmentId) => {
+        try {
+            const { data } = await axios.post(backendUrl + '/api/admin/accept-appointment', { appointmentId }, { headers: { aToken } })
+            if (data.success) {
+                toast.success(data.message)
+                getAllAppointments()
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+            console.log(error)
+        }
     }
 
     // Getting Admin Dashboard data from Database using API
@@ -113,6 +131,7 @@ const AdminContextProvider = (props) => {
 
     const value = {
         aToken, setAToken,
+        backendUrl,
         doctors,
         getAllDoctors,
         changeAvailability,
@@ -120,6 +139,7 @@ const AdminContextProvider = (props) => {
         getAllAppointments,
         getDashData,
         cancelAppointment,
+        acceptAppointment,
         dashData
     }
 

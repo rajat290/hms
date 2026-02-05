@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
+import prescriptionModel from "../models/prescriptionModel.js";
 
 // API for doctor Login 
 const loginDoctor = async (req, res) => {
@@ -53,7 +54,7 @@ const appointmentCancel = async (req, res) => {
         const { docId, appointmentId } = req.body
 
         const appointmentData = await appointmentModel.findById(appointmentId)
-        if (appointmentData && appointmentData.docId === docId) {
+        if (appointmentData && appointmentData.docId.toString() === docId) {
             await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
             return res.json({ success: true, message: 'Appointment Cancelled' })
         }
@@ -67,6 +68,22 @@ const appointmentCancel = async (req, res) => {
 
 }
 
+// API to mark appointment accepted for doctor panel
+const appointmentAccept = async (req, res) => {
+    try {
+        const { docId, appointmentId } = req.body
+        const appointmentData = await appointmentModel.findById(appointmentId)
+        if (appointmentData && appointmentData.docId.toString() === docId) {
+            await appointmentModel.findByIdAndUpdate(appointmentId, { isAccepted: true })
+            return res.json({ success: true, message: 'Appointment Accepted' })
+        }
+        res.json({ success: false, message: 'Appointment Cancelled' })
+    } catch (error) {
+        console.log(error)
+        res.json({ success: false, message: error.message })
+    }
+}
+
 // API to mark appointment completed for doctor panel
 const appointmentComplete = async (req, res) => {
     try {
@@ -74,7 +91,7 @@ const appointmentComplete = async (req, res) => {
         const { docId, appointmentId } = req.body
 
         const appointmentData = await appointmentModel.findById(appointmentId)
-        if (appointmentData && appointmentData.docId === docId) {
+        if (appointmentData && appointmentData.docId.toString() === docId) {
             await appointmentModel.findByIdAndUpdate(appointmentId, { isCompleted: true })
             return res.json({ success: true, message: 'Appointment Completed' })
         }
@@ -160,8 +177,12 @@ const doctorDashboard = async (req, res) => {
         let earnings = 0
 
         appointments.map((item) => {
-            if (item.isCompleted || item.payment) {
-                earnings += item.amount
+            if (item.paymentStatus === 'paid') {
+                earnings += item.amount;
+            } else if (item.paymentStatus === 'partially paid') {
+                earnings += item.partialAmount;
+            } else if (item.isCompleted || item.payment) {
+                earnings += item.amount;
             }
         })
 
@@ -190,14 +211,121 @@ const doctorDashboard = async (req, res) => {
     }
 }
 
+// API to add notes to appointment
+const addAppointmentNotes = async (req, res) => {
+    try {
+        const { docId, appointmentId, notes } = req.body;
+        const appointment = await appointmentModel.findById(appointmentId);
+        if (!appointment || appointment.docId.toString() !== docId) {
+            return res.json({ success: false, message: 'Unauthorized or appointment not found' });
+        }
+        appointment.notes.push(notes);
+        await appointment.save();
+        res.json({ success: true, message: 'Notes added' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// API to generate prescription for doctor
+const generatePrescriptionDoctor = async (req, res) => {
+    try {
+        const { docId, appointmentId, medicines } = req.body;
+        const appointment = await appointmentModel.findById(appointmentId);
+        if (!appointment || appointment.docId.toString() !== docId) {
+            return res.json({ success: false, message: 'Unauthorized or appointment not found' });
+        }
+        const prescription = new prescriptionModel({
+            userId: appointment.userId,
+            docId,
+            appointmentId,
+            medicines,
+            date: Date.now()
+        });
+        await prescription.save();
+        res.json({ success: true, message: 'Prescription generated', prescription });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// API to get patient financial summary for doctor
+const getPatientFinancialSummary = async (req, res) => {
+    try {
+        const { docId, userId } = req.body;
+        // Check if doctor has appointments with this user
+        const hasAppointment = await appointmentModel.findOne({ docId, userId });
+        if (!hasAppointment) {
+            return res.json({ success: false, message: 'Unauthorized' });
+        }
+        const appointments = await appointmentModel.find({ userId });
+        let totalPaid = 0;
+        let pendingDues = 0;
+        appointments.forEach(app => {
+            if (app.paymentStatus === 'paid') {
+                totalPaid += app.amount;
+            } else if (app.paymentStatus === 'partially paid') {
+                totalPaid += app.partialAmount;
+                pendingDues += app.amount - app.partialAmount;
+            } else {
+                pendingDues += app.amount;
+            }
+        });
+        res.json({ success: true, totalPaid, pendingDues });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+
+// API to get doctor's availability settings
+const getAvailability = async (req, res) => {
+    try {
+        const { docId } = req.body;
+        const doctorData = await doctorModel.findById(docId).select('availability');
+
+        if (!doctorData) {
+            return res.json({ success: false, message: 'Doctor not found' });
+        }
+
+        res.json({ success: true, availability: doctorData.availability });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// API to update doctor's availability settings
+const updateAvailability = async (req, res) => {
+    try {
+        const { docId, availability } = req.body;
+
+        await doctorModel.findByIdAndUpdate(docId, { availability });
+
+        res.json({ success: true, message: 'Availability updated successfully' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
 export {
     loginDoctor,
     appointmentsDoctor,
     appointmentCancel,
+    appointmentAccept,
     doctorList,
     changeAvailablity,
     appointmentComplete,
     doctorDashboard,
     doctorProfile,
-    updateDoctorProfile
+    updateDoctorProfile,
+    addAppointmentNotes,
+    generatePrescriptionDoctor,
+    getPatientFinancialSummary,
+    getAvailability,
+    updateAvailability
 }

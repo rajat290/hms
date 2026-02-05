@@ -10,7 +10,20 @@ const MyProfile = () => {
 
     const [image, setImage] = useState(false)
 
-    const { token, backendUrl, userData, setUserData, loadUserProfileData } = useContext(AppContext)
+    const { token, backendUrl, userData, setUserData, loadUserProfileData, currency } = useContext(AppContext)
+    const [financials, setFinancials] = useState({ totalPaid: 0, pendingDues: 0 })
+
+    useEffect(() => {
+        if (token) {
+            axios.get(backendUrl + '/api/user/financial-summary', { headers: { token } })
+                .then(res => {
+                    if (res.data.success) {
+                        setFinancials({ totalPaid: res.data.totalPaid, pendingDues: res.data.pendingDues })
+                    }
+                })
+                .catch(err => console.log(err))
+        }
+    }, [token])
 
     // Function to update user profile data using API
     const updateUserProfileData = async () => {
@@ -65,6 +78,18 @@ const MyProfile = () => {
             }
 
             <hr className='bg-[#ADADAD] h-[1px] border-none' />
+
+            <div className='mt-4'>
+                <p className='text-gray-600 underline mt-3'>FINANCIAL SUMMARY</p>
+                <div className='grid grid-cols-[1fr_3fr] gap-y-2.5 mt-3 text-[#363636]'>
+                    <p className='font-medium'>Total Paid:</p>
+                    <p className='text-green-600'>{currency || '$'}{financials.totalPaid}</p>
+                    <p className='font-medium'>Pending Dues:</p>
+                    <p className='text-red-500 font-bold'>{currency || '$'}{financials.pendingDues}</p>
+                </div>
+            </div>
+
+            <hr className='bg-[#ADADAD] h-[1px] border-none mt-4' />
 
             <div>
                 <p className='text-gray-600 underline mt-3'>CONTACT INFORMATION</p>

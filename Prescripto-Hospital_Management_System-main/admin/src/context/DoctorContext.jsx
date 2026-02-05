@@ -69,9 +69,25 @@ const DoctorContextProvider = (props) => {
 
     }
 
+
+    // Function to Mark appointment accepted using API
+    const acceptAppointment = async (appointmentId) => {
+        try {
+            const { data } = await axios.post(backendUrl + '/api/doctor/accept-appointment', { appointmentId }, { headers: { dToken } })
+            if (data.success) {
+                toast.success(data.message)
+                getAppointments()
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+            console.log(error)
+        }
+    }
+
     // Function to Mark appointment completed using API
     const completeAppointment = async (appointmentId) => {
-
         try {
 
             const { data } = await axios.post(backendUrl + '/api/doctor/complete-appointment', { appointmentId }, { headers: { dToken } })
@@ -117,9 +133,11 @@ const DoctorContextProvider = (props) => {
         getAppointments,
         cancelAppointment,
         completeAppointment,
+        acceptAppointment,
         dashData, getDashData,
         profileData, setProfileData,
         getProfileData,
+        docId: profileData?._id
     }
 
     return (

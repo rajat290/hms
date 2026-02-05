@@ -9,6 +9,41 @@ const userSchema = new mongoose.Schema({
     gender: { type: String, default: 'Not Selected' },
     dob: { type: String, default: 'Not Selected' },
     password: { type: String, required: true },
+    isVerified: { type: Boolean, default: false },
+    verificationToken: { type: String },
+    resetToken: { type: String },
+    resetTokenExpiry: { type: Date },
+    twoFactorEnabled: { type: Boolean, default: false },
+    insuranceProvider: { type: String },
+    insuranceId: { type: String },
+    subscriptionPlan: { type: String, enum: ['basic', 'premium', 'none'], default: 'none' },
+    subscriptionExpiry: { type: Date },
+    bloodGroup: { type: String, default: '' },
+    knownAllergies: { type: String, default: '' },
+    currentMedications: { type: String, default: '' },
+    // Extended fields for admin-created patients and expanded profile
+    medicalRecordNumber: { type: String, unique: true, sparse: true },
+    aadharNumber: { type: String, unique: true, sparse: true },
+    aadharImage: { type: String },
+    emergencyContact: {
+        name: { type: String, default: '' },
+        phone: { type: String, default: '' },
+        relation: { type: String, default: '' }
+    },
+    // Enhanced Address Structure (Object type allows flexibility, but definitions help documentation)
+    address: {
+        type: Object,
+        default: {
+            line1: '',
+            line2: '',
+            city: '',
+            state: '',
+            zipCode: '',
+            country: ''
+        }
+    },
+    createdVia: { type: String, enum: ['self', 'admin'], default: 'self' },
+    createdByEmail: { type: String },
 })
 
 const userModel = mongoose.models.user || mongoose.model("user", userSchema);

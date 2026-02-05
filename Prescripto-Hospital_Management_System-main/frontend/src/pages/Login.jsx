@@ -3,6 +3,7 @@ import { AppContext } from '../context/AppContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { useNavigate } from 'react-router-dom'
+import { assets } from '../assets/assets'
 
 const Login = () => {
 
@@ -11,6 +12,7 @@ const Login = () => {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   const navigate = useNavigate()
   const { backendUrl, token, setToken } = useContext(AppContext)
@@ -23,8 +25,8 @@ const Login = () => {
       const { data } = await axios.post(backendUrl + '/api/user/register', { name, email, password })
 
       if (data.success) {
-        localStorage.setItem('token', data.token)
-        setToken(data.token)
+        toast.success('Registration successful! Please check your email to verify your account.')
+        setState('Login') // Switch to login after signup
       } else {
         toast.error(data.message)
       }
@@ -68,8 +70,12 @@ const Login = () => {
         </div>
         <div className='w-full '>
           <p>Password</p>
-          <input onChange={(e) => setPassword(e.target.value)} value={password} className='border border-[#DADADA] rounded w-full p-2 mt-1' type="password" required />
+          <div className='relative'>
+            <input onChange={(e) => setPassword(e.target.value)} value={password} className='border border-[#DADADA] rounded w-full p-2 mt-1 pr-10' type={showPassword ? "text" : "password"} required />
+            <img onClick={() => setShowPassword(!showPassword)} src={showPassword ? assets.eye_open_icon : assets.eye_closed_icon} alt="" className='absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 cursor-pointer' />
+          </div>
         </div>
+        {state === 'Login' && <p className='text-primary underline cursor-pointer text-sm' onClick={() => navigate('/reset-password')}>Forgot Password?</p>}
         <button className='bg-primary text-white w-full py-2 my-2 rounded-md text-base'>{state === 'Sign Up' ? 'Create account' : 'Login'}</button>
         {state === 'Sign Up'
           ? <p>Already have an account? <span onClick={() => setState('Login')} className='text-primary underline cursor-pointer'>Login here</span></p>

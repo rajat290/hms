@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe } from '../controllers/userController.js';
+import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, verifyEmail, forgotPassword, resetPassword, enable2FA, verify2FA, getFinancialSummary, getUserPrescriptions, getDoctorSlots } from '../controllers/userController.js';
 import upload from '../middleware/multer.js';
 import authUser from '../middleware/authUser.js';
 const userRouter = express.Router();
@@ -16,5 +16,13 @@ userRouter.post("/payment-razorpay", authUser, paymentRazorpay)
 userRouter.post("/verifyRazorpay", authUser, verifyRazorpay)
 userRouter.post("/payment-stripe", authUser, paymentStripe)
 userRouter.post("/verifyStripe", authUser, verifyStripe)
+userRouter.post("/verify-email", verifyEmail)
+userRouter.post("/forgot-password", forgotPassword)
+userRouter.post("/reset-password", resetPassword)
+userRouter.post("/enable-2fa", authUser, enable2FA)
+userRouter.post("/verify-2fa", authUser, verify2FA)
+userRouter.get("/financial-summary", authUser, getFinancialSummary)
+userRouter.get("/prescriptions", authUser, getUserPrescriptions)
+userRouter.get('/doctor-slots/:docId', getDoctorSlots)
 
 export default userRouter;
