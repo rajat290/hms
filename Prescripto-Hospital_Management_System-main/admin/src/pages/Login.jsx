@@ -2,6 +2,7 @@ import axios from 'axios'
 import React, { useContext, useState } from 'react'
 import { DoctorContext } from '../context/DoctorContext'
 import { AdminContext } from '../context/AdminContext'
+import { StaffContext } from '../context/StaffContext'
 import { toast } from 'react-toastify'
 
 const Login = () => {
@@ -15,6 +16,7 @@ const Login = () => {
 
   const { setDToken } = useContext(DoctorContext)
   const { setAToken } = useContext(AdminContext)
+  const { setSToken } = useContext(StaffContext)
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
@@ -29,12 +31,22 @@ const Login = () => {
         toast.error(data.message)
       }
 
-    } else {
+    } else if (state === 'Doctor') {
 
       const { data } = await axios.post(backendUrl + '/api/doctor/login', { email, password })
       if (data.success) {
         setDToken(data.token)
         localStorage.setItem('dToken', data.token)
+      } else {
+        toast.error(data.message)
+      }
+
+    } else {
+
+      const { data } = await axios.post(backendUrl + '/api/staff/login', { email, password })
+      if (data.success) {
+        setSToken(data.token)
+        localStorage.setItem('sToken', data.token)
       } else {
         toast.error(data.message)
       }
@@ -58,8 +70,10 @@ const Login = () => {
         <button className='bg-primary text-white w-full py-2 rounded-md text-base'>Login</button>
         {
           state === 'Admin'
-            ? <p>Doctor Login? <span onClick={() => setState('Doctor')} className='text-primary underline cursor-pointer'>Click here</span></p>
-            : <p>Admin Login? <span onClick={() => setState('Admin')} className='text-primary underline cursor-pointer'>Click here</span></p>
+            ? <p>Doctor Login? <span onClick={() => setState('Doctor')} className='text-primary underline cursor-pointer'>Click here</span> <br /> Staff Login? <span onClick={() => setState('Staff')} className='text-primary underline cursor-pointer'>Click here</span></p>
+            : state === 'Doctor'
+              ? <p>Admin Login? <span onClick={() => setState('Admin')} className='text-primary underline cursor-pointer'>Click here</span> <br /> Staff Login? <span onClick={() => setState('Staff')} className='text-primary underline cursor-pointer'>Click here</span></p>
+              : <p>Admin Login? <span onClick={() => setState('Admin')} className='text-primary underline cursor-pointer'>Click here</span> <br /> Doctor Login? <span onClick={() => setState('Doctor')} className='text-primary underline cursor-pointer'>Click here</span></p>
         }
       </div>
     </form>

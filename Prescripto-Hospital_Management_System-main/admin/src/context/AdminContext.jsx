@@ -13,6 +13,7 @@ const AdminContextProvider = (props) => {
 
     const [appointments, setAppointments] = useState([])
     const [doctors, setDoctors] = useState([])
+    const [staff, setStaff] = useState([])
     const [dashData, setDashData] = useState(false)
 
     // Getting all Doctors data from Database using API
@@ -31,6 +32,20 @@ const AdminContextProvider = (props) => {
             toast.error(error.message)
         }
 
+    }
+
+    // Getting all Staff data from Database using API
+    const getAllStaff = async () => {
+        try {
+            const { data } = await axios.get(backendUrl + '/api/admin/all-staff', { headers: { aToken } })
+            if (data.success) {
+                setStaff(data.staff)
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
     }
 
     // Function to change doctor availablity using API
@@ -140,7 +155,10 @@ const AdminContextProvider = (props) => {
         getDashData,
         cancelAppointment,
         acceptAppointment,
-        dashData
+        acceptAppointment,
+        dashData,
+        staff,
+        getAllStaff
     }
 
     return (

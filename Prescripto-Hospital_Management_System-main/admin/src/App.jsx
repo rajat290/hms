@@ -1,6 +1,7 @@
 import React, { useContext } from 'react'
 import { DoctorContext } from './context/DoctorContext';
 import { AdminContext } from './context/AdminContext';
+import { StaffContext } from './context/StaffContext';
 import { Route, Routes } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -24,13 +25,23 @@ import AnalyticsHub from './pages/Admin/AnalyticsHub';
 import DoctorPaymentSettings from './pages/Admin/DoctorPaymentSettings';
 import AddPatient from './pages/Admin/AddPatient';
 import BillingAnalytics from './pages/Admin/BillingAnalytics';
+import AddStaff from './pages/Admin/AddStaff';
+import AllStaff from './pages/Admin/AllStaff';
+import StaffDashboard from './pages/Staff/StaffDashboard';
+import StaffAppointments from './pages/Staff/StaffAppointments';
+import StaffPatients from './pages/Staff/StaffPatients';
+import StaffAddPatient from './pages/Staff/StaffAddPatient';
+import StaffBilling from './pages/Staff/StaffBilling';
+import StaffFollowUp from './pages/Staff/StaffFollowUp';
+
 
 const App = () => {
 
   const { dToken } = useContext(DoctorContext)
   const { aToken } = useContext(AdminContext)
+  const { sToken } = useContext(StaffContext)
 
-  return dToken || aToken ? (
+  return dToken || aToken || sToken ? (
     <div className='bg-[#F8F9FD]'>
       <ToastContainer />
       <Navbar />
@@ -42,6 +53,8 @@ const App = () => {
           <Route path='/all-appointments' element={<AllAppointments />} />
           <Route path='/add-doctor' element={<AddDoctor />} />
           <Route path='/doctor-list' element={<DoctorsList />} />
+          <Route path='/add-staff' element={<AddStaff />} />
+          <Route path='/all-staff' element={<AllStaff />} />
           <Route path='/all-patients' element={<Patients />} />
           <Route path='/add-patient' element={<AddPatient />} />
           <Route path='/billing' element={<BillingPayments />} />
@@ -54,6 +67,12 @@ const App = () => {
           <Route path='/doctor-appointments' element={<DoctorAppointments />} />
           <Route path='/doctor-profile' element={<DoctorProfile />} />
           <Route path='/doctor-availability' element={<DoctorAvailability />} />
+          <Route path='/staff-dashboard' element={<StaffDashboard />} />
+          <Route path='/staff-appointments' element={<StaffAppointments />} />
+          <Route path='/staff-patients' element={<StaffPatients />} />
+          <Route path='/staff-add-patient' element={<StaffAddPatient />} />
+          <Route path='/staff-billing' element={<StaffBilling />} />
+          <Route path='/staff-follow-up' element={<StaffFollowUp />} />
         </Routes>
       </div>
     </div>
