@@ -1,5 +1,5 @@
 import express from 'express'
-import { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, markAppointmentPaid } from '../controllers/staffController.js'
+import { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment } from '../controllers/staffController.js'
 import authStaff from '../middleware/authStaff.js'
 import upload from '../middleware/multer.js';
 
@@ -13,7 +13,7 @@ staffRouter.post('/cancel-appointment', authStaff, cancelAppointment)
 staffRouter.get('/all-patients', authStaff, getAllPatients)
 staffRouter.post('/create-patient', authStaff, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'aadharImage', maxCount: 1 }]), createPatient)
 staffRouter.get('/dashboard', authStaff, staffDashboard)
-staffRouter.post('/mark-paid', authStaff, markAppointmentPaid)
+
 staffRouter.get('/daily-appointments', authStaff, getDailyAppointments)
 staffRouter.post('/mark-checkin', authStaff, markCheckIn)
 staffRouter.post('/update-payment', authStaff, updatePayment)

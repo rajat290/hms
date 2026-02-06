@@ -247,4 +247,4 @@ const updatePayment = async (req, res) => {
     }
 }
 
-export { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, markAppointmentPaid, getDailyAppointments, markCheckIn, updatePayment }
+export { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment }
