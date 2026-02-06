@@ -14,8 +14,15 @@ import initCronJobs from "./jobs/cronJobs.js"
 // app config
 const app = express()
 const port = process.env.PORT || 4000
-await connectDB()
-connectCloudinary()
+
+try {
+  await connectDB()
+  connectCloudinary()
+  console.log("Infrastructure connections initialized")
+} catch (error) {
+  console.error("Failed to connect to required services:", error.message)
+}
+
 initCronJobs()
 
 // middlewares

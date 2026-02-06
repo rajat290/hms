@@ -1012,6 +1012,109 @@ const exportFinancialsCSV = async (req, res) => {
     }
 }
 
+// API to get high-end advanced analytics
+const getAdvancedAnalytics = async (req, res) => {
+    try {
+        const { startDate, endDate, granularity = 'daily' } = req.query;
+
+        const query = {};
+        if (startDate && endDate) {
+            query.date = { $gte: new Date(startDate).getTime(), $lte: new Date(endDate).getTime() };
+        }
+
+        const appointments = await appointmentModel.find(query).populate('docId', 'name speciality image');
+        const users = await userModel.find({});
+        const paymentLogs = await paymentLogModel.find(query);
+        const invoices = await invoiceModel.find({});
+
+        // 1. Operational Overview
+        const operational = {
+            totalAppointments: appointments.length,
+            completed: appointments.filter(a => a.isCompleted).length,
+            cancelled: appointments.filter(a => a.cancelled).length,
+            pending: appointments.filter(a => !a.isCompleted && !a.cancelled && !a.isAccepted).length,
+            accepted: appointments.filter(a => a.isAccepted && !a.isCompleted).length,
+        };
+
+        // 2. Financial Overview
+        let totalRevenue = 0;
+        const revenueByMethod = { cash: 0, online: 0, card: 0 };
+        paymentLogs.forEach(log => {
+            if (log.status === 'completed' && log.type !== 'refund') {
+                totalRevenue += log.amount;
+                revenueByMethod[log.method] = (revenueByMethod[log.method] || 0) + log.amount;
+            } else if (log.type === 'refund') {
+                totalRevenue -= log.amount;
+            }
+        });
+
+        const financial = {
+            totalRevenue,
+            revenueByMethod,
+            outstandingPayments: appointments.reduce((sum, a) => sum + (a.amount - (a.partialAmount || 0)), 0),
+            averageTransaction: paymentLogs.length > 0 ? Math.round(totalRevenue / paymentLogs.length) : 0
+        };
+
+        // 3. Performance Trends (Granular)
+        const trendsMap = {};
+        appointments.forEach(a => {
+            const date = new Date(a.date);
+            let key;
+            if (granularity === 'daily') key = date.toISOString().split('T')[0];
+            else if (granularity === 'weekly') {
+                const startOfWeek = new Date(date);
+                startOfWeek.setDate(date.getDate() - date.getDay());
+                key = startOfWeek.toISOString().split('T')[0];
+            } else {
+                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            }
+
+            if (!trendsMap[key]) trendsMap[key] = { date: key, revenue: 0, appointments: 0 };
+            trendsMap[key].appointments += 1;
+            if (a.payment || a.paymentStatus === 'paid') {
+                trendsMap[key].revenue += a.amount;
+            }
+        });
+
+        const performanceTrends = Object.values(trendsMap).sort((a, b) => a.date.localeCompare(b.date));
+
+        // 4. Doctor Performance
+        const docPerf = {};
+        appointments.forEach(a => {
+            const docId = a.docId?._id?.toString();
+            if (!docId) return;
+            if (!docPerf[docId]) {
+                docPerf[docId] = {
+                    doctor: a.docId,
+                    revenue: 0,
+                    appointments: 0,
+                    rating: 4.5 // Placeholder for future enhancement
+                };
+            }
+            docPerf[docId].appointments += 1;
+            if (a.payment || a.paymentStatus === 'paid') docPerf[docId].revenue += a.amount;
+        });
+
+        const topDoctors = Object.values(docPerf).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+        res.json({
+            success: true,
+            operational,
+            financial,
+            performanceTrends,
+            topDoctors,
+            patientGrowth: {
+                total: users.length,
+                newThisMonth: users.filter(u => new Date(u.date).getMonth() === new Date().getMonth()).length
+            }
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
 // API to get audit logs
 const getAuditLogs = async (req, res) => {
     try {
@@ -1049,6 +1152,7 @@ export {
     getPaymentHistory,
     getPaymentKPIs,
     getBillingMetrics,
+    getAdvancedAnalytics,
     exportFinancialsCSV,
     getAuditLogs
 }

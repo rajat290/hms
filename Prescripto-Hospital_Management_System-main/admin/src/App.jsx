@@ -20,6 +20,7 @@ import DoctorAvailability from './pages/Doctor/DoctorAvailability';
 import Settings from './pages/Admin/Settings';
 import PatientDetails from './pages/Admin/PatientDetails';
 import Analytics from './pages/Admin/Analytics';
+import AnalyticsHub from './pages/Admin/AnalyticsHub';
 import DoctorPaymentSettings from './pages/Admin/DoctorPaymentSettings';
 import AddPatient from './pages/Admin/AddPatient';
 import BillingAnalytics from './pages/Admin/BillingAnalytics';
@@ -46,8 +47,8 @@ const App = () => {
           <Route path='/billing' element={<BillingPayments />} />
           <Route path='/settings' element={<Settings />} />
           <Route path='/patient-details/:userId' element={<PatientDetails />} />
-          <Route path='/analytics' element={<Analytics />} />
-          <Route path='/billing-analytics' element={<BillingAnalytics />} />
+          <Route path='/analytics' element={<AnalyticsHub />} />
+          <Route path='/billing-analytics' element={<AnalyticsHub />} />
           <Route path='/payment-settings' element={<DoctorPaymentSettings />} />
           <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
           <Route path='/doctor-appointments' element={<DoctorAppointments />} />
