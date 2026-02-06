@@ -792,6 +792,67 @@ const getPaymentHistory = async (req, res) => {
 };
 
 // API to get billing metrics for analytics
+const getPaymentKPIs = async (req, res) => {
+    try {
+        const appointments = await appointmentModel.find({});
+        const invoices = await invoiceModel.find({});
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        let pendingPayments = 0;
+        let todayRevenue = 0;
+        let overdueInvoices = 0;
+        let successCount = 0;
+        let totalPaidInvoices = 0;
+
+        appointments.forEach(apt => {
+            // Pending Payments (Unpaid or Partially Paid)
+            const status = apt.paymentStatus || (apt.payment ? 'paid' : 'unpaid');
+            if (status === 'unpaid' || status === 'partially paid') {
+                pendingPayments += (apt.amount - (apt.partialAmount || 0));
+            }
+
+            // Today's Revenue
+            const aptDate = new Date(apt.date);
+            if (aptDate >= startOfToday && (apt.payment || status === 'paid' || status === 'partially paid')) {
+                // This is a simplification; ideally we'd look at paymentLogs for precise daily revenue
+                if (status === 'paid') todayRevenue += apt.amount;
+                else if (status === 'partially paid') todayRevenue += (apt.partialAmount || 0);
+            }
+
+            // Success Rate (Paid / (Paid + Unpaid + Cancelled))
+            if (status === 'paid' || status === 'partially paid') {
+                successCount++;
+            }
+        });
+
+        const totalRelevantApts = appointments.filter(a => !a.cancelled).length;
+        const paymentSuccessRate = totalRelevantApts > 0 ? (successCount / totalRelevantApts) * 100 : 0;
+
+        // Overdue Invoices
+        invoices.forEach(inv => {
+            if (inv.status === 'unpaid' && new Date(inv.dueDate) < now) {
+                overdueInvoices++;
+            }
+        });
+
+        res.json({
+            success: true,
+            kpis: {
+                pendingPayments,
+                todayRevenue,
+                overdueInvoices,
+                paymentSuccessRate: Math.round(paymentSuccessRate)
+            }
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
 const getBillingMetrics = async (req, res) => {
     try {
         const currentDate = new Date();
@@ -887,7 +948,7 @@ const getBillingMetrics = async (req, res) => {
         // Invoice metrics
         const totalInvoices = await invoiceModel.countDocuments();
         const paidInvoices = await invoiceModel.countDocuments({ status: 'paid' });
-        const overdueInvoices = await invoiceModel.countDocuments({
+        const overdueInvoicesCount = await invoiceModel.countDocuments({
             status: 'unpaid',
             dueDate: { $lt: new Date() }
         });
@@ -918,7 +979,7 @@ const getBillingMetrics = async (req, res) => {
             additionalMetrics: {
                 totalInvoices,
                 paidInvoices,
-                overdueInvoices
+                overdueInvoices: overdueInvoicesCount
             }
         });
     } catch (error) {
@@ -986,6 +1047,7 @@ export {
     downloadInvoicePDF,
     processRefund,
     getPaymentHistory,
+    getPaymentKPIs,
     getBillingMetrics,
     exportFinancialsCSV,
     getAuditLogs

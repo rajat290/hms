@@ -9,13 +9,13 @@ import userRouter from "./routes/userRoute.js"
 import doctorRouter from "./routes/doctorRoute.js"
 import adminRouter from "./routes/adminRoute.js"
 import paymentRouter from "./routes/paymentRoute.js"
+import initCronJobs from "./jobs/cronJobs.js"
 
 // app config
 const app = express()
 const port = process.env.PORT || 4000
-connectDB()
+await connectDB()
 connectCloudinary()
-import initCronJobs from "./jobs/cronJobs.js"
 initCronJobs()
 
 // middlewares
