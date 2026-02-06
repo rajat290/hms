@@ -3,11 +3,13 @@ import { assets } from '../assets/assets'
 import { NavLink } from 'react-router-dom'
 import { DoctorContext } from '../context/DoctorContext'
 import { AdminContext } from '../context/AdminContext'
+import { StaffContext } from '../context/StaffContext'
 
 const Sidebar = () => {
 
   const { dToken } = useContext(DoctorContext)
   const { aToken } = useContext(AdminContext)
+  const { sToken } = useContext(StaffContext)
 
   return (
     <div className='min-h-screen bg-white border-r'>
@@ -33,6 +35,14 @@ const Sidebar = () => {
           <img className='min-w-5' src={assets.people_icon} alt='' />
           <p className='hidden md:block'>Doctors List</p>
         </NavLink>
+        <NavLink to={'/add-staff'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.add_icon} alt='' />
+          <p className='hidden md:block'>Add Staff</p>
+        </NavLink>
+        <NavLink to={'/all-staff'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.people_icon} alt='' />
+          <p className='hidden md:block'>Staff List</p>
+        </NavLink>
         <NavLink to={'/all-patients'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
           <img className='min-w-5' src={assets.people_icon} alt='' />
           <p className='hidden md:block'>Patients</p>
@@ -48,6 +58,29 @@ const Sidebar = () => {
         <NavLink to={'/payment-settings'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
           <img className='min-w-5' src={assets.earning_icon} alt='' />
           <p className='hidden md:block'>Payment Settings</p>
+        </NavLink>
+      </ul>}
+
+      {sToken && <ul className='text-[#515151] mt-5'>
+        <NavLink to={'/staff-dashboard'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.home_icon} alt='' />
+          <p className='hidden md:block'>Dashboard</p>
+        </NavLink>
+        <NavLink to={'/staff-appointments'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.appointment_icon} alt='' />
+          <p className='hidden md:block'>Appointments</p>
+        </NavLink>
+        <NavLink to={'/staff-patients'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.people_icon} alt='' />
+          <p className='hidden md:block'>Patients</p>
+        </NavLink>
+        <NavLink to={'/staff-billing'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.earning_icon} alt='' /> {/* Using earning icon for billing */}
+          <p className='hidden md:block'>Billing</p>
+        </NavLink>
+        <NavLink to={'/staff-follow-up'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.info_icon} alt='' /> {/* Using info icon for follow-up */}
+          <p className='hidden md:block'>Follow-up</p>
         </NavLink>
       </ul>}
 

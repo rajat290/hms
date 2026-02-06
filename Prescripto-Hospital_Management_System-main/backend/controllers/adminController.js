@@ -6,6 +6,7 @@ import userModel from "../models/userModel.js";
 import prescriptionModel from "../models/prescriptionModel.js";
 import paymentLogModel from "../models/paymentLogModel.js";
 import invoiceModel from "../models/invoiceModel.js";
+import staffModel from "../models/staffModel.js";
 import bcrypt from "bcrypt";
 import validator from "validator";
 import { v2 as cloudinary } from "cloudinary";
@@ -1127,32 +1128,79 @@ const getAuditLogs = async (req, res) => {
 }
 
 
+
+
+// API to add staff
+const addStaff = async (req, res) => {
+    try {
+        const { name, email, password, dob, phone } = req.body;
+        const imageFile = req.file;
+
+        if (!name || !email || !password) {
+            return res.json({ success: false, message: "Missing required fields" });
+        }
+
+        if (!validator.isEmail(email)) {
+            return res.json({ success: false, message: "Please enter a valid email" });
+        }
+
+        if (password.length < 8) {
+            return res.json({ success: false, message: "Password must be at least 8 characters long" });
+        }
+
+        const existingStaff = await staffModel.findOne({ email });
+        if (existingStaff) {
+            return res.json({ success: false, message: "Staff with this email already exists" });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        let imageUrl = "https://via.placeholder.com/150"; // Default
+        if (imageFile) {
+            const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: "image" });
+            imageUrl = imageUpload.secure_url;
+        }
+
+        const staffData = {
+            name,
+            email,
+            password: hashedPassword,
+            image: imageUrl,
+            dob,
+            phone,
+            role: 'Staff',
+            date: Date.now()
+        };
+
+        const staff = new staffModel(staffData);
+        await staff.save();
+
+        res.json({ success: true, message: "Staff added successfully" });
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// API to get all staff
+const allStaff = async (req, res) => {
+    try {
+        const staff = await staffModel.find({}).select('-password');
+        res.json({ success: true, staff });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
 export {
-    loginAdmin,
-    appointmentsAdmin,
-    appointmentCancel,
-    appointmentAccept,
-    getSettings,
-    updateSettings,
-    getPatientDetails,
-    getAnalytics,
-    addDoctor,
-    allDoctors,
-    adminDashboard,
-    getAllPatients,
-    updatePaymentStatus,
-    updatePaymentMethods,
-    updateDoctor,
-    createPatientAdmin,
-    generateInvoice,
-    getAllInvoices,
-    updateInvoiceStatus,
-    downloadInvoicePDF,
-    processRefund,
-    getPaymentHistory,
-    getPaymentKPIs,
-    getBillingMetrics,
-    getAdvancedAnalytics,
-    exportFinancialsCSV,
-    getAuditLogs
+    loginAdmin, appointmentsAdmin, appointmentCancel, addDoctor, allDoctors, adminDashboard,
+    appointmentAccept, getSettings, updateSettings, getPatientDetails, getAnalytics, getAllPatients,
+    updatePaymentStatus, updatePaymentMethods, updateDoctor, createPatientAdmin,
+    generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF,
+    processRefund, getPaymentHistory, getPaymentKPIs,
+    getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs,
+    addStaff, allStaff
 }
