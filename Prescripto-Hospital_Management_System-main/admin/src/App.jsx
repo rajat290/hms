@@ -1,8 +1,8 @@
-import React, { useContext } from 'react'
+import React, { useContext, useEffect } from 'react'
 import { DoctorContext } from './context/DoctorContext';
 import { AdminContext } from './context/AdminContext';
 import { StaffContext } from './context/StaffContext';
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useNavigate } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Navbar from './components/Navbar'
@@ -33,13 +33,41 @@ import StaffPatients from './pages/Staff/StaffPatients';
 import StaffAddPatient from './pages/Staff/StaffAddPatient';
 import StaffBilling from './pages/Staff/StaffBilling';
 import StaffFollowUp from './pages/Staff/StaffFollowUp';
-
+import StaffPatientProfile from './pages/Staff/StaffPatientProfile';
+import StaffQueue from './pages/Staff/StaffQueue';
+import StaffAnalytics from './pages/Staff/StaffAnalytics';
+import { AppContext } from './context/AppContext';
 
 const App = () => {
 
   const { dToken } = useContext(DoctorContext)
   const { aToken } = useContext(AdminContext)
   const { sToken } = useContext(StaffContext)
+  const { isDarkMode } = useContext(AppContext)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('darkMode', 'true')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('darkMode', 'false')
+    }
+  }, [isDarkMode])
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.altKey) {
+        if (e.key === 'n') navigate('/staff-add-patient')
+        if (e.key === 'b') navigate('/staff-billing')
+        if (e.key === 'q') navigate('/staff-queue')
+        if (e.key === 'd') navigate('/staff-dashboard')
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [navigate])
 
   return dToken || aToken || sToken ? (
     <div className='bg-[#F8F9FD]'>
@@ -73,6 +101,9 @@ const App = () => {
           <Route path='/staff-add-patient' element={<StaffAddPatient />} />
           <Route path='/staff-billing' element={<StaffBilling />} />
           <Route path='/staff-follow-up' element={<StaffFollowUp />} />
+          <Route path='/staff-patient-profile/:id' element={<StaffPatientProfile />} />
+          <Route path='/staff-queue' element={<StaffQueue />} />
+          <Route path='/staff-analytics' element={<StaffAnalytics />} />
         </Routes>
       </div>
     </div>

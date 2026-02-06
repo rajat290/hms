@@ -117,9 +117,9 @@ const StaffContextProvider = (props) => {
         }
     }
 
-    const updatePayment = async (appointmentId, paymentStatus, paymentMethod, partialAmount) => {
+    const updatePayment = async (appointmentId, paymentStatus, paymentMethod, partialAmount, billingItems) => {
         try {
-            const { data } = await axios.post(backendUrl + '/api/staff/update-payment', { appointmentId, paymentStatus, paymentMethod, partialAmount }, { headers: { sToken } })
+            const { data } = await axios.post(backendUrl + '/api/staff/update-payment', { appointmentId, paymentStatus, paymentMethod, partialAmount, billingItems }, { headers: { sToken } })
             if (data.success) {
                 toast.success(data.message)
                 getAllAppointments()

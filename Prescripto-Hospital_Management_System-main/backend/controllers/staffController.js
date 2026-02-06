@@ -141,6 +141,8 @@ const createPatient = async (req, res) => {
             phone,
             dob,
             gender,
+            patientCategory: req.body.patientCategory || 'Standard',
+            chronicConditions: req.body.chronicConditions || '',
             address: typeof address === 'string' ? JSON.parse(address) : address,
             emergencyContact: typeof emergencyContact === 'string' ? JSON.parse(emergencyContact) : emergencyContact,
             image: profileImageUrl,
@@ -176,10 +178,15 @@ const staffDashboard = async (req, res) => {
         const patients = await userModel.find({})
         const doctors = await doctorModel.find({})
 
+        const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '_')
+        const todayAppointments = await appointmentModel.find({ slotDate: today, payment: true })
+        const totalCollections = todayAppointments.reduce((acc, curr) => acc + (curr.amount || 0), 0)
+
         const dashData = {
             doctors: doctors.length,
             appointments: appointments.length,
             patients: patients.length,
+            totalCollections,
             latestAppointments: appointments.reverse().slice(0, 5)
         }
 
@@ -216,7 +223,17 @@ const getDailyAppointments = async (req, res) => {
 const markCheckIn = async (req, res) => {
     try {
         const { appointmentId } = req.body;
-        await appointmentModel.findByIdAndUpdate(appointmentId, { isCheckedIn: true });
+        const appointment = await appointmentModel.findByIdAndUpdate(appointmentId, { isCheckedIn: true }).populate('userId', 'name');
+
+        // Create notification for staff
+        const staffNotification = new notificationModel({
+            recipientType: 'staff',
+            title: "Patient Checked In",
+            message: `Patient ${appointment.userId.name} has checked in for their appointment.`,
+            type: "appointment"
+        })
+        await staffNotification.save()
+
         res.json({ success: true, message: 'Patient Checked In' });
     } catch (error) {
         console.log(error)
@@ -227,19 +244,35 @@ const markCheckIn = async (req, res) => {
 // API to update payment details (full update)
 const updatePayment = async (req, res) => {
     try {
-        const { appointmentId, paymentStatus, paymentMethod, partialAmount } = req.body;
+        const { appointmentId, paymentStatus, paymentMethod, partialAmount, billingItems } = req.body;
 
         let updateData = { paymentStatus };
 
         if (paymentMethod) updateData.paymentMethod = paymentMethod;
-        if (partialAmount !== undefined) updateData.partialAmount = partialAmount;
+        if (partialAmount !== undefined) {
+            // For itemized billing, partialAmount we receive is the new Grand Total
+            updateData.amount = partialAmount;
+            updateData.partialAmount = partialAmount;
+        }
+        if (billingItems) updateData.billingItems = billingItems;
+        updateData.invoiceDate = Date.now();
 
         // If status is paid, set payment boolean to true
         if (paymentStatus === 'paid') {
             updateData.payment = true;
         }
 
-        await appointmentModel.findByIdAndUpdate(appointmentId, updateData);
+        const appointment = await appointmentModel.findByIdAndUpdate(appointmentId, updateData).populate('userId', 'name');
+
+        // Create notification for staff
+        const staffNotification = new notificationModel({
+            recipientType: 'staff',
+            title: "Payment Received",
+            message: `Payment of ${partialAmount || appointment.amount} received from ${appointment.userId.name} via ${paymentMethod || 'standard method'}.`,
+            type: "payment"
+        })
+        await staffNotification.save()
+
         res.json({ success: true, message: 'Payment Updated' });
     } catch (error) {
         console.log(error)
@@ -247,4 +280,36 @@ const updatePayment = async (req, res) => {
     }
 }
 
-export { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment }
+import notificationModel from "../models/notificationModel.js";
+
+// API to get notifications for staff
+const getStaffNotifications = async (req, res) => {
+    try {
+        const { staffId } = req.body;
+        const notifications = await notificationModel.find({
+            $or: [
+                { staffId },
+                { recipientType: 'staff' },
+                { recipientType: 'all' }
+            ]
+        }).sort({ date: -1 });
+        res.json({ success: true, notifications });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// API to mark notification as read
+const markNotificationRead = async (req, res) => {
+    try {
+        const { notificationId } = req.body;
+        await notificationModel.findByIdAndUpdate(notificationId, { read: true });
+        res.json({ success: true, message: 'Notification marked as read' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+export { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead }

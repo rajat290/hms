@@ -259,13 +259,16 @@ const bookAppointment = async (req, res) => {
         await doctorModel.findByIdAndUpdate(docId, { slots_booked })
 
         // Create Notification
-        const newNotification = new notificationModel({
-            userId,
-            title: "Appointment Booked",
-            message: `Your appointment with Dr. ${docData.name} on ${slotDate} at ${slotTime} has been successfully booked.`,
+        await newNotification.save()
+
+        // Create notification for staff
+        const staffNotification = new notificationModel({
+            recipientType: 'staff',
+            title: "New Appointment Booked",
+            message: `New appointment booked by ${userData.name} with Dr. ${docData.name} on ${slotDate} at ${slotTime}`,
             type: "appointment"
         })
-        await newNotification.save()
+        await staffNotification.save()
 
         res.json({ success: true, message: 'Appointment Booked', appointmentId: newAppointment._id })
 

@@ -21,6 +21,18 @@ const userSchema = new mongoose.Schema({
     bloodGroup: { type: String, default: '' },
     knownAllergies: { type: String, default: '' },
     currentMedications: { type: String, default: '' },
+    patientCategory: { type: String, enum: ['Standard', 'VIP', 'High-risk', 'Frequent Visitor'], default: 'Standard' },
+    chronicConditions: { type: String, default: '' },
+    medicalHistory: [{
+        condition: { type: String },
+        diagnosedDate: { type: String },
+        notes: { type: String }
+    }],
+    familyMembers: [{
+        name: { type: String },
+        relation: { type: String },
+        phone: { type: String }
+    }],
     // Extended fields for admin-created patients and expanded profile
     medicalRecordNumber: { type: String, unique: true, sparse: true },
     aadharNumber: { type: String, unique: true, sparse: true },

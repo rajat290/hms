@@ -74,9 +74,17 @@ const Sidebar = () => {
           <img className='min-w-5' src={assets.people_icon} alt='' />
           <p className='hidden md:block'>Patients</p>
         </NavLink>
+        <NavLink to={'/staff-queue'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.list_icon} alt='' />
+          <p className='hidden md:block'>Queue Management</p>
+        </NavLink>
         <NavLink to={'/staff-billing'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
-          <img className='min-w-5' src={assets.earning_icon} alt='' /> {/* Using earning icon for billing */}
+          <img className='min-w-5' src={assets.earning_icon} alt='' />
           <p className='hidden md:block'>Billing</p>
+        </NavLink>
+        <NavLink to={'/staff-analytics'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
+          <img className='min-w-5' src={assets.earning_icon} alt='' /> {/* Using earning icon for analytics too */}
+          <p className='hidden md:block'>Analytics</p>
         </NavLink>
         <NavLink to={'/staff-follow-up'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`}>
           <img className='min-w-5' src={assets.info_icon} alt='' /> {/* Using info icon for follow-up */}

@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 
 const StaffDashboard = () => {
     const { sToken, getDashData, cancelAppointment, dashData } = useContext(StaffContext);
-    const { slotDateFormat } = useContext(AppContext);
+    const { slotDateFormat, isEmergencyMode } = useContext(AppContext);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -17,6 +17,18 @@ const StaffDashboard = () => {
 
     return dashData ? (
         <div className="m-5">
+            {isEmergencyMode && (
+                <div className="bg-red-600 text-white p-4 rounded-xl mb-6 flex items-center justify-between animate-pulse shadow-lg">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl">🚨</span>
+                        <div>
+                            <p className="font-black uppercase tracking-widest text-sm">Emergency Mode Active</p>
+                            <p className="text-xs text-red-100">All staff on high alert. Prioritize critical care patients.</p>
+                        </div>
+                    </div>
+                    <button className="bg-white text-red-600 px-4 py-1 rounded-lg font-bold text-xs" onClick={() => navigate('/staff-queue')}>Go to Queue</button>
+                </div>
+            )}
             {/* 1. Key Stats Row */}
             <div className="flex flex-wrap gap-3 mb-8">
                 <div className="flex-1 bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 min-w-52">
@@ -38,6 +50,13 @@ const StaffDashboard = () => {
                     <div>
                         <p className="text-2xl font-bold text-gray-800">{dashData.doctors}</p>
                         <p className="text-sm text-gray-500 font-medium">Available Doctors</p>
+                    </div>
+                </div>
+                <div className="flex-1 bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 min-w-52">
+                    <img className="w-12 p-3 bg-amber-50 rounded-full" src={assets.earning_icon} alt="" />
+                    <div>
+                        <p className="text-2xl font-bold text-gray-800">₹{dashData.totalCollections || 0}</p>
+                        <p className="text-sm text-gray-500 font-medium">Today's Collections</p>
                     </div>
                 </div>
             </div>

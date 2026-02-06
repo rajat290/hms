@@ -1,4 +1,4 @@
-import { createContext } from "react";
+import { createContext, useState } from "react";
 
 
 export const AppContext = createContext()
@@ -24,11 +24,18 @@ const AppContextProvider = (props) => {
         return age
     }
 
+    const [isEmergencyMode, setIsEmergencyMode] = useState(false)
+    const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('darkMode') === 'true')
+
     const value = {
         backendUrl,
         currency,
         slotDateFormat,
         calculateAge,
+        isEmergencyMode,
+        setIsEmergencyMode,
+        isDarkMode,
+        setIsDarkMode
     }
 
     return (

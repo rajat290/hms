@@ -1,4 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
+
+@media print {
+  .print\:hidden {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    font-family: 'Inter', sans-serif !important;
+  }
+  .print\:border-none {
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -8,13 +8,17 @@ import DoctorContextProvider from './context/DoctorContext.jsx'
 import AppContextProvider from './context/AppContext.jsx'
 import StaffContextProvider from './context/StaffContext.jsx'
 
+import NotificationContextProvider from './context/NotificationContext.jsx'
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
     <AdminContextProvider>
       <DoctorContextProvider>
         <StaffContextProvider>
           <AppContextProvider>
-            <App />
+            <NotificationContextProvider>
+              <App />
+            </NotificationContextProvider>
           </AppContextProvider>
         </StaffContextProvider>
       </DoctorContextProvider>

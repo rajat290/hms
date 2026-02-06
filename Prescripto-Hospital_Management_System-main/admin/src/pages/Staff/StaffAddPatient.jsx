@@ -10,7 +10,8 @@ const StaffAddPatient = () => {
 
     const [form, setForm] = useState({
         name: '', email: '', phone: '', dob: '', gender: 'Not Selected',
-        address1: '', address2: '' // Removed MRN, Aadhaar, Insurance
+        address1: '', address2: '',
+        patientCategory: 'Standard', chronicConditions: ''
     })
 
     const [profileImg, setProfileImg] = useState(null)
@@ -40,9 +41,10 @@ const StaffAddPatient = () => {
             fd.append('phone', form.phone)
             fd.append('dob', form.dob)
             fd.append('gender', form.gender)
-            // Simplified Address
             const address = { line1: form.address1, line2: form.address2 }
             fd.append('address', JSON.stringify(address))
+            fd.append('patientCategory', form.patientCategory)
+            fd.append('chronicConditions', form.chronicConditions)
 
             if (profileImg) fd.append('image', profileImg)
 
@@ -109,8 +111,21 @@ const StaffAddPatient = () => {
                         </select>
                     </div>
                     <div>
+                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Patient Category</label>
+                        <select name='patientCategory' value={form.patientCategory} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white'>
+                            <option>Standard</option>
+                            <option>VIP</option>
+                            <option>High-risk</option>
+                            <option>Frequent Visitor</option>
+                        </select>
+                    </div>
+                    <div>
                         <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Location / Address</label>
                         <input name='address1' value={form.address1} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='Area / City' />
+                    </div>
+                    <div className='md:col-span-2'>
+                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Chronic Conditions / Allergies</label>
+                        <textarea name='chronicConditions' value={form.chronicConditions} onChange={onInput} rows={2} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='List any allergies or chronic conditions...' />
                     </div>
                 </div>
 

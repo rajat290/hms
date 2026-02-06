@@ -68,13 +68,23 @@ const StaffPatients = () => {
                                 <div className='flex items-center gap-3'>
                                     <img className='w-10 h-10 rounded-full object-cover border border-gray-200' src={item.image} alt='' />
                                     <div>
-                                        <p className='font-bold text-gray-800'>{item.name}</p>
+                                        <p className='font-bold text-gray-800 flex items-center gap-2'>
+                                            {item.name}
+                                            {item.patientCategory !== 'Standard' && (
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${item.patientCategory === 'VIP' ? 'bg-amber-100 text-amber-700' :
+                                                    item.patientCategory === 'High-risk' ? 'bg-red-100 text-red-700' :
+                                                        'bg-blue-100 text-blue-700'
+                                                    }`}>
+                                                    {item.patientCategory}
+                                                </span>
+                                            )}
+                                        </p>
                                         <p className='text-xs text-gray-500'>{item.dob === 'Not Selected' ? 'Age N/A' : item.dob}</p>
                                     </div>
                                 </div>
                                 <div>
                                     <p className='text-sm text-gray-800 font-medium'>{item.phone}</p>
-                                    <p className='text-xs text-gray-500 truncate'>{item.email}</p>
+                                    <p className='text-xs text-gray-600 truncate max-w-[150px]'>{item.chronicConditions || 'No conditions'}</p>
                                 </div>
                                 <p className='text-sm text-gray-600 truncate'>
                                     {typeof item.address === 'object' ? (item.address.line1 || 'N/A') : item.address}
@@ -92,10 +102,12 @@ const StaffPatients = () => {
                                     >
                                         💳 Bill
                                     </button>
-                                    {/* View Details Placeholder */}
-                                    {/* <button className='bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all'>
+                                    <button
+                                        onClick={() => navigate(`/staff-patient-profile/${item._id}`)}
+                                        className='bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all'
+                                    >
                                         👁️ View
-                                    </button> */}
+                                    </button>
                                 </div>
                             </div>
                         ))}

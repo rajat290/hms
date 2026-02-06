@@ -18,7 +18,11 @@ const appointmentSchema = new mongoose.Schema({
     partialAmount: { type: Number, default: 0 },
     paymentMethod: { type: String, enum: ['Cash', 'Card', 'UPI', 'Online', 'N/A'], default: 'N/A' },
     isCheckedIn: { type: Boolean, default: false },
-    patientInfo: { type: Object, default: null },
+    billingItems: [{
+        name: { type: String },
+        cost: { type: Number }
+    }],
+    invoiceDate: { type: Date },
     reminderSent24h: { type: Boolean, default: false },
     reminderSent2h: { type: Boolean, default: false }
 })
