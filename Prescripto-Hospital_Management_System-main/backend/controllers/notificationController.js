@@ -57,7 +57,7 @@ const sendReminders = async () => {
                             <p>This is a reminder for your upcoming appointment with <strong>Dr. ${docId.name}</strong>.</p>
                             <p><strong>Time:</strong> ${slotTime} on ${slotDate.replace(/_/g, '/')}</p>
                             <p>Please arrive 10 minutes before your scheduled time.</p>
-                            <p>Thank you,<br>The Prescripto Team</p>
+                            <p>Thank you,<br>The Mediflow Team</p>
                         </div>
                     `
                 };

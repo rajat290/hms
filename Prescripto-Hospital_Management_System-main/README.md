@@ -1,4 +1,4 @@
-# Prescripto - Advanced Hospital Management System
+# Mediflow - Advanced Hospital Management System
 
 A comprehensive full-stack web application for managing hospital operations, appointments, and patient-doctor interactions. Built with the MERN stack (MongoDB, Express.js, React, Node.js), this system provides a seamless experience for patients, doctors, and administrators with advanced features including AI-powered diagnostics, smart scheduling, and comprehensive analytics.
 
@@ -608,7 +608,7 @@ This project is licensed under the ISC License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email support@prescripto.com or join our Slack channel.
+For support, email support@mediflow.com or join our Slack channel.
 
 ---
 

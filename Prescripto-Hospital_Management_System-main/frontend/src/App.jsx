@@ -21,9 +21,11 @@ import PasswordReset from './components/PasswordReset'
 import SymptomChecker from './components/SymptomChecker'
 import SmartScheduler from './components/SmartScheduler'
 
+import MobileCTA from './components/MobileCTA'
+
 const App = () => {
   return (
-    <div className='mx-4 sm:mx-[10%]'>
+    <div className='mx-4 sm:mx-[10%] pb-24 sm:pb-0'>
       <ToastContainer />
       <Navbar />
       <Routes>
@@ -46,6 +48,7 @@ const App = () => {
         <Route path='/symptom-checker' element={<SymptomChecker />} />
         <Route path='/smart-scheduler' element={<SmartScheduler />} />
       </Routes>
+      <MobileCTA />
       <Footer />
     </div>
   )

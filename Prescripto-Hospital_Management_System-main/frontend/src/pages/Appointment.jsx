@@ -260,48 +260,90 @@ const Appointment = () => {
     const inputStyle = 'border border-gray-300 rounded w-full p-2 text-sm'
     const labelStyle = 'text-xs font-medium mb-1 text-gray-600'
 
-    return docInfo ? (
-        <div>
-            {/* ... (Existing Doctor Info UI preserved) ... */}
+    return docInfo && (
+        <div className='py-6'>
+
+            {/* Breadcrumbs */}
+            <div className='flex items-center gap-2 text-gray-400 text-xs mb-8 overflow-x-auto whitespace-nowrap pb-2'>
+                <p onClick={() => navigate('/')} className='cursor-pointer hover:text-primary transition-colors'>Home</p>
+                <span>/</span>
+                <p onClick={() => navigate('/doctors')} className='cursor-pointer hover:text-primary transition-colors'>Doctors</p>
+                <span>/</span>
+                <p onClick={() => navigate(`/doctors/${docInfo.speciality}`)} className='cursor-pointer hover:text-primary transition-colors'>{docInfo.speciality}</p>
+                <span>/</span>
+                <p className='text-primary font-bold'>{docInfo.name}</p>
+            </div>
+
             {/* ---------- Doctor Details ----------- */}
-            <div className='flex flex-col sm:flex-row gap-4'>
-                <div className='flex justify-center sm:block'>
-                    <img className='bg-primary w-full max-w-[280px] sm:max-w-72 rounded-lg' src={docInfo.image} alt="" />
+            <div className='flex flex-col sm:flex-row gap-8 py-8'>
+                <div className='w-full sm:max-w-72 bg-gradient-primary rounded-3xl overflow-hidden shadow-lg'>
+                    <img className='w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-500' src={docInfo.image} alt="" />
                 </div>
 
-                <div className='flex-1 border border-[#ADADAD] rounded-lg p-6 sm:p-8 py-7 bg-white mx-2 sm:mx-0 mt-[-40px] sm:mt-0 relative z-1'>
-                    <p className='flex items-center gap-2 text-2xl sm:text-3xl font-medium text-gray-700'>{docInfo.name} <img className='w-5' src={assets.verified_icon} alt="" /></p>
-                    <div className='flex items-center gap-2 mt-1 text-gray-600'>
-                        <p>{docInfo.degree} - {docInfo.speciality}</p>
-                        <button className='py-0.5 px-2 border text-xs rounded-full'>{docInfo.experience}</button>
+                <div className='flex-1 glass-effect p-8 sm:p-10 rounded-3xl relative overflow-hidden'>
+                    {/* Background decoration */}
+                    <div className='absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-10 -mt-10'></div>
+
+                    <div className='relative z-10'>
+                        <div className='flex items-center gap-3 mb-2'>
+                            <h1 className='text-3xl font-bold text-secondary'>{docInfo.name}</h1>
+                            <img className='w-5' src={assets.verified_icon} alt="" />
+                        </div>
+
+                        <div className='flex items-center gap-2 text-sm text-gray-600 mb-6'>
+                            <p className='bg-blue-50 text-primary px-3 py-1 rounded-full font-medium'>{docInfo.degree} - {docInfo.speciality}</p>
+                            <button className='border border-gray-200 px-3 py-1 rounded-full text-xs'>{docInfo.experience} Experience</button>
+                        </div>
+
+                        <div className='mb-8'>
+                            <div className='flex items-center gap-2 text-secondary font-semibold mb-2'>
+                                <p>About</p>
+                                <img className='w-4' src={assets.info_icon} alt="" />
+                            </div>
+                            <p className='text-gray-500 leading-relaxed text-sm max-w-[700px]'>
+                                {docInfo.about}
+                            </p>
+                        </div>
+
+                        <div className='bg-blue-50/50 p-4 rounded-2xl inline-block'>
+                            <p className='text-gray-600 font-semibold'>
+                                Appointment fee: <span className='text-primary text-xl ml-2'>{currencySymbol}{docInfo.fees}</span>
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <p className='flex items-center gap-1 text-sm font-medium text-[#262626] mt-3'>About <img className='w-3' src={assets.info_icon} alt="" /></p>
-                        <p className='text-sm text-gray-600 max-w-[700px] mt-1'>{docInfo.about}</p>
-                    </div>
-                    <p className='text-gray-600 font-medium mt-4'>Appointment fee: <span className='text-gray-800'>{currencySymbol}{docInfo.fees}</span> </p>
                 </div>
             </div>
 
             {/* Booking slots */}
-            <div className='sm:ml-72 sm:pl-4 mt-8 font-medium text-[#565656]'>
-                <p className='px-2 sm:px-0'>Booking slots</p>
-                <div className='flex gap-3 items-center w-full overflow-x-scroll mt-4'>
-                    {docSlots.length && docSlots.filter(item => item.length > 0).map((item, index) => {
-                        const originalIndex = docSlots.indexOf(item)
-                        return (
-                            <div onClick={() => setSlotIndex(originalIndex)} key={originalIndex} className={`text-center py-6 min-w-16 rounded-full cursor-pointer ${slotIndex === originalIndex ? 'bg-primary text-white' : 'border border-[#DDDDDD]'}`}>
-                                <p>{item[0] && daysOfWeek[item[0].datetime.getDay()]}</p>
-                                <p>{item[0] && item[0].datetime.getDate()}</p>
+            <div className='sm:ml-72 sm:pl-4 mt-8 font-medium text-gray-700'>
+                <p className='text-xl text-secondary mb-6'>Select Booking Slot</p>
+                <div className='flex gap-4 items-center w-full overflow-x-scroll pb-4 no-scrollbar'>
+                    {
+                        docSlots.length && docSlots.filter(item => item.length > 0).map((item, index) => (
+                            <div
+                                onClick={() => setSlotIndex(index)}
+                                className={`text-center py-6 min-w-[5rem] rounded-2xl cursor-pointer transition-all ${slotIndex === index ? 'bg-primary text-white shadow-lg scale-105' : 'bg-white border border-gray-100 hover:bg-blue-50'}`}
+                                key={index}
+                            >
+                                <p className='text-xs uppercase tracking-tighter mb-1'>{item[0] && daysOfWeek[item[0].datetime.getDay()]}</p>
+                                <p className='text-2xl font-bold'>{item[0] && item[0].datetime.getDate()}</p>
                             </div>
-                        )
-                    })}
+                        ))
+                    }
                 </div>
 
-                <div className='flex items-center gap-3 w-full overflow-x-scroll mt-4'>
-                    {docSlots.length && docSlots[slotIndex].map((item, index) => (
-                        <p onClick={() => setSlotTime(item.time)} key={index} className={`text-sm font-light flex-shrink-0 px-5 py-2 rounded-full cursor-pointer ${item.time === slotTime ? 'bg-primary text-white' : 'text-[#949494] border border-[#B4B4B4]'}`}>{item.time.toLowerCase()}</p>
-                    ))}
+                <div className='flex items-center gap-3 w-full overflow-x-scroll mt-6 pb-4 no-scrollbar'>
+                    {
+                        docSlots.length && docSlots[slotIndex].map((item, index) => (
+                            <p
+                                onClick={() => setSlotTime(item.time)}
+                                className={`text-sm font-light flex-shrink-0 px-6 py-3 rounded-full cursor-pointer transition-all ${item.time === slotTime ? 'bg-primary text-white shadow-md' : 'text-gray-400 border border-gray-200 hover:bg-gray-50'}`}
+                                key={index}
+                            >
+                                {item.time.toLowerCase()}
+                            </p>
+                        ))
+                    }
                 </div>
 
                 {/* Payment Method Selection */}
@@ -428,7 +470,7 @@ const Appointment = () => {
 
             <RelatedDoctors speciality={docInfo.speciality} docId={docId} />
         </div>
-    ) : null
+    )
 }
 
 export default Appointment

@@ -72,15 +72,15 @@ const registerUser = async (req, res) => {
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
-            subject: 'Email Verification - Prescripto',
+            subject: 'Email Verification - Mediflow',
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Welcome to Prescripto!</h2>
+                    <h2>Welcome to Mediflow!</h2>
                     <p>Please click the button below to verify your email address and activate your account:</p>
                     <a href="${verificationUrl}" style="background-color: #5f6FFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Verify Email</a>
                     <p>If the button doesn't work, copy and paste this link into your browser:</p>
                     <p>${verificationUrl}</p>
-                    <p>Thank you,<br>The Prescripto Team</p>
+                    <p>Thank you,<br>The Mediflow Team</p>
                 </div>
             `
         };
@@ -133,7 +133,7 @@ const loginUser = async (req, res) => {
                 const mailOptions = {
                     from: process.env.EMAIL_USER,
                     to: email,
-                    subject: '2FA Verification Code - Prescripto',
+                    subject: '2FA Verification Code - Mediflow',
                     html: `<h3>Your 2FA code is: ${code}</h3><p>Use this code to complete your login.</p>`
                 };
                 await transporter.sendMail(mailOptions);
@@ -577,7 +577,7 @@ const forgotPassword = async (req, res) => {
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
-            subject: 'Password Reset - Prescripto',
+            subject: 'Password Reset - Mediflow',
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h2>Password Reset Request</h2>
@@ -585,7 +585,7 @@ const forgotPassword = async (req, res) => {
                     <a href="${resetUrl}" style="background-color: #5f6FFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Reset Password</a>
                     <p>This link will expire in 1 hour.</p>
                     <p>If you did not request this, please ignore this email.</p>
-                    <p>Thank you,<br>The Prescripto Team</p>
+                    <p>Thank you,<br>The Mediflow Team</p>
                 </div>
             `
         };
