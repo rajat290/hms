@@ -1,4 +1,5 @@
 import React, { useEffect, useContext, useState } from 'react'
+import { assets } from '../../assets/assets.js'
 import { StaffContext } from '../../context/StaffContext'
 import { useNavigate } from 'react-router-dom'
 

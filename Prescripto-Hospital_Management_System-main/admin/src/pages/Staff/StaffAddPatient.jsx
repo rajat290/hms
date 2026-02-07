@@ -1,6 +1,7 @@
 import React, { useContext, useState } from 'react'
 import axios from 'axios'
 import { toast } from 'react-toastify'
+import { assets } from '../../assets/assets.js'
 import { StaffContext } from '../../context/StaffContext'
 import { AppContext } from '../../context/AppContext'
 

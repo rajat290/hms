@@ -4,6 +4,7 @@ import { DoctorContext } from '../context/DoctorContext'
 import { AdminContext } from '../context/AdminContext'
 import { StaffContext } from '../context/StaffContext'
 import { toast } from 'react-toastify'
+import { useNavigate } from 'react-router-dom'
 
 const Login = () => {
 
@@ -47,6 +48,7 @@ const Login = () => {
       if (data.success) {
         setSToken(data.token)
         localStorage.setItem('sToken', data.token)
+        navigate('/staff-dashboard')
       } else {
         toast.error(data.message)
       }
