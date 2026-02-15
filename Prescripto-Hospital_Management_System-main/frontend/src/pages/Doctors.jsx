@@ -14,7 +14,7 @@ const Doctors = () => {
 
   const [search, setSearch] = useState('')
   const [filterGender, setFilterGender] = useState('')
-  const [maxFees, setMaxFees] = useState(500) // Default max
+  const [maxFees, setMaxFees] = useState(5000) // Default max to include all
 
   const applyFilter = () => {
     let filtered = doctors;
@@ -86,7 +86,7 @@ const Doctors = () => {
             <input
               type="range"
               min="0"
-              max="1000"
+              max="5000"
               step="10"
               className='w-full accent-primary'
               value={maxFees}
@@ -95,7 +95,7 @@ const Doctors = () => {
           </div>
 
           <button
-            onClick={() => { setSearch(''); setFilterGender(''); setMaxFees(500); navigate('/doctors') }}
+            onClick={() => { setSearch(''); setFilterGender(''); setMaxFees(5000); navigate('/doctors') }}
             className='mt-4 text-xs text-primary underline'
           >
             Reset Filters
