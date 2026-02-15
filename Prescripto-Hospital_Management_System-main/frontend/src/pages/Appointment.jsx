@@ -62,6 +62,11 @@ const Appointment = () => {
                     }))
                 )
                 setDocSlots(slotsWithDates)
+                // Automatically select first available day
+                const firstAvailable = slotsWithDates.findIndex(day => day.length > 0)
+                if (firstAvailable !== -1) {
+                    setSlotIndex(firstAvailable)
+                }
             } else {
                 toast.error(data.message)
             }
@@ -144,7 +149,7 @@ const Appointment = () => {
                 console.log("Is Profile Complete?", isProfileComplete)
                 console.log("User Data for Pre-fill:", u)
 
-                if (!isProfileComplete) {
+                if (!isProfileComplete || paymentMethod === 'online') {
                     const prefillData = {
                         ...patientInfo,
                         name: u.name || '',
@@ -170,7 +175,7 @@ const Appointment = () => {
                         insuranceProvider: u.insuranceProvider || '',
                         insuranceId: u.insuranceId || ''
                     }
-                    console.log("Setting Patient Info Prefill:", prefillData)
+                    console.log("Showing Patient Form for Review/Complete:", prefillData)
                     setPatientInfo(prefillData)
                     setShowPatientForm(true)
                     return
@@ -190,6 +195,15 @@ const Appointment = () => {
             toast.error(error)
             return
         }
+        if (!slotTime) {
+            toast.error('Please select an appointment time')
+            return
+        }
+
+        if (!docSlots[slotIndex] || !docSlots[slotIndex].length) {
+            toast.error('No slots available for the selected day')
+            return
+        }
 
         const date = docSlots[slotIndex][0].datetime
         let day = date.getDate()
@@ -201,13 +215,6 @@ const Appointment = () => {
             // 1. Update Profile if form was shown
             if (showPatientForm) {
                 await axios.post(backendUrl + '/api/user/update-profile', {
-                    userId: 'userId_is_in_token_backend_handles', // Backend controller uses middleware user ID, but updateProfile controller expects userId in body? 
-                    // Wait, userController updateProfile extracts userId from body. But authUser middleware usually adds it to req.body.userId??
-                    // Let's check userController: const { userId ... } = req.body. 
-                    // Usually authUser middleware adds userId to body. Yes.
-
-                    // Send flat structure where possible or nested?
-                    // Controller expects: name, phone, address (object/string), dob, gender, etc.
                     ...patientInfo,
                     address: JSON.stringify(patientInfo.address),
                     emergencyContact: JSON.stringify(patientInfo.emergencyContact)
@@ -219,6 +226,7 @@ const Appointment = () => {
                 docId,
                 slotDate,
                 slotTime,
+                paymentMethod: paymentMethod === 'online' ? 'Online' : 'Cash',
                 patientInfo: showPatientForm ? patientInfo : null
             }
 
@@ -255,6 +263,16 @@ const Appointment = () => {
     useEffect(() => {
         getAvailableSolts()
     }, [docId])
+
+    useEffect(() => {
+        if (docInfo && docInfo.paymentMethods) {
+            if (docInfo.paymentMethods.online) {
+                setPaymentMethod('online')
+            } else if (docInfo.paymentMethods.cash) {
+                setPaymentMethod('cash')
+            }
+        }
+    }, [docInfo])
 
     // Styles for form inputs
     const inputStyle = 'border border-gray-300 rounded w-full p-2 text-sm'
@@ -319,15 +337,17 @@ const Appointment = () => {
                 <p className='text-xl text-secondary mb-6'>Select Booking Slot</p>
                 <div className='flex gap-4 items-center w-full overflow-x-scroll pb-4 no-scrollbar'>
                     {
-                        docSlots.length && docSlots.filter(item => item.length > 0).map((item, index) => (
-                            <div
-                                onClick={() => setSlotIndex(index)}
-                                className={`text-center py-6 min-w-[5rem] rounded-2xl cursor-pointer transition-all ${slotIndex === index ? 'bg-primary text-white shadow-lg scale-105' : 'bg-white border border-gray-100 hover:bg-blue-50'}`}
-                                key={index}
-                            >
-                                <p className='text-xs uppercase tracking-tighter mb-1'>{item[0] && daysOfWeek[item[0].datetime.getDay()]}</p>
-                                <p className='text-2xl font-bold'>{item[0] && item[0].datetime.getDate()}</p>
-                            </div>
+                        docSlots.length && docSlots.map((item, index) => (
+                            item.length > 0 && (
+                                <div
+                                    onClick={() => { setSlotIndex(index); setSlotTime('') }}
+                                    className={`text-center py-6 min-w-[5rem] rounded-2xl cursor-pointer transition-all ${slotIndex === index ? 'bg-primary text-white shadow-lg scale-105' : 'bg-white border border-gray-100 hover:bg-blue-50'}`}
+                                    key={index}
+                                >
+                                    <p className='text-xs uppercase tracking-tighter mb-1'>{daysOfWeek[item[0].datetime.getDay()]}</p>
+                                    <p className='text-2xl font-bold'>{item[0].datetime.getDate()}</p>
+                                </div>
+                            )
                         ))
                     }
                 </div>
@@ -451,7 +471,9 @@ const Appointment = () => {
 
                         <div className='flex gap-4 mt-6 justify-end'>
                             <button onClick={() => setShowPatientForm(false)} className='px-6 py-2 border rounded text-gray-600 hover:bg-gray-50'>Cancel</button>
-                            <button onClick={confirmBooking} className='px-6 py-2 bg-primary text-white rounded hover:bg-blue-600'>Confirm & Book</button>
+                            <button onClick={confirmBooking} className='px-6 py-2 bg-primary text-white rounded hover:bg-blue-600 font-medium'>
+                                {paymentMethod === 'online' ? 'Proceed to Payment' : 'Confirm Appointment'}
+                            </button>
                         </div>
                     </div>
                 )}
@@ -459,8 +481,8 @@ const Appointment = () => {
                 {/* Default Booking Button (Hidden if form is shown) */}
                 {!showPatientForm && (
                     <div className='mt-6'>
-                        <button onClick={bookAppointment} className='bg-primary text-white text-sm font-light px-14 py-3 rounded-full hover:scale-105 transition-all duration-300'>
-                            {paymentMethod === 'cash' ? 'Book Appointment' : 'Proceed to Pay'}
+                        <button onClick={bookAppointment} className='bg-primary text-white text-sm font-medium px-14 py-3 rounded-full hover:scale-105 transition-all duration-300 shadow-md'>
+                            {paymentMethod === 'cash' ? 'Book Appointment' : 'Continue to Patient Details'}
                         </button>
                     </div>
                 )}

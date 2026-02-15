@@ -33,8 +33,8 @@ const Navbar = () => {
   return (
     <div className='flex justify-between items-center px-4 sm:px-10 py-3 border-b bg-white'>
       <div className='flex items-center gap-2 text-xs'>
-        <img onClick={() => navigate('/')} className='w-36 sm:w-40 cursor-pointer' src={assets.admin_logo} alt="" />
-        <p className='border px-2.5 py-0.5 rounded-full border-gray-500 text-gray-600'>{aToken ? 'Admin' : dToken ? 'Doctor' : 'Staff'}</p>
+        <img onClick={() => navigate('/')} className='w-36 sm:w-40 cursor-pointer' src={assets.admin_logo} alt="Mediflow Admin Logo" aria-label="Home" />
+        <p className='border px-2.5 py-0.5 rounded-full border-gray-500 text-gray-600' aria-label={`Logged in as ${aToken ? 'Admin' : dToken ? 'Doctor' : 'Staff'}`}>{aToken ? 'Admin' : dToken ? 'Doctor' : 'Staff'}</p>
       </div>
 
       <div className='flex items-center gap-4'>
@@ -51,15 +51,19 @@ const Navbar = () => {
           <button
             onClick={() => setIsEmergencyMode(!isEmergencyMode)}
             className={`px-4 py-1.5 rounded-full text-xs font-black transition-all ${isEmergencyMode ? 'bg-red-600 text-white animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600'}`}
+            aria-label={isEmergencyMode ? 'Emergency Mode Active' : 'Normal Operations Mode'}
           >
             {isEmergencyMode ? '🚨 EMERGENCY ACTIVE' : '⚠ NORMAL OPS'}
           </button>
         )}
+        {aToken && (
+          <p className='border px-2.5 py-0.5 rounded-full border-gray-500 text-gray-600' aria-label="Admin Status">Admin Access</p>
+        )}
         {sToken && (
-          <div className='relative cursor-pointer' onClick={() => setShowNotifications(!showNotifications)}>
+          <div className='relative cursor-pointer' onClick={() => setShowNotifications(!showNotifications)} aria-label="Notifications">
             <img className='w-7' src={assets.appointment_icon} alt="Notifications" />
             {unreadCount > 0 && (
-              <span className='absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold'>
+              <span className='absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold' aria-label={`${unreadCount} unread notifications`}>
                 {unreadCount}
               </span>
             )}

@@ -112,7 +112,37 @@ const loginUser = async (req, res) => {
 
         if (isMatch) {
             if (!user.isVerified) {
-                return res.json({ success: false, message: "Please verify your email before logging in." })
+                // Resend verification email
+                const verificationToken = crypto.randomBytes(32).toString('hex');
+                user.verificationToken = verificationToken;
+                await user.save();
+
+                const transporter = nodemailer.createTransport({
+                    service: 'gmail',
+                    auth: {
+                        user: process.env.EMAIL_USER,
+                        pass: process.env.EMAIL_PASS
+                    }
+                });
+
+                const verificationUrl = `${req.headers.origin}/verify-email?token=${verificationToken}`;
+
+                const mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: 'Verify Your Email - Mediflow',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; padding: 20px;">
+                            <h2>Email Verification Required</h2>
+                            <p>Please click the button below to verify your email address:</p>
+                            <a href="${verificationUrl}" style="background-color: #5f6FFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Verify Email</a>
+                            <p>Thank you,<br>The Mediflow Team</p>
+                        </div>
+                    `
+                };
+
+                await transporter.sendMail(mailOptions);
+                return res.json({ success: false, message: "Email not verified. A new verification link has been sent to your email." })
             }
 
             if (user.twoFactorEnabled) {
@@ -214,11 +244,16 @@ const bookAppointment = async (req, res) => {
 
     try {
 
-        const { userId, docId, slotDate, slotTime, patientInfo } = req.body
+        const { userId, docId, slotDate, slotTime, patientInfo, paymentMethod } = req.body
         const docData = await doctorModel.findById(docId).select("-password")
 
         if (!docData.available) {
             return res.json({ success: false, message: 'Doctor Not Available' })
+        }
+
+        // Validate payment method
+        if (paymentMethod === 'Online' && (!docData.paymentMethods || !docData.paymentMethods.online)) {
+            return res.json({ success: false, message: 'Online payment not available for this doctor' })
         }
 
         let slots_booked = docData.slots_booked
@@ -249,6 +284,7 @@ const bookAppointment = async (req, res) => {
             slotTime,
             slotDate,
             date: Date.now(),
+            paymentMethod: paymentMethod || 'Cash',
             patientInfo: patientInfo || null
         }
 
@@ -259,7 +295,13 @@ const bookAppointment = async (req, res) => {
         await doctorModel.findByIdAndUpdate(docId, { slots_booked })
 
         // Create Notification
-        await newNotification.save()
+        const userNotification = new notificationModel({
+            userId,
+            title: "Appointment Booked",
+            message: `Your appointment with Dr. ${docData.name} has been booked for ${slotDate} at ${slotTime}.`,
+            type: "appointment"
+        })
+        await userNotification.save()
 
         // Create notification for staff
         const staffNotification = new notificationModel({
@@ -616,8 +658,13 @@ const resetPassword = async (req, res) => {
         user.password = hashedPassword;
         user.resetToken = undefined;
         user.resetTokenExpiry = undefined;
+        user.isVerified = true;
+        user.verificationToken = undefined;
         await user.save();
-        res.json({ success: true, message: 'Password reset successfully' });
+
+        // Return token for auto-login
+        const authToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
+        res.json({ success: true, message: 'Password reset successfully', token: authToken });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });

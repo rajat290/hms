@@ -9,6 +9,10 @@ const staffSchema = new mongoose.Schema({
     dob: { type: String },
     phone: { type: String },
     date: { type: Number, required: true },
+    resetToken: { type: String },
+    resetTokenExpiry: { type: Date },
+    isVerified: { type: Boolean, default: false },
+    verificationToken: { type: String },
 }, { minimize: false })
 
 const staffModel = mongoose.models.staff || mongoose.model("staff", staffSchema);

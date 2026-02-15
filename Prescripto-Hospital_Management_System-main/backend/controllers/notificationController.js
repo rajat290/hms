@@ -66,12 +66,10 @@ const sendReminders = async () => {
                     await transporter.sendMail(mailOptions);
                     console.log(`Sent ${reminderType} reminder to ${userId.email}`);
 
-                    if (reminderType === '2-hour') {
-                        appointment.reminderSent2h = true;
-                    } else {
-                        appointment.reminderSent24h = true;
-                    }
-                    await appointment.save();
+                    await appointmentModel.updateOne(
+                        { _id: appointment._id },
+                        { $set: { [reminderType === '2-hour' ? 'reminderSent2h' : 'reminderSent24h']: true } }
+                    );
                 } catch (err) {
                     console.error(`Failed to send reminder to ${userId.email}:`, err);
                 }

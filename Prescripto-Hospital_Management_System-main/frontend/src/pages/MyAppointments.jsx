@@ -176,13 +176,12 @@ const MyAppointments = () => {
         try {
             const { data } = await axios.get(backendUrl + `/api/user/doctor-slots/${appointment.docId}`)
             if (data.success) {
-                const slotsWithDates = data.slots.map(daySlots =>
-                    daySlots.map(slot => ({
-                        ...slot,
-                        datetime: new Date(slot.datetime)
-                    }))
-                )
                 setDocSlots(slotsWithDates)
+                // Automatically select first available day
+                const firstAvailableIndex = slotsWithDates.findIndex(day => day.length > 0)
+                if (firstAvailableIndex !== -1) {
+                    setSlotIndex(firstAvailableIndex)
+                }
             }
         } catch (error) {
             toast.error("Failed to load available slots")
@@ -191,6 +190,10 @@ const MyAppointments = () => {
 
     const confirmReschedule = async () => {
         if (!slotTime) return toast.warning("Please select a slot")
+
+        if (!docSlots[slotIndex] || !docSlots[slotIndex].length) {
+            return toast.error("Selected day has no available slots")
+        }
 
         const date = docSlots[slotIndex][0].datetime
         let day = date.getDate()
@@ -273,7 +276,7 @@ const MyAppointments = () => {
                             <p>Booking slots</p>
                             <div className='flex gap-3 items-center w-full overflow-x-scroll mt-4 pb-2'>
                                 {docSlots.length > 0 && docSlots.map((item, index) => (
-                                    <div onClick={() => setSlotIndex(index)} key={index} className={`text-center py-4 min-w-14 rounded-full cursor-pointer flex-shrink-0 ${slotIndex === index ? 'bg-primary text-white' : 'border border-[#DDDDDD]'}`}>
+                                    <div onClick={() => { setSlotIndex(index); setSlotTime('') }} key={index} className={`text-center py-4 min-w-14 rounded-full cursor-pointer flex-shrink-0 ${slotIndex === index ? 'bg-primary text-white' : 'border border-[#DDDDDD]'}`}>
                                         <p className='text-xs'>{item[0] && daysOfWeek[item[0].datetime.getDay()]}</p>
                                         <p>{item[0] && item[0].datetime.getDate()}</p>
                                     </div>
