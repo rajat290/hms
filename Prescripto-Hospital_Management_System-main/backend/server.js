@@ -10,6 +10,7 @@ import doctorRouter from "./routes/doctorRoute.js"
 import adminRouter from "./routes/adminRoute.js"
 import paymentRouter from "./routes/paymentRoute.js"
 import staffRouter from "./routes/staffRoute.js"
+import aiRouter from "./routes/aiRoute.js"
 import initCronJobs from "./jobs/cronJobs.js"
 
 // app config
@@ -36,6 +37,7 @@ app.use("/api/admin", adminRouter)
 app.use("/api/doctor", doctorRouter)
 app.use("/api/payment", paymentRouter)
 app.use("/api/staff", staffRouter)
+app.use("/api/ai", aiRouter)
 
 // Serve PWA files
 const __filename = fileURLToPath(import.meta.url);

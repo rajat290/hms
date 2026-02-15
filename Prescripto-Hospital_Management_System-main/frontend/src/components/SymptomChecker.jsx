@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { toast } from 'react-toastify';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 
 const SymptomChecker = () => {
+  const { backendUrl } = useContext(AppContext);
   const [symptoms, setSymptoms] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
@@ -30,7 +32,7 @@ const SymptomChecker = () => {
 
     setLoading(true);
     try {
-      const { data } = await axios.post('http://localhost:4000/api/ai/check-symptoms', {
+      const { data } = await axios.post(`${backendUrl}/api/ai/check-symptoms`, {
         symptoms: symptoms.trim()
       });
 
@@ -79,11 +81,10 @@ const SymptomChecker = () => {
                     key={symptom}
                     type="button"
                     onClick={() => handleSymptomClick(symptom)}
-                    className={`px-3 py-1 rounded-full text-sm border transition-colors ${
-                      symptoms.includes(symptom)
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
-                    }`}
+                    className={`px-3 py-1 rounded-full text-sm border transition-colors ${symptoms.includes(symptom)
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                      }`}
                   >
                     {symptom}
                   </button>
