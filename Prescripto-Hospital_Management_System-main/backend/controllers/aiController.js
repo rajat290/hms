@@ -1,4 +1,8 @@
 import * as tf from '@tensorflow/tfjs';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Placeholder for AI symptom checker model
 let symptomModel = null;
@@ -14,6 +18,68 @@ const loadSymptomModel = async () => {
         symptomModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy', metrics: ['accuracy'] });
     }
     return symptomModel;
+};
+
+// Real-world AI: Conversational Assistant using Gemini
+const conversationalAI = async (req, res) => {
+    try {
+        const { message, chatHistory } = req.body;
+
+        const apiKey = (process.env.GEMINI_API_KEY || "").trim();
+
+        if (!apiKey || apiKey === 'your_gemini_api_key_here' || apiKey.length < 10) {
+            return res.json({
+                success: true,
+                message: "I am Mediflow's AI assistant. (Note: Gemini API key is not configured, so I am running in limited demo mode). How can I help you today?"
+            });
+        }
+
+        // Initialize SDK inside the call to ensure env vars are populated
+        const genAI = new GoogleGenerativeAI(apiKey);
+
+        const systemPrompt = "You are Mediflow's medical assistant. IMPORTANT: Do not repeat your 'Hello, I am the medical assistant' introduction in every message. Only introduce yourself in the very first message of a conversation. Be concise and direct. Use plain text only (no stars, no hashtags). Do not diagnose. Severe symptoms? Advise urgency.";
+
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3-flash-preview",
+            systemInstruction: systemPrompt
+        });
+
+        // Clean history: Ensure it is in the correct format for Google Generative AI SDK
+        let cleanedHistory = [];
+        if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+            cleanedHistory = chatHistory
+                .filter(item => (item.role === 'user' || item.role === 'model') && item.parts && item.parts[0] && item.parts[0].text)
+                .map(item => ({
+                    role: item.role,
+                    parts: [{ text: item.parts[0].text }]
+                }));
+
+            // Gemini history MUST start with 'user'
+            if (cleanedHistory.length > 0 && cleanedHistory[0].role !== 'user') {
+                cleanedHistory.shift();
+            }
+        }
+
+        const chat = model.startChat({
+            history: cleanedHistory,
+            generationConfig: {
+                maxOutputTokens: 1000,
+                temperature: 0.7,
+            },
+        });
+
+        const result = await chat.sendMessage(message);
+        const response = await result.response;
+        const text = response.text().trim();
+
+        res.json({ success: true, message: text });
+    } catch (error) {
+        console.error("Gemini AI Error:", error.message || error);
+        if (error.status) console.error("Status:", error.status);
+        if (error.statusText) console.error("Status Text:", error.statusText);
+        // Fallback for demo if API fails
+        res.json({ success: false, message: "I'm experiencing high traffic. Please try again or book an appointment." });
+    }
 };
 
 // API to get symptom suggestions
@@ -69,4 +135,4 @@ const smartSchedule = async (req, res) => {
     }
 };
 
-export { getSymptomSuggestions, smartSchedule };
+export { getSymptomSuggestions, smartSchedule, conversationalAI };

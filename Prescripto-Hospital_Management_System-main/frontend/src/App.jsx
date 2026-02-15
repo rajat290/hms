@@ -20,6 +20,7 @@ import EmailVerification from './components/EmailVerification'
 import PasswordReset from './components/PasswordReset'
 import SymptomChecker from './components/SymptomChecker'
 import SmartScheduler from './components/SmartScheduler'
+import AIChatWidget from './components/AIChatWidget'
 
 import MobileCTA from './components/MobileCTA'
 
@@ -49,6 +50,7 @@ const App = () => {
         <Route path='/smart-scheduler' element={<SmartScheduler />} />
       </Routes>
       <MobileCTA />
+      <AIChatWidget />
       <Footer />
     </div>
   )
