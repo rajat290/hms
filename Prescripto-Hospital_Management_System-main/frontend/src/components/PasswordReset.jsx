@@ -3,15 +3,25 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import { useContext } from 'react'
 import { AppContext } from '../context/AppContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect } from 'react'
 
 const PasswordReset = () => {
   const [email, setEmail] = useState('')
   const [token, setToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [step, setStep] = useState(1) // 1: request reset, 2: enter token and new password
-  const { backendUrl } = useContext(AppContext)
+  const { backendUrl, setToken: setAppToken } = useContext(AppContext)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    const tokenParam = searchParams.get('token')
+    if (tokenParam) {
+      setToken(tokenParam)
+      setStep(2)
+    }
+  }, [searchParams])
 
   const requestReset = async (event) => {
     event.preventDefault()
@@ -34,8 +44,12 @@ const PasswordReset = () => {
       const { data } = await axios.post(backendUrl + '/api/user/reset-password', { token, newPassword })
       if (data.success) {
         toast.success('Password reset successfully!')
+        if (data.token) {
+          localStorage.setItem('token', data.token)
+          setAppToken(data.token)
+        }
         setTimeout(() => {
-          navigate('/login')
+          navigate('/')
         }, 2000)
       } else {
         toast.error(data.message)

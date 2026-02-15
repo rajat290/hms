@@ -37,6 +37,7 @@ import StaffPatientProfile from './pages/Staff/StaffPatientProfile';
 import StaffQueue from './pages/Staff/StaffQueue';
 import StaffAnalytics from './pages/Staff/StaffAnalytics';
 import { AppContext } from './context/AppContext';
+import EmailVerification from './pages/EmailVerification';
 
 const App = () => {
 
@@ -76,7 +77,9 @@ const App = () => {
       <div className='flex items-start'>
         <Sidebar />
         <Routes>
-          <Route path='/' element={<Dashboard />} />
+          <Route path='/' element={
+            aToken ? <Dashboard /> : (dToken ? <DoctorDashboard /> : (sToken ? <StaffDashboard /> : <Login />))
+          } />
           <Route path='/admin-dashboard' element={<Dashboard />} />
           <Route path='/all-appointments' element={<AllAppointments />} />
           <Route path='/add-doctor' element={<AddDoctor />} />
@@ -110,7 +113,10 @@ const App = () => {
   ) : (
     <>
       <ToastContainer />
-      <Login />
+      <Routes>
+        <Route path='/verify-email' element={<EmailVerification />} />
+        <Route path='*' element={<Login />} />
+      </Routes>
     </>
   )
 }

@@ -1,6 +1,6 @@
 {
-  "name": "Prescripto Hospital Management",
-  "short_name": "Prescripto",
+  "name": "Mediflow Hospital Management",
+  "short_name": "Mediflow",
   "description": "Manage your healthcare appointments easily",
   "start_url": "/",
   "display": "standalone",

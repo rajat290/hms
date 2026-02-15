@@ -554,10 +554,10 @@ const createPatientAdmin = async (req, res) => {
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
-            subject: 'Welcome to Prescripto - Your Account Details',
+            subject: 'Welcome to Mediflow - Your Account Details',
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2>Welcome to Prescripto!</h2>
+                    <h2>Welcome to Mediflow!</h2>
                     <p>Your account has been created successfully.</p>
                     <div style="background-color: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;">
                         <h3>Your Login Credentials:</h3>
@@ -566,7 +566,7 @@ const createPatientAdmin = async (req, res) => {
                         <p style="color: #d32f2f;"><strong>Please change your password after first login.</strong></p>
                     </div>
                     <p>You can now book appointments and manage your healthcare needs through our platform.</p>
-                    <p>Best regards,<br>Prescripto Team</p>
+                    <p>Best regards,<br>Mediflow Team</p>
                 </div>
             `
         };
@@ -701,7 +701,7 @@ const downloadInvoicePDF = async (req, res) => {
         });
 
         // PDF Content
-        doc.fontSize(20).text('Prescripto Hospital', { align: 'center' });
+        doc.fontSize(20).text('Mediflow Hospital', { align: 'center' });
         doc.fontSize(16).text('Invoice', { align: 'center' });
         doc.moveDown();
 

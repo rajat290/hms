@@ -6,6 +6,11 @@
 
 * {
     font-family: Outfit;
+    @apply transition-all duration-300;
+}
+
+body {
+    @apply bg-[#FBFBFF] text-gray-800 antialiased;
 }
 
 .active hr {
@@ -13,11 +18,34 @@
 }
 
 @media (max-width:740px) {
-    .active  p{
-       @apply text-white bg-primary
+    .active p {
+        @apply text-white bg-primary
     }
 }
 
+/* Modern Scrollbar */
 ::-webkit-scrollbar {
-    @apply hidden
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full hover:bg-gray-400;
+}
+
+/* Modern Utilities */
+.glass-effect {
+    @apply backdrop-blur-md bg-white/70 border border-white/20 shadow-glass;
+}
+
+.text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-primary;
+}
+
+.card-hover {
+    @apply hover:translate-y-[-5px] hover:shadow-soft;
 }

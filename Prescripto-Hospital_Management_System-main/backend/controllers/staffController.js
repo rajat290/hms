@@ -7,6 +7,25 @@ import userModel from "../models/userModel.js";
 import validator from "validator";
 import { v2 as cloudinary } from "cloudinary";
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+
+// API to verify email for staff
+const verifyEmail = async (req, res) => {
+    try {
+        const { token } = req.body;
+        const staff = await staffModel.findOne({ verificationToken: token });
+        if (!staff) {
+            return res.json({ success: false, message: 'Invalid token' });
+        }
+        staff.isVerified = true;
+        staff.verificationToken = undefined;
+        await staff.save();
+        res.json({ success: true, message: 'Staff email verified successfully' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
 
 // API for staff login
 const loginStaff = async (req, res) => {
@@ -21,6 +40,31 @@ const loginStaff = async (req, res) => {
         const isMatch = await bcrypt.compare(password, staff.password);
 
         if (isMatch) {
+            if (!staff.isVerified) {
+                const verificationToken = crypto.randomBytes(32).toString('hex');
+                staff.verificationToken = verificationToken;
+                await staff.save();
+
+                const transporter = nodemailer.createTransport({
+                    service: 'gmail',
+                    auth: {
+                        user: process.env.EMAIL_USER,
+                        pass: process.env.EMAIL_PASS
+                    }
+                });
+
+                const verificationUrl = `${req.headers.origin}/verify-email?token=${verificationToken}&role=staff`;
+
+                const mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: 'Verify Your Staff Account - Mediflow',
+                    html: `<h3>Email Verification Required</h3><p>Please click <a href="${verificationUrl}">here</a> to verify your account.</p>`
+                };
+
+                await transporter.sendMail(mailOptions);
+                return res.json({ success: false, message: "Email not verified. A new verification link has been sent." })
+            }
             const token = jwt.sign({ id: staff._id }, process.env.JWT_SECRET);
             res.json({ success: true, token });
         } else {
@@ -312,4 +356,64 @@ const markNotificationRead = async (req, res) => {
     }
 }
 
-export { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead }
+// API to forgot password for staff
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const staff = await staffModel.findOne({ email });
+        if (!staff) {
+            return res.json({ success: false, message: 'Staff member not found' });
+        }
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        staff.resetToken = resetToken;
+        staff.resetTokenExpiry = Date.now() + 3600000; // 1 hour
+        await staff.save();
+
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+
+        const resetUrl = `${req.headers.origin}/reset-password?token=${resetToken}&role=staff`;
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Password Reset - Mediflow Staff Panel',
+            html: `<h3>Password Reset Request</h3><p>Click <a href="${resetUrl}">here</a> to reset your password.</p>`
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.json({ success: true, message: 'Reset link sent' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+// API to reset password for staff
+const resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+        const staff = await staffModel.findOne({ resetToken: token, resetTokenExpiry: { $gt: Date.now() } });
+        if (!staff) {
+            return res.json({ success: false, message: 'Invalid or expired token' });
+        }
+        const salt = await bcrypt.genSalt(10);
+        staff.password = await bcrypt.hash(newPassword, salt);
+        staff.resetToken = undefined;
+        staff.resetTokenExpiry = undefined;
+        staff.isVerified = true;
+        staff.verificationToken = undefined;
+        await staff.save();
+        res.json({ success: true, message: 'Password reset successfully' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+export { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead, forgotPassword, resetPassword, verifyEmail }
