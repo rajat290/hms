@@ -20,7 +20,7 @@ const StaffFollowUp = () => {
     const upcomingAppts = appointments.filter(a => !a.cancelled && !a.isCompleted)
 
     const sendReminder = (phone, name, date, time) => {
-        const message = `Hello ${name}, this is a reminder for your appointment at Prescripto on ${date} at ${time}. Please arrive 10 mins early.`
+        const message = `Hello ${name}, this is a reminder for your appointment at Mediflow on ${date} at ${time}. Please arrive 10 mins early.`
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
         window.open(url, '_blank')
     }

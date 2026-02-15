@@ -46,7 +46,7 @@ const checkOverdueInvoices = async () => {
                             <p>This is a reminder that your invoice <strong>${invoice.invoiceNumber}</strong> was due on ${new Date(invoice.dueDate).toDateString()}.</p>
                             <p>Total Amount: <strong>$${invoice.totalAmount}</strong></p>
                             <p>Please make the payment at your earliest convenience to avoid interruptions in service.</p>
-                            <p>Thank you,<br>Prescripto Admin</p>
+                            <p>Thank you,<br>Mediflow Admin</p>
                         </div>
                     `
                 };
