@@ -1,6 +1,6 @@
 # Mediflow - Advanced Hospital Management System
 
-A comprehensive full-stack web application for managing hospital operations, appointments, and patient-doctor interactions. Built with the MERN stack (MongoDB, Express.js, React, Node.js), this system provides a seamless experience for patients, doctors, and administrators with advanced features including AI-powered diagnostics, smart scheduling, and comprehensive analytics.
+A comprehensive full-stack web application for managing hospital operations, appointments, and patient-doctor interactions. Built with the MERN stack (MongoDB, Express.js, React, Node.js), this system provides a seamless experience for patients, doctors, staff, and administrators with advanced features including AI-powered diagnostics, smart scheduling, comprehensive billing, and detailed analytics.
 
 ## 🚀 Latest Features & Updates
 
@@ -8,8 +8,8 @@ A comprehensive full-stack web application for managing hospital operations, app
 - **Password Visibility Toggle**: Eye button to show/hide password during login
 - **Forgot Password**: Complete password reset flow with email verification
 - **Secure Registration**: Email verification and strong password requirements
-- **OAuth Integration**: Google login support for quick access
-- **Two-Factor Authentication**: Optional 2FA for enhanced security
+- **Two-Factor Authentication Support**: Optional 2FA infrastructure for enhanced security
+- **Role-based Authentication**: Separate authentication flows for Patients, Doctors, Staff, and Admins
 
 ### 📅 Smart Appointment Booking System
 - **Patient Information Collection**: Automatic collection of patient details (name, gender, age) during booking
@@ -17,58 +17,94 @@ A comprehensive full-stack web application for managing hospital operations, app
 - **Real-time Availability**: Dynamic slot generation based on doctor schedules
 - **Multiple Payment Options**: Cash payment at clinic or online payment via Razorpay/Stripe
 - **Appointment History**: Complete booking history with status tracking
+- **Check-in System**: Patient check-in functionality for queue management
+- **Automated Reminders**: Email reminders sent 24 hours and 2 hours before appointments
 
 ### 👨‍⚕️ Doctor Management Panel
 - **Interactive Dashboard**: Comprehensive overview with key metrics
-- **Appointment Management**: View, accept, and manage all appointments
+- **Appointment Management**: View, accept, complete, and cancel appointments
 - **Availability Management**: Set working hours and manage time slots
 - **Patient Records**: Access to patient history and prescription management
+- **Prescription System**: Generate and manage digital prescriptions
 - **Earnings Dashboard**: Track consultation fees and payment status
+- **Reviews Management**: View patient reviews and ratings
 
 ### 🏥 Advanced Admin Panel
 - **Interactive Dashboard**: Clickable metric cards for quick navigation
 - **Analytics & Insights**: Comprehensive statistics and performance metrics
 - **Doctor Lifecycle Management**: Add, edit, remove, and manage doctors
-- **Appointment Oversight**: Monitor all appointments with filtering options
+- **Staff Management**: Complete staff panel with CRUD operations
 - **Patient Management**: View patient records and appointment history
+- **Billing & Payments**: Invoice generation, payment tracking, refunds
+- **Audit Logs**: Track all admin actions for security
 - **System Settings**: Configure platform-wide settings and policies
 
+### 👥 Staff Panel (Reception/Front Desk)
+- **Patient Registration**: Register new patients with complete details
+- **Patient Check-in**: Mark patient arrivals for queue management
+- **Appointment Management**: View and manage daily appointments
+- **Payment Collection**: Record and manage payment transactions
+- **Billing System**: Handle itemized billing and partial payments
+- **Notifications**: Real-time notifications for appointments and payments
+
 ### 🤖 AI-Powered Features
+- **Conversational AI Assistant**: Gemini-powered chat bot for medical queries
 - **Symptom Checker**: AI-driven symptom analysis for preliminary diagnosis
 - **Smart Scheduler**: Intelligent appointment recommendations
 - **Prescription Management**: Automated prescription generation and tracking
 - **Medical History Analysis**: AI-powered insights from patient records
+
+### 💰 Advanced Billing & Payments
+- **Invoice Generation**: Automatic invoice creation with unique invoice numbers
+- **PDF Downloads**: Download professional invoice PDFs
+- **Partial Payments**: Support for installment-based payments
+- **Multiple Payment Methods**: Cash, Card, Online (Razorpay/Stripe)
+- **Payment Tracking**: Complete payment history and logs
+- **Refund Processing**: Process refunds for cancelled appointments
+- **Financial Reports**: CSV export of financial data
 
 ## 📋 Complete Module Overview
 
 ### 1. **Frontend Module (Patient Portal)**
 - **Home Page**: Hero section, specialty menu, top doctors, promotional banner
 - **Authentication Pages**: Login, registration, password reset, email verification
-- **Doctor Discovery**: Advanced filtering by specialty, location, and availability
+- **Doctor Discovery**: Advanced filtering by specialty, location, gender, and availability
 - **Doctor Profiles**: Detailed information, reviews, availability calendar
 - **Appointment System**: Smart booking with patient info collection
 - **User Dashboard**: Profile management, appointment history, payment records
 - **Payment Integration**: Secure processing via Razorpay and Stripe
+- **My Appointments**: View and manage booked appointments
+- **My Billing**: View payment history and invoices
+- **Notifications**: Personalized notification center
+- **AI Chat Widget**: Conversational AI assistant on every page
 - **Symptom Checker**: AI-powered preliminary diagnosis tool
 - **Smart Scheduler**: Intelligent appointment recommendations
 
 ### 2. **Backend Module (API Server)**
 - **User Management**: Complete CRUD operations with authentication
-- **Doctor Management**: Profile management and availability tracking
-- **Appointment Management**: Booking, cancellation, status updates
+- **Doctor Management**: Profile management, availability, and schedule tracking
+- **Appointment Management**: Booking, cancellation, status updates, check-in
 - **Payment Processing**: Multi-gateway integration with webhooks
+- **Staff Management**: Authentication, patient registration, queue management
 - **File Upload System**: Secure image management via Cloudinary
 - **Email Services**: Automated notifications and password reset
-- **AI Integration**: Symptom analysis and smart scheduling APIs
+- **AI Integration**: Gemini API for symptom analysis and chat
+- **Invoice Management**: Generation, tracking, PDF generation
+- **Notification System**: Automated reminders and real-time notifications
+- **Audit Logging**: Track all admin and staff actions
 - **Analytics Engine**: Comprehensive data processing and reporting
 
 ### 3. **Admin Module (Management Panel)**
 - **Dashboard Analytics**: Real-time metrics and interactive navigation
 - **Doctor CRUD Operations**: Complete doctor lifecycle management
+- **Staff Management**: Add, edit, and manage staff accounts
 - **Appointment Monitoring**: Advanced filtering and status management
 - **Patient Oversight**: User management and activity tracking
-- **Financial Reports**: Payment tracking and revenue analytics
-- **System Configuration**: Settings management and policy controls
+- **Financial Reports**: Revenue analytics, payment tracking
+- **Billing Management**: Invoice generation, payment processing, refunds
+- **Audit Logs**: View all administrative actions
+- **Analytics Hub**: Advanced analytics with date range filtering
+- **Billing Analytics**: Detailed financial metrics and trends
 
 ### 4. **Doctor Module (Specialist Panel)**
 - **Personal Dashboard**: Appointment overview and quick actions
@@ -77,6 +113,15 @@ A comprehensive full-stack web application for managing hospital operations, app
 - **Prescription System**: Create and manage patient prescriptions
 - **Earnings Tracking**: Monitor fees and payment status
 - **Profile Management**: Update professional information and credentials
+- **Reviews**: View patient reviews and ratings
+
+### 5. **Staff Module (Front Desk Panel)**
+- **Patient Registration**: Register new patients with full details
+- **Daily Dashboard**: Overview of today's appointments and collections
+- **Queue Management**: Patient check-in and queue tracking
+- **Appointment Management**: View all appointments by date
+- **Payment Collection**: Record payments and handle billing
+- **Patient Records**: View and manage patient information
 
 ## 🛠️ Tech Stack
 
@@ -87,6 +132,7 @@ A comprehensive full-stack web application for managing hospital operations, app
 - **React Router**: Client-side routing
 - **Axios**: HTTP client for API calls
 - **React Toastify**: Notification system
+- **jsPDF**: PDF generation for invoices
 
 ### Backend
 - **Node.js**: JavaScript runtime
@@ -98,19 +144,25 @@ A comprehensive full-stack web application for managing hospital operations, app
 - **Multer**: File upload middleware
 - **Razorpay & Stripe**: Payment gateways
 - **Validator**: Input validation
+- **Nodemailer**: Email services
+- **PDFKit**: PDF generation
+- **TensorFlow.js**: AI/ML capabilities
 
-### Additional Tools
-- **ESLint**: Code linting
-- **PostCSS**: CSS processing
-- **Autoprefixer**: CSS vendor prefixing
+### Testing
+- **Vitest**: Unit testing framework
+- **React Testing Library**: Component testing
 
 ## 📁 Project Structure
 
 ```
-Prescripto-Hospital_Management_System-main/
+MediFlow-HMS/
 ├── frontend/          # Patient-facing React application
 │   ├── src/
 │   │   ├── components/    # Reusable UI components
+│   │   │   ├── AIChatWidget.jsx       # AI conversational assistant
+│   │   │   ├── SmartScheduler.jsx     # Smart appointment scheduler
+│   │   │   ├── SymptomChecker.jsx     # AI symptom analyzer
+│   │   │   └── ...
 │   │   ├── pages/         # Application pages
 │   │   ├── context/       # React context for state management
 │   │   └── assets/        # Images and static files
@@ -118,41 +170,37 @@ Prescripto-Hospital_Management_System-main/
 ├── backend/           # Express.js API server
 │   ├── config/        # Database and cloud configurations
 │   ├── controllers/   # Route handlers
+│   │   ├── adminController.js    # Admin operations
+│   │   ├── doctorController.js   # Doctor operations
+│   │   ├── staffController.js    # Staff operations
+│   │   ├── userController.js     # User operations
+│   │   ├── aiController.js       # AI features
+│   │   ├── notificationController.js  # Notifications
+│   │   └── prescriptionController.js  # Prescriptions
 │   ├── middleware/    # Authentication and file upload middleware
 │   ├── models/        # MongoDB schemas
+│   │   ├── userModel.js, doctorModel.js, staffModel.js
+│   │   ├── appointmentModel.js, prescriptionModel.js
+│   │   ├── invoiceModel.js, paymentLogModel.js
+│   │   ├── notificationModel.js, auditLogModel.js
+│   │   └── ...
 │   ├── routes/        # API endpoints
+│   │   ├── adminRoute.js, doctorRoute.js, staffRoute.js
+│   │   ├── userRoute.js, aiRoute.js, paymentRoute.js
+│   ├── jobs/          # Cron jobs for automated tasks
 │   └── server.js      # Main server file
-├── admin/             # Admin management panel
+├── admin/             # Admin management panel (React)
 │   ├── src/
 │   │   ├── components/    # Admin UI components
 │   │   ├── pages/         # Admin dashboard pages
+│   │   │   ├── Admin/        # Admin-specific pages
+│   │   │   ├── Doctor/       # Doctor management pages
+│   │   │   └── Staff/        # Staff management pages
 │   │   ├── context/       # Admin context
 │   │   └── assets/        # Admin assets
 │   └── package.json
 └── README.md
 ```
-
-## 🔧 Modules Overview
-
-### 1. Frontend Module (Patient Portal)
-- **Home Page**: Hero section, specialty menu, top doctors, promotional banner
-- **Doctor Listing**: Filter doctors by specialty
-- **Doctor Profile**: Detailed information, availability, booking interface
-- **Appointment System**: Date/time selection, payment processing
-- **User Dashboard**: Profile management, appointment history
-
-### 2. Backend Module (API Server)
-- **User Management**: Registration, authentication, profile updates
-- **Doctor Management**: CRUD operations for doctor profiles
-- **Appointment Management**: Booking, cancellation, status updates
-- **Payment Processing**: Integration with payment gateways
-- **File Upload**: Image management via Cloudinary
-
-### 3. Admin Module (Management Panel)
-- **Dashboard**: Analytics and overview statistics
-- **Doctor CRUD**: Add/edit/remove doctors
-- **Appointment Monitoring**: View and manage all appointments
-- **User Oversight**: Monitor user activities
 
 ## 👥 Detailed User Journeys & Workflows
 
@@ -164,358 +212,107 @@ Prescripto-Hospital_Management_System-main/
   - Enter full name, email, and password
   - Use password visibility toggle to ensure correct entry
   - System validates email format and password strength
-  - Receive email verification link
-  - Click verification link to activate account
+  - Receive email - Click verification link verification link
+  to activate account
 
 - **Login Process**:
   - Enter email and password on login page
   - Use "Forgot Password?" if password is forgotten
   - System sends reset token to email
   - Enter token and set new password
-  - Optional: Enable two-factor authentication for enhanced security
-
-- **OAuth Login** (Future Feature):
-  - Click "Login with Google" button
-  - Authorize app permissions
-  - Automatic account creation/linking
 
 #### **2. Doctor Discovery & Selection**
-- **Browse Specialties**:
-  - View specialty menu on homepage (Cardiology, Dermatology, etc.)
-  - Click specialty to filter doctors
-  - View top doctors section with ratings
-
-- **Advanced Search & Filtering**:
-  - Use search bar to find doctors by name
-  - Filter by location, experience, fees
-  - Sort by availability, rating, or fees
-
-- **Doctor Profile Review**:
-  - View detailed doctor information
-  - Read about qualifications and experience
-  - Check availability calendar
-  - View patient reviews and ratings
+- **Browse Specialties**: View specialty menu on homepage
+- **Advanced Search & Filtering**: Filter by specialty, gender, fees, availability
+- **Doctor Profile Review**: View detailed info, ratings, availability calendar
 
 #### **3. Smart Appointment Booking**
-- **Initial Booking Attempt**:
-  - Click "Book Appointment" on doctor profile
-  - System checks if user is logged in
-  - If not logged in, redirect to login page
-
-- **Patient Information Collection**:
-  - System checks existing user profile for patient details
-  - If information missing (name, gender, age), display collection form
-  - User fills required patient information
-  - Information automatically saves to profile and appointment
-
-- **Slot Selection & Payment**:
-  - View available time slots for selected date
-  - Choose preferred time slot
-  - Select payment method: Cash (pay at clinic) or Online
-  - For online payment: Proceed to Razorpay/Stripe checkout
-  - For cash payment: Instant booking confirmation
-
-- **Booking Confirmation**:
-  - Receive booking confirmation with details
-  - Email notification sent with appointment info
-  - Option to add appointment to calendar
+- **Booking Flow**: Select doctor, choose date/time, provide patient info
+- **Payment**: Cash at clinic or online via Razorpay/Stripe
+- **Confirmation**: Receive booking confirmation with details
 
 #### **4. Appointment Management**
-- **View My Appointments**:
-  - Access "My Appointments" from user dashboard
-  - View all upcoming, completed, and cancelled appointments
-  - Filter appointments by status or date
-
-- **Appointment Details**:
-  - Click on appointment to view full details
-  - See doctor information, date/time, payment status
-  - Access prescription if available
-
-- **Cancellation & Rescheduling**:
-  - Cancel appointments within allowed time window
-  - System prevents last-minute cancellations
-  - Option to reschedule with available slots
+- **View My Appointments**: Access from dashboard
+- **Appointment Details**: View full details and prescriptions
+- **Cancellation**: Cancel within allowed time window
 
 #### **5. Profile & Account Management**
-- **Update Personal Information**:
-  - Edit name, phone, address, date of birth
-  - Upload/change profile picture
-  - Update medical information and preferences
-
-- **Payment History**:
-  - View all payment transactions
-  - Download invoices and receipts
-  - Track payment status and refunds
-
-- **Account Security**:
-  - Change password with current password verification
-  - Enable/disable two-factor authentication
-  - View login history and active sessions
+- **Update Personal Information**: Edit name, phone, address, DOB
+- **Payment History**: View transactions and download invoices
 
 ### 👨‍⚕️ **Doctor Journey & Workflow**
 
-#### **1. Doctor Onboarding & Setup**
-- **Account Creation** (Admin-Managed):
-  - Admin creates doctor account with basic information
-  - Doctor receives login credentials via email
-  - First login requires password change
-
-- **Profile Completion**:
-  - Upload professional photo and documents
-  - Enter detailed qualifications and experience
-  - Set consultation fees and specialties
-  - Configure availability schedule
+#### **1. Doctor Onboarding**
+- **Account Setup** (Admin-Managed): Admin creates doctor account
+- **Profile Completion**: Upload photo, set fees, configure availability
 
 #### **2. Daily Dashboard Operations**
-- **Login & Dashboard Overview**:
-  - Secure login to doctor panel
-  - View key metrics: Today's appointments, earnings, patient count
-  - Quick access to recent activities
+- **Login & Overview**: View today's appointments, earnings, patient count
+- **Appointment Management**: Accept, complete, or cancel appointments
 
-- **Appointment Management**:
-  - View all appointments (pending, confirmed, completed)
-  - Accept/reject appointment requests
-  - Update appointment status (completed, cancelled, no-show)
-  - Add notes and observations
+#### **3. Patient Consultation**
+- **Pre-Consultation**: Review patient history and previous prescriptions
+- **During Consultation**: Update symptoms, create prescriptions
+- **Post-Consultation**: Generate prescription, mark appointment complete
 
-#### **3. Patient Consultation Process**
-- **Pre-Consultation Preparation**:
-  - Review patient profile and medical history
-  - Access previous prescriptions and notes
-  - Prepare consultation agenda
+#### **4. Schedule & Availability**
+- **Working Hours**: Define weekly schedule and consultation duration
+- **Dynamic Updates**: Mark days off or adjust schedule
 
-- **During Consultation**:
-  - Update patient symptoms and diagnosis
-  - Create or update prescriptions
-  - Order tests if required
-  - Set follow-up appointments
+#### **5. Prescription System**
+- **Create Prescriptions**: Add medicines with dosage and instructions
+- **View History**: Access patient prescription history
 
-- **Post-Consultation Tasks**:
-  - Mark appointment as completed
-  - Generate prescription PDF
-  - Update patient records
-  - Send consultation summary to patient
+### 🏢 **Staff Journey & Workflow**
 
-#### **4. Schedule & Availability Management**
-- **Working Hours Setup**:
-  - Define weekly schedule (Monday-Friday, custom hours)
-  - Set consultation duration (15, 30, 45, 60 minutes)
-  - Configure break times and lunch hours
+#### **1. Patient Registration**
+- **Register New Patient**: Enter complete patient details
+- **Upload Documents**: Profile photo, ID proof (Aadhaar)
+- **Insurance Details**: Record insurance provider and ID
 
-- **Dynamic Availability Updates**:
-  - Mark days off or emergency leaves
-  - Adjust schedule for holidays
-  - Handle appointment conflicts automatically
+#### **2. Daily Operations**
+- **Dashboard Overview**: Today's appointments and expected collections
+- **Patient Check-in**: Mark patients as arrived
+- **Queue Management**: Track patient queue
 
-- **Slot Management**:
-  - View booked vs available slots
-  - Manually block slots for personal reasons
-  - Set maximum appointments per day
+#### **3. Payment Collection**
+- **Record Payments**: Handle cash, card, or online payments
+- **Partial Payments**: Support installment-based payments
+- **Generate Invoices**: Create and provide invoices to patients
 
-#### **5. Prescription & Medical Records**
-- **Prescription Creation**:
-  - Select from medication database
-  - Specify dosage, frequency, duration
-  - Add special instructions
-  - Generate printable prescription
-
-- **Patient History Management**:
-  - Maintain comprehensive patient records
-  - Track treatment progress
-  - Store test results and reports
-  - Generate medical reports
-
-#### **6. Earnings & Financial Tracking**
-- **Revenue Dashboard**:
-  - View daily, weekly, monthly earnings
-  - Track payment status (paid, pending, overdue)
-  - Monitor consultation statistics
-
-- **Payment Reconciliation**:
-  - View detailed transaction history
-  - Download financial reports
-  - Track outstanding payments
-
-- **Fee Management**:
-  - Set consultation fees by specialty
-  - Offer discounts for specific cases
-  - Manage insurance and corporate rates
+#### **4. Appointment Management**
+- **View Appointments**: See all appointments for any date
+- **Cancel Appointments**: Handle cancellation requests
 
 ### 🏢 **Admin Journey & System Management**
 
-#### **1. Admin Access & Authentication**
-- **Secure Login**:
-  - Dedicated admin login portal
-  - Multi-factor authentication
-  - Role-based access control
+#### **1. Dashboard & Analytics**
+- **Real-time Metrics**: View appointments, revenue, patient counts
+- **Advanced Analytics**: Filter by date range, view trends
+- **Billing Analytics**: Revenue trends, payment success rates
 
-- **Dashboard Overview**:
-  - System-wide statistics and KPIs
-  - Real-time alerts and notifications
-  - Quick access to critical functions
+#### **2. Doctor Management**
+- **Add Doctor**: Create doctor profiles with credentials
+- **Manage Doctors**: Edit info, update availability, deactivate
+- **Performance Tracking**: Monitor doctor appointments and ratings
 
-#### **2. Doctor Lifecycle Management**
-- **Doctor Onboarding**:
-  - Create doctor profiles with detailed information
-  - Upload credentials and certifications
-  - Set initial availability and fees
-  - Assign specialties and departments
+#### **3. Staff Management**
+- **Add Staff**: Create staff accounts for front desk
+- **Manage Staff**: Edit details, reset passwords
 
-- **Doctor Profile Management**:
-  - Edit doctor information and specialties
-  - Update fees and availability
-  - Manage doctor status (active, inactive, suspended)
-  - Handle doctor removal/deactivation
+#### **4. Patient Management**
+- **View Patients**: Access complete patient database
+- **Patient Details**: View medical history and appointments
 
-- **Performance Monitoring**:
-  - Track doctor appointment volumes
-  - Monitor patient satisfaction ratings
-  - Review earnings and payment status
-  - Generate performance reports
+#### **5. Billing & Financials**
+- **Generate Invoices**: Create invoices for appointments
+- **Process Payments**: Record and track payments
+- **Handle Refunds**: Process refund requests
+- **Export Reports**: Download financial data as CSV
 
-#### **3. Appointment Oversight & Management**
-- **Global Appointment View**:
-  - View all appointments across platform
-  - Filter by doctor, date, status, specialty
-  - Search appointments by patient name or ID
-
-- **Appointment Status Management**:
-  - Manually update appointment status
-  - Handle appointment conflicts
-  - Process refunds and cancellations
-  - Resolve appointment disputes
-
-- **Analytics & Reporting**:
-  - Generate appointment trend reports
-  - Track no-show rates and cancellation patterns
-  - Monitor peak hours and busy periods
-  - Optimize scheduling based on data
-
-#### **4. Patient Management & Support**
-- **Patient Database Access**:
-  - View complete patient profiles
-  - Access medical history and records
-  - Monitor patient activity and engagement
-
-- **User Support & Issue Resolution**:
-  - Handle patient complaints and issues
-  - Process account modifications
-  - Manage data privacy requests
-  - Coordinate with doctors for urgent cases
-
-#### **5. Financial Management & Analytics**
-- **Revenue Tracking**:
-  - Monitor total platform revenue
-  - Track payment gateway performance
-  - Generate financial reports and statements
-
-- **Payment Processing Oversight**:
-  - Monitor payment success/failure rates
-  - Handle payment disputes and chargebacks
-  - Manage refunds and adjustments
-
-#### **6. System Configuration & Maintenance**
-- **Platform Settings**:
-  - Configure system-wide policies
-  - Set appointment booking rules
-  - Manage notification templates
-  - Update payment gateway settings
-
-- **User Role Management**:
-  - Create and manage admin accounts
-  - Assign permissions and access levels
-  - Monitor admin activity logs
-  - Implement security policies
-
-#### **7. Analytics & Business Intelligence**
-- **Performance Metrics**:
-  - User registration and engagement trends
-  - Doctor utilization and satisfaction rates
-  - Appointment booking patterns
-  - Revenue growth and projections
-
-- **System Health Monitoring**:
-  - Server performance and uptime
-  - API response times and error rates
-  - Database performance metrics
-  - Security incident tracking
-
-- **Reporting & Insights**:
-  - Generate comprehensive business reports
-  - Create custom dashboards for stakeholders
-  - Export data for external analysis
-  - Predictive analytics for growth planning
-
-## 🚀 Installation & Setup
-
-### Prerequisites
-- Node.js (v16 or higher)
-- MongoDB database
-- Cloudinary account for image uploads
-- Razorpay/Stripe accounts for payments
-
-### Backend Setup
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Create a `.env` file with the following variables:
-   ```
-   PORT=4000
-   MONGODB_URI=your_mongodb_connection_string
-   JWT_SECRET=your_jwt_secret
-   CLOUDINARY_NAME=your_cloudinary_name
-   CLOUDINARY_API_KEY=your_cloudinary_api_key
-   CLOUDINARY_SECRET_KEY=your_cloudinary_secret_key
-   RAZORPAY_KEY_ID=your_razorpay_key_id
-   RAZORPAY_KEY_SECRET=your_razorpay_key_secret
-   STRIPE_SECRET_KEY=your_stripe_secret_key
-   ```
-
-4. Start the server:
-   ```bash
-   npm start
-   # or for development
-   npm run server
-   ```
-
-### Frontend Setup
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-### Admin Panel Setup
-1. Navigate to the admin directory:
-   ```bash
-   cd admin
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
+#### **6. Audit & Security**
+- **View Audit Logs**: Track all admin actions
+- **System Settings**: Configure platform policies
 
 ## 📡 Comprehensive API Endpoints
 
@@ -523,54 +320,63 @@ Prescripto-Hospital_Management_System-main/
 - `POST /api/user/register` - User registration with email verification
 - `POST /api/user/login` - User login with JWT token generation
 - `GET /api/user/get-profile` - Retrieve authenticated user profile
-- `POST /api/user/update-profile` - Update user profile (name, phone, address, dob, gender)
+- `POST /api/user/update-profile` - Update user profile
 - `POST /api/user/forgot-password` - Initiate password reset via email
 - `POST /api/user/reset-password` - Reset password using token
-- `POST /api/user/enable-2fa` - Enable two-factor authentication
-- `POST /api/user/verify-2fa` - Verify 2FA code
 - `POST /api/user/verify-email` - Verify email address
 
 ### 📅 **Appointment Management**
-- `POST /api/user/book-appointment` - Book new appointment with patient info collection
+- `POST /api/user/book-appointment` - Book new appointment
 - `GET /api/user/appointments` - Get user's appointment history
-- `POST /api/user/cancel-appointment` - Cancel appointment with validation
-- `GET /api/user/doctor-slots/:docId` - Get available time slots for doctor
-- `GET /api/user/financial-summary` - Get user's financial summary
-- `GET /api/user/prescriptions` - Get user's prescription history
-
-### 💳 **Payment Processing**
-- `POST /api/user/payment-razorpay` - Initialize Razorpay payment
-- `POST /api/user/verifyRazorpay` - Verify Razorpay payment completion
-- `POST /api/user/payment-stripe` - Initialize Stripe payment
-- `POST /api/user/verifyStripe` - Verify Stripe payment completion
+- `POST /api/user/cancel-appointment` - Cancel appointment
+- `GET /api/user/doctor-slots/:docId` - Get available time slots
 
 ### 👨‍⚕️ **Doctor Management**
 - `POST /api/doctor/login` - Doctor authentication
-- `GET /api/doctor/profile` - Get doctor profile and availability
-- `POST /api/doctor/update-profile` - Update doctor information
+- `GET /api/doctor/profile` - Get doctor profile
+- `POST /api/doctor/update-profile` - Update doctor info
 - `GET /api/doctor/appointments` - Get doctor's appointments
-- `POST /api/doctor/change-availability` - Update doctor availability
+- `POST /api/doctor/change-availability` - Update availability
+- `POST /api/doctor/generate-prescription` - Generate prescription
+- `GET /api/doctor/reviews/:docId` - Get doctor reviews
+- `POST /api/doctor/add-review` - Add review for doctor
+
+### 👥 **Staff Management**
+- `POST /api/staff/login` - Staff authentication
+- `GET /api/staff/profile` - Get staff profile
+- `POST /api/staff/create-patient` - Register new patient
+- `GET /api/staff/all-patients` - Get all patients
+- `POST /api/staff/mark-checkin` - Mark patient check-in
+- `POST /api/staff/update-payment` - Update payment status
+- `GET /api/staff/notifications` - Get notifications
 
 ### 🏥 **Admin System Management**
 - `POST /api/admin/login` - Admin authentication
-- `POST /api/admin/add-doctor` - Create new doctor account
-- `GET /api/admin/doctors` - Get all doctors with filtering
-- `POST /api/admin/change-availability` - Update doctor availability
-- `GET /api/admin/appointments` - Get all appointments with advanced filtering
-- `POST /api/admin/cancel-appointment` - Admin appointment cancellation
-- `POST /api/admin/add-location` - Add new clinic location
+- `POST /api/admin/add-doctor` - Create new doctor
+- `GET /api/admin/doctors` - Get all doctors
+- `POST /api/admin/add-staff` - Create new staff
+- `GET /api/admin/all-staff` - Get all staff
+- `GET /api/admin/appointments` - Get all appointments
+- `POST /api/admin/cancel-appointment` - Cancel appointment
+- `GET /api/admin/analytics` - Get analytics data
+- `GET /api/admin/advanced-analytics` - Advanced analytics
+- `POST /api/admin/create-patient` - Create patient from admin
+- `GET /api/admin/patients` - Get all patients
+- `POST /api/admin/generate-invoice` - Generate invoice
+- `GET /api/admin/invoices` - Get all invoices
+- `POST /api/admin/process-refund` - Process refund
+- `GET /api/admin/audit-logs` - Get audit logs
+- `GET /api/admin/billing-metrics` - Billing analytics
+- `GET /api/admin/export-financials` - Export CSV
 
-### 🤖 **AI & Analytics (Future Integration)**
-- `POST /api/ai/symptom-check` - AI-powered symptom analysis
-- `GET /api/ai/smart-schedule` - Intelligent appointment recommendations
-- `POST /api/ai/medical-analysis` - AI medical history analysis
-- `GET /api/analytics/dashboard` - Comprehensive system analytics
-- `GET /api/analytics/performance` - Performance metrics and reports
+### 🤖 **AI & Analytics**
+- `POST /api/ai/chat` - Conversational AI assistant
+- `POST /api/ai/symptom-check` - AI symptom analysis
+- `GET /api/ai/smart-schedule` - Smart scheduling
 
-### 📧 **Notification & Communication**
-- `POST /api/notification/email` - Send email notifications
-- `POST /api/notification/sms` - Send SMS notifications (future)
-- `GET /api/notification/history` - Get notification history
+### 📧 **Notifications**
+- `GET /api/notification/reminders` - Automated reminders (cron job)
+- Internal notification creation for various events
 
 ## 🔐 Authentication & Security
 
@@ -579,13 +385,15 @@ Prescripto-Hospital_Management_System-main/
 - **Input Validation**: Server-side validation using validator library
 - **CORS**: Cross-origin resource sharing configuration
 - **File Upload Security**: Multer with file type restrictions
+- **Role-based Access Control**: Separate auth middleware for each role
 
 ## 💳 Payment Integration
 
 - **Razorpay**: Indian payment gateway integration
 - **Stripe**: International payment processing
+- **Cash Payments**: Support for offline payments
+- **Partial Payments**: Installment-based payment system
 - **Secure Transactions**: PCI-compliant payment handling
-- **Multiple Currencies**: Support for various currencies
 
 ## 📱 Responsive Design
 
@@ -593,6 +401,128 @@ Prescripto-Hospital_Management_System-main/
 - **Cross-Browser**: Compatible with all modern browsers
 - **Accessibility**: WCAG compliant design principles
 - **Performance**: Optimized loading times and smooth interactions
+
+## 🚀 Installation & Setup
+
+### Prerequisites
+- Node.js (v16 or higher)
+- MongoDB database
+- Cloudinary account for image uploads
+- Razorpay/Stripe accounts for payments
+- Gemini API key for AI features
+
+### Backend Setup
+1. Navigate to the backend directory:
+   
+```
+bash
+   cd MediFlow-HMS/backend
+   
+```
+
+2. Install dependencies:
+   
+```
+bash
+   npm install
+   
+```
+
+3. Create a `.env` file with the following variables:
+   
+```
+   PORT=4000
+   MONGODB_URI=your_mongodb_connection_string
+   JWT_SECRET=your_jwt_secret
+   ADMIN_EMAIL=admin@mediflow.com
+   ADMIN_PASSWORD=your_admin_password
+   CLOUDINARY_NAME=your_cloudinary_name
+   CLOUDINARY_API_KEY=your_cloudinary_api_key
+   CLOUDINARY_SECRET_KEY=your_cloudinary_secret_key
+   RAZORPAY_KEY_ID=your_razorpay_key_id
+   RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+   STRIPE_SECRET_KEY=your_stripe_secret_key
+   GEMINI_API_KEY=your_gemini_api_key
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASS=your_email_app_password
+   
+```
+
+4. Start the server:
+   
+```
+bash
+   npm start
+   
+```
+
+### Frontend Setup
+1. Navigate to the frontend directory:
+   
+```
+bash
+   cd MediFlow-HMS/frontend
+   
+```
+
+2. Install dependencies:
+   
+```
+bash
+   npm install
+   
+```
+
+3. Start the development server:
+   
+```
+bash
+   npm run dev
+   
+```
+
+### Admin Panel Setup
+1. Navigate to the admin directory:
+   
+```bash
+   cd MediFlow-HMS/admin
+   
+```
+
+2. Install dependencies:
+   
+```
+bash
+   npm install
+   
+```
+
+3. Start the development server:
+   
+```
+bash
+   npm run dev
+   
+```
+
+## 🧪 Testing
+
+The project includes comprehensive test suites:
+
+### Frontend Testing
+```
+bash
+cd frontend
+npm run test        # Run unit tests
+npm run test:ui     # Run tests with UI
+```
+
+### Backend Testing
+```
+bash
+cd backend
+npm test           # Run backend tests
+```
 
 ## 🤝 Contributing
 
@@ -604,7 +534,7 @@ Prescripto-Hospital_Management_System-main/
 
 ## 📄 License
 
-This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the ISC License.
 
 ## 📞 Support
 
@@ -612,4 +542,4 @@ For support, email support@mediflow.com or join our Slack channel.
 
 ---
 
-**Built with ❤️ by RAJAT SINGH TOMAR for better healthcare management**
+**Built with ❤️ using MERN Stack for better healthcare management**
