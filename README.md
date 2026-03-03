@@ -1,6 +1,64 @@
 # Mediflow - Advanced Hospital Management System
 
+![Mediflow HMS Banner](screenshots/banner.png)
+
 A comprehensive full-stack web application for managing hospital operations, appointments, and patient-doctor interactions. Built with the MERN stack (MongoDB, Express.js, React, Node.js), this system provides a seamless experience for patients, doctors, staff, and administrators with advanced features including AI-powered diagnostics, smart scheduling, comprehensive billing, and detailed analytics.
+
+---
+
+## 📸 Screenshots Gallery
+
+### 🏥 Patient Portal (Frontend)
+| Feature | Screenshot |
+|---------|-----------|
+| Home Page | `screenshots/frontend/home.png` |
+| Doctor Listing | `screenshots/frontend/doctors.png` |
+| Doctor Profile | `screenshots/frontend/doctor-profile.png` |
+| Appointment Booking | `screenshots/frontend/booking.png` |
+| User Dashboard | `screenshots/frontend/dashboard.png` |
+| My Appointments | `screenshots/frontend/appointments.png` |
+| My Billing | `screenshots/frontend/billing.png` |
+| AI Chat Widget | `screenshots/frontend/ai-chat.png` |
+| Symptom Checker | `screenshots/frontend/symptom-checker.png` |
+
+### 👨‍⚕️ Doctor Panel
+| Feature | Screenshot |
+|---------|-----------|
+| Doctor Dashboard | `screenshots/doctor/dashboard.png` |
+| Appointments | `screenshots/doctor/appointments.png` |
+| Availability | `screenshots/doctor/availability.png` |
+| Profile | `screenshots/doctor/profile.png` |
+
+### 👥 Staff Panel
+| Feature | Screenshot |
+|---------|-----------|
+| Staff Dashboard | `screenshots/staff/dashboard.png` |
+| Patient Registration | `screenshots/staff/patient-registration.png` |
+| Patient Check-in | `screenshots/staff/checkin.png` |
+| Appointments | `screenshots/staff/appointments.png` |
+| Billing & Payments | `screenshots/staff/billing.png` |
+
+### 🏢 Admin Panel
+| Feature | Screenshot |
+|---------|-----------|
+| Admin Dashboard | `screenshots/admin/dashboard.png` |
+| Doctors List | `screenshots/admin/doctors.png` |
+| Patients List | `screenshots/admin/patients.png` |
+| All Appointments | `screenshots/admin/appointments.png` |
+| Analytics | `screenshots/admin/analytics.png` |
+| Billing Analytics | `screenshots/admin/billing-analytics.png` |
+| Staff Management | `screenshots/admin/staff.png` |
+| Audit Logs | `screenshots/admin/audit-logs.png` |
+| Settings | `screenshots/admin/settings.png` |
+
+### 🔐 Authentication Pages
+| Feature | Screenshot |
+|---------|-----------|
+| Login Page | `screenshots/auth/login.png` |
+| Registration | `screenshots/auth/register.png` |
+| Forgot Password | `screenshots/auth/forgot-password.png` |
+
+---
 
 ## 🚀 Latest Features & Updates
 
