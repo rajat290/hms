@@ -1,4 +1,4 @@
-# Mediflow - Advanced Hospital Management System
+# Mediflow - AI Powered Advanced Hospital Management System
 
 ![Mediflow HMS Banner](screenshots/banner.png)
 
