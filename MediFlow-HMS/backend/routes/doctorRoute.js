@@ -1,12 +1,14 @@
 import express from 'express';
-import { loginDoctor, appointmentsDoctor, appointmentCancel, appointmentAccept, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, addAppointmentNotes, generatePrescriptionDoctor, getPatientFinancialSummary, getAvailability, updateAvailability, addReview, getDoctorReviews, forgotPassword, resetPassword, verifyEmail } from '../controllers/doctorController.js';
+import { loginDoctor, appointmentsDoctor, appointmentCancel, appointmentAccept, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, addAppointmentNotes, generatePrescriptionDoctor, getPatientFinancialSummary, getAvailability, updateAvailability, addReview, getDoctorReviews, forgotPassword, resetPassword, refreshSession, logoutDoctor, verifyEmail } from '../controllers/doctorController.js';
 import authDoctor from '../middleware/authDoctor.js';
 import authUser from '../middleware/authUser.js';
 import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
-import { validateAppointmentId, validateDocId, validateDoctorAvailabilityUpdate, validateDoctorIdParam, validateDoctorNote, validateDoctorProfileUpdate, validateForgotPassword, validateLogin, validatePatientFinancialRequest, validatePrescription, validateResetPassword, validateReview, validateTokenPayload } from '../middleware/validators.js';
+import { validateAppointmentId, validateDocId, validateDoctorAvailabilityUpdate, validateDoctorIdParam, validateDoctorNote, validateDoctorProfileUpdate, validateForgotPassword, validateLogin, validatePatientFinancialRequest, validatePrescription, validateRefreshTokenPayload, validateResetPassword, validateReview, validateTokenPayload } from '../middleware/validators.js';
 const doctorRouter = express.Router();
 
 doctorRouter.post("/login", authLimiter, validateLogin, loginDoctor)
+doctorRouter.post("/refresh-session", validateRefreshTokenPayload, refreshSession)
+doctorRouter.post("/logout", authDoctor, logoutDoctor)
 doctorRouter.post("/verify-email", validateTokenPayload, verifyEmail)
 doctorRouter.post("/cancel-appointment", authDoctor, validateAppointmentId, appointmentCancel)
 doctorRouter.post("/accept-appointment", authDoctor, validateAppointmentId, appointmentAccept)

@@ -1,4 +1,5 @@
 import appointmentModel from '../models/appointmentModel.js';
+import authSessionModel from '../models/authSessionModel.js';
 import auditLogModel from '../models/auditLogModel.js';
 import doctorModel from '../models/doctorModel.js';
 import feedbackModel from '../models/feedbackModel.js';
@@ -59,6 +60,24 @@ const validatorEntries = [
       reminder24hLockUntil: dateField(),
       reminder2hLockUntil: dateField(),
     }, ['userId', 'docId', 'userData', 'docData', 'amount', 'slotTime', 'slotDate', 'date']),
+  },
+  {
+    model: authSessionModel,
+    validator: objectField({
+      sessionId: stringField(),
+      subjectId: stringField(),
+      role: enumStringField(['user', 'doctor', 'staff', 'admin']),
+      refreshTokenHash: stringField(),
+      expiresAt: dateField(),
+      revokedAt: dateField(),
+      revokedReason: stringField(),
+      lastUsedAt: dateField(),
+      lastRotatedAt: dateField(),
+      userAgent: stringField(),
+      ipAddress: stringField(),
+      createdAt: dateField(),
+      updatedAt: dateField(),
+    }, ['sessionId', 'subjectId', 'role', 'refreshTokenHash', 'expiresAt']),
   },
   {
     model: auditLogModel,
@@ -221,6 +240,8 @@ const validatorEntries = [
       resetToken: stringField(),
       resetTokenExpiry: dateField(),
       twoFactorEnabled: booleanField(),
+      twoFactorCode: stringField(),
+      twoFactorCodeExpiry: dateField(),
       insuranceProvider: stringField(),
       insuranceId: stringField(),
       subscriptionPlan: enumStringField(['basic', 'premium', 'none']),

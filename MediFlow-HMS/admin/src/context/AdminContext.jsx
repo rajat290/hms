@@ -10,11 +10,30 @@ const AdminContextProvider = (props) => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL
 
     const [aToken, setAToken] = useState(localStorage.getItem('aToken') ? localStorage.getItem('aToken') : '')
+    const [aRefreshToken, setARefreshToken] = useState(localStorage.getItem('aRefreshToken') ? localStorage.getItem('aRefreshToken') : '')
 
     const [appointments, setAppointments] = useState([])
     const [doctors, setDoctors] = useState([])
     const [staff, setStaff] = useState([])
     const [dashData, setDashData] = useState(false)
+
+    const persistAdminSession = (nextAccessToken, nextRefreshToken) => {
+        const resolvedAccessToken = nextAccessToken || ''
+        const resolvedRefreshToken = nextRefreshToken || ''
+
+        setAToken(resolvedAccessToken)
+        setARefreshToken(resolvedRefreshToken)
+
+        if (resolvedAccessToken) localStorage.setItem('aToken', resolvedAccessToken)
+        else localStorage.removeItem('aToken')
+
+        if (resolvedRefreshToken) localStorage.setItem('aRefreshToken', resolvedRefreshToken)
+        else localStorage.removeItem('aRefreshToken')
+    }
+
+    const clearAdminSession = () => {
+        persistAdminSession('', '')
+    }
 
     // Getting all Doctors data from Database using API
     const getAllDoctors = async () => {
@@ -146,6 +165,9 @@ const AdminContextProvider = (props) => {
 
     const value = {
         aToken, setAToken,
+        aRefreshToken, setARefreshToken,
+        persistAdminSession,
+        clearAdminSession,
         backendUrl,
         doctors,
         getAllDoctors,

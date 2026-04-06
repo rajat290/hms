@@ -1,13 +1,15 @@
 import express from 'express'
-import { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead, forgotPassword, resetPassword, verifyEmail } from '../controllers/staffController.js'
+import { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead, forgotPassword, resetPassword, refreshSession, logoutStaff, verifyEmail } from '../controllers/staffController.js'
 import authStaff from '../middleware/authStaff.js'
 import upload from '../middleware/multer.js';
 import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
-import { validateAppointmentId, validateForgotPassword, validateLogin, validateNotificationId, validatePatientCreate, validateResetPassword, validateStaffProfileUpdate, validateTokenPayload, validateUpdatePaymentStatus } from '../middleware/validators.js';
+import { validateAppointmentId, validateForgotPassword, validateLogin, validateNotificationId, validatePatientCreate, validateRefreshTokenPayload, validateResetPassword, validateStaffProfileUpdate, validateTokenPayload, validateUpdatePaymentStatus } from '../middleware/validators.js';
 
 const staffRouter = express.Router()
 
 staffRouter.post('/login', authLimiter, validateLogin, loginStaff)
+staffRouter.post('/refresh-session', validateRefreshTokenPayload, refreshSession)
+staffRouter.post('/logout', authStaff, logoutStaff)
 staffRouter.post('/verify-email', validateTokenPayload, verifyEmail)
 staffRouter.get('/profile', authStaff, getProfile)
 staffRouter.post('/update-profile', authStaff, validateStaffProfileUpdate, updateProfile)

@@ -195,6 +195,11 @@ const validateTokenPayload = validate([
     validateStringLength('token', { min: 8, max: 500 }),
 ])
 
+const validateRefreshTokenPayload = validate([
+    requireFields(['refreshToken']),
+    validateStringLength('refreshToken', { min: 8, max: 1000 }),
+])
+
 const validateForgotPassword = validate([
     requireFields(['email']),
     validateEmailField('email'),
@@ -435,6 +440,7 @@ export {
     validateUserRegistration,
     validateLogin,
     validateTokenPayload,
+    validateRefreshTokenPayload,
     validateForgotPassword,
     validateResetPassword,
     validateAppointmentId,
