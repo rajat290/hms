@@ -11,9 +11,8 @@ For each phase, it records:
 
 ## Branch Strategy
 - Every phase or major module change should be done on its own branch.
-- Current branch for this phase: `Phase5-code-architecturere-factor`
+- Current branch for this phase: `Phase6-testing-expansion`
 - Recommended future branches:
-  - `phase-6-testing-expansion`
   - `phase-7-devops-docs`
 
 ## Master Phase Tracker
@@ -23,7 +22,7 @@ For each phase, it records:
 - Phase 3: Authentication Hardening - completed
 - Phase 4: API Quality - completed
 - Phase 5: Code Architecture Refactor - completed
-- Phase 6: Testing - pending
+- Phase 6: Testing - completed
 - Phase 7: DevOps and Documentation - pending
 - Phase 8: Advanced Scaling Features - pending
 
@@ -766,9 +765,107 @@ Why:
 - large controllers still exist for some write-heavy domains like billing analytics, doctor workflows, and staff workflows, but the core extraction pattern is now in place for those follow-on refactors
 - bundle-size warnings still remain on both React apps and can be handled separately from this architectural cleanup
 
+## Phase 6 - Testing Expansion
+
+### Why This Phase Was Needed
+After the architecture refactor, the backend had clearer seams but still needed stronger regression coverage:
+- booking and payment flows had only light direct coverage
+- payment webhook verification was not tested end to end at the route layer
+- auth middleware behavior still lacked direct tests for role headers and request mutation
+- transaction and integrity helpers still had large uncovered branches
+- there was no enforced coverage baseline to stop future regressions from quietly reducing confidence again
+
+### What Changed
+
+#### 1. Booking and payment controller paths now have direct backend coverage
+Files:
+- `backend/__tests__/bookingAndPaymentController.test.js`
+
+What changed:
+- added tests for successful booking flow behavior, including appointment creation, slot reservation, and notification writes
+- added tests for duplicate-slot conflict handling in the booking controller
+- added tests for successful Razorpay callback verification
+- added tests for successful Stripe checkout-session verification
+
+Why:
+- these are high-risk patient-facing flows where a small controller regression can break revenue or scheduling immediately
+
+#### 2. Payment webhooks now have route-level integration tests
+Files:
+- `backend/__tests__/paymentRoute.test.js`
+
+What changed:
+- added a supertest-backed Razorpay webhook test with a valid HMAC signature
+- added a Stripe webhook success test that verifies checkout completion triggers the payment finalization path
+- added a Stripe signature-failure test that proves invalid webhook signatures are rejected with `400`
+
+Why:
+- webhook correctness matters more than happy-path controller logic because those routes are the final source of truth for asynchronous payment events
+
+#### 3. Role auth middleware now has explicit regression coverage
+Files:
+- `backend/__tests__/authMiddleware.test.js`
+
+What changed:
+- added tests for missing-token rejection
+- added tests proving `authUser` injects `userId` and `authAdmin` injects `adminId`
+- added tests for the expired-session error message path
+
+Why:
+- middleware errors can silently break every protected route in a role group, so they need direct coverage rather than only indirect route testing
+
+#### 4. Service and integrity helper coverage was expanded substantially
+Files:
+- `backend/__tests__/userAuthService.test.js`
+- `backend/__tests__/appointmentIntegrity.test.js`
+- `backend/__tests__/appointmentIntegrityTransactions.test.js`
+- `backend/__tests__/transaction.test.js`
+
+What changed:
+- expanded user-auth service tests to cover unverified login, 2FA login, email verification, password reset initiation, password reset completion, and 2FA enable/expiry behavior
+- expanded appointment-integrity tests to cover duplicate-slot detection
+- added transactional helper tests for invoice sync, payment finalization, cancellation, refund handling, and slot reservation/release
+- added direct tests for the shared transaction runner, including replica-set error translation
+
+Why:
+- Phase 5 extracted these helpers/services specifically to make them easier to test; Phase 6 turns that structural benefit into actual regression protection
+
+#### 5. A backend coverage gate is now enforced
+Files:
+- `backend/jest.config.js`
+- `backend/package.json`
+
+What changed:
+- added a backend `test:coverage` script
+- added enforced global coverage thresholds:
+  - statements: `60%`
+  - lines: `60%`
+  - functions: `60%`
+  - branches: `50%`
+
+Why:
+- this turns the expanded test suite into a persistent quality gate instead of a one-time improvement
+
+### Verification Results
+- Backend tests: passed (`64/64`)
+- Backend coverage gate: passed
+  - statements: `61.91%`
+  - lines: `62.30%`
+  - functions: `64.70%`
+  - branches: `50.29%`
+- Frontend tests: passed (`2/2`)
+- Frontend production build: passed
+- Admin production build: passed
+
+### Remaining Notes After Phase 6
+- frontend coverage is still minimal compared with backend coverage and should be expanded later for booking/payment UI paths
+- several large legacy controllers outside the current critical-path tests still have lower direct line coverage than the extracted service/helper layers
+- the backend coverage script may require elevated execution in the current Windows sandbox setup even though the tests themselves run normally
+
 ## Next Recommended Phase
-Phase 6: Testing
+Phase 7: DevOps and Documentation
 
 Planned focus:
-- expand unit and integration coverage around booking, webhook verification, slot conflicts, and auth middleware
-- raise confidence before the DevOps/documentation phase adds CI and deployment automation
+- add Docker support for backend and supporting services
+- add CI automation so tests and coverage run on every pull request
+- add Swagger/OpenAPI documentation and improve deployment/readme guidance
