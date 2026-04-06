@@ -3,6 +3,7 @@ import cors from 'cors'
 import 'dotenv/config'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import mongoose from "mongoose"
 import connectDB from "./config/mongodb.js"
 import connectCloudinary from "./config/cloudinary.js"
 import userRouter from "./routes/userRoute.js"
@@ -28,6 +29,7 @@ try {
 initCronJobs()
 
 // middlewares
+app.use("/api/payment", paymentRouter)
 app.use(express.json())
 app.use(cors())
 
@@ -35,9 +37,30 @@ app.use(cors())
 app.use("/api/user", userRouter)
 app.use("/api/admin", adminRouter)
 app.use("/api/doctor", doctorRouter)
-app.use("/api/payment", paymentRouter)
 app.use("/api/staff", staffRouter)
 app.use("/api/ai", aiRouter)
+
+app.get("/api/health", (req, res) => {
+  const readyStateMap = {
+    0: "disconnected",
+    1: "connected",
+    2: "connecting",
+    3: "disconnecting",
+  }
+
+  const dbReadyState = mongoose.connection.readyState
+
+  res.json({
+    success: true,
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    memoryUsage: process.memoryUsage(),
+    database: {
+      readyState: dbReadyState,
+      status: readyStateMap[dbReadyState] || "unknown",
+    },
+  })
+})
 
 // Serve PWA files
 const __filename = fileURLToPath(import.meta.url);

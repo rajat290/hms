@@ -8,7 +8,7 @@ const notificationSchema = new mongoose.Schema({
     message: { type: String, required: true },
     type: { type: String, enum: ['system', 'appointment', 'payment', 'emergency'], default: 'system' },
     read: { type: Boolean, default: false },
-    date: { type: Number, default: Date.now() }
+    date: { type: Number, default: Date.now }
 })
 
 const notificationModel = mongoose.models.notification || mongoose.model("notification", notificationSchema);

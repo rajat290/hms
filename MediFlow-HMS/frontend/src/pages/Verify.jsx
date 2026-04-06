@@ -6,10 +6,11 @@ import { toast } from 'react-toastify';
 
 const Verify = () => {
 
-    const [searchParams, setSearchParams] = useSearchParams()
+    const [searchParams] = useSearchParams()
 
     const success = searchParams.get("success")
     const appointmentId = searchParams.get("appointmentId")
+    const sessionId = searchParams.get("session_id")
 
     const { backendUrl, token } = useContext(AppContext)
 
@@ -20,7 +21,11 @@ const Verify = () => {
 
         try {
 
-            const { data } = await axios.post(backendUrl + "/api/user/verifyStripe", { success, appointmentId }, { headers: { token } })
+            const { data } = await axios.post(
+                backendUrl + "/api/user/verifyStripe",
+                { appointmentId, sessionId },
+                { headers: { token } }
+            )
 
             if (data.success) {
                 toast.success(data.message)
@@ -38,10 +43,20 @@ const Verify = () => {
     }
 
     useEffect(() => {
-        if (token, appointmentId, success) {
-            verifyStripe()
+        if (!token || !appointmentId || !success) {
+            return
         }
-    }, [token])
+
+        if (success === "true" && sessionId) {
+            verifyStripe()
+            return
+        }
+
+        if (success === "false") {
+            toast.error("Payment Failed")
+            navigate("/my-appointments")
+        }
+    }, [token, appointmentId, success, sessionId])
 
     return (
         <div className='min-h-[60vh] flex items-center justify-center'>

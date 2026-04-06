@@ -103,10 +103,20 @@ const appointmentCancel = async (req, res) => {
         const appointmentData = await appointmentModel.findById(appointmentId)
         if (appointmentData && appointmentData.docId.toString() === docId) {
             await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
+            const doctorData = await doctorModel.findById(docId)
+            const slots_booked = doctorData?.slots_booked || {}
+
+            if (slots_booked[appointmentData.slotDate]) {
+                slots_booked[appointmentData.slotDate] = slots_booked[appointmentData.slotDate].filter(
+                    slot => slot !== appointmentData.slotTime
+                )
+                await doctorModel.findByIdAndUpdate(docId, { slots_booked })
+            }
+
             return res.json({ success: true, message: 'Appointment Cancelled' })
         }
 
-        res.json({ success: false, message: 'Appointment Cancelled' })
+        res.json({ success: false, message: 'Unauthorized or appointment not found' })
 
     } catch (error) {
         console.log(error)
@@ -274,6 +284,9 @@ const addAppointmentNotes = async (req, res) => {
         const appointment = await appointmentModel.findById(appointmentId);
         if (!appointment || appointment.docId.toString() !== docId) {
             return res.json({ success: false, message: 'Unauthorized or appointment not found' });
+        }
+        if (!notes?.trim()) {
+            return res.json({ success: false, message: 'Note text is required' });
         }
         appointment.notes.push(notes);
         await appointment.save();

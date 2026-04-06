@@ -6,7 +6,7 @@ import { toast } from 'react-toastify'
 const Settings = () => {
 
     const { aToken, backendUrl } = useContext(AdminContext)
-    const [cancellationWindow, setCancellationWindow] = useState(2)
+    const [cancellationWindow, setCancellationWindow] = useState(24)
 
     const getSettings = async () => {
         try {
@@ -48,7 +48,7 @@ const Settings = () => {
                     <p className='text-xl font-medium'>Cancellation Policy</p>
                     <div className='flex flex-col gap-2'>
                         <label className='text-gray-600'>Cancellation Window (Hours)</label>
-                        <p className='text-sm text-gray-500'>Users cannot cancel appointments within this time frame before the appointment.</p>
+                        <p className='text-sm text-gray-500'>Users cannot cancel appointments within this time frame before the appointment. Allowed range: 1 to 168 hours.</p>
                         <input
                             type="number"
                             className='border rounded px-3 py-2 w-full max-w-xs'

@@ -7,7 +7,7 @@ const paymentRouter = express.Router();
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
 
 // Razorpay Webhook
-paymentRouter.post('/razorpay-webhook', async (req, res) => {
+paymentRouter.post('/razorpay-webhook', express.json(), async (req, res) => {
     try {
         const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
         const signature = req.headers['x-razorpay-signature'];

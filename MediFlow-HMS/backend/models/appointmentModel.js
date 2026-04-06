@@ -14,7 +14,7 @@ const appointmentSchema = new mongoose.Schema({
     isAccepted: { type: Boolean, default: false },
     isCompleted: { type: Boolean, default: false },
     notes: [{ type: String }],
-    paymentStatus: { type: String, enum: ['paid', 'partially paid', 'unpaid'], default: 'unpaid' },
+    paymentStatus: { type: String, enum: ['paid', 'partially paid', 'unpaid', 'refunded'], default: 'unpaid' },
     partialAmount: { type: Number, default: 0 },
     paymentMethod: { type: String, enum: ['Cash', 'Card', 'UPI', 'Online', 'N/A'], default: 'N/A' },
     isCheckedIn: { type: Boolean, default: false },

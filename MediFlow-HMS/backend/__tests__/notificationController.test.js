@@ -1,129 +1,90 @@
-import request from 'supertest';
-import express from 'express';
 import { jest } from '@jest/globals';
-import notificationRoute from '../routes/notificationRoute.js';
 
-// Mock nodemailer
-jest.mock('nodemailer', () => ({
-  createTransporter: jest.fn(() => ({
-    sendMail: jest.fn((mailOptions, callback) => {
-      callback(null, { messageId: 'test-message-id' });
-    }),
-  })),
+process.env.EMAIL_USER = 'alerts@mediflow.test';
+process.env.EMAIL_PASS = 'app-password';
+
+const sendMailMock = jest.fn();
+const createTransportMock = jest.fn(() => ({
+  sendMail: sendMailMock,
+}));
+const updateOneMock = jest.fn();
+const findMock = jest.fn();
+
+jest.unstable_mockModule('nodemailer', () => ({
+  default: { createTransport: createTransportMock },
 }));
 
-// Mock twilio
-jest.mock('twilio', () => jest.fn(() => ({
-  messages: {
-    create: jest.fn(() => Promise.resolve({ sid: 'test-sid' })),
+jest.unstable_mockModule('../models/appointmentModel.js', () => ({
+  default: {
+    find: findMock,
+    updateOne: updateOneMock,
   },
-})));
+}));
 
-const app = express();
-app.use(express.json());
-app.use('/api/notification', notificationRoute);
+const { sendReminders } = await import('../controllers/notificationController.js');
 
-describe('Notification Controller Tests', () => {
+const createPopulatedQuery = (appointments) => {
+  const query = Promise.resolve(appointments);
+  query.populate = jest.fn(() => query);
+  return query;
+};
+
+describe('notificationController sendReminders', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('POST /api/notification/send-verification-email', () => {
-    it('should send verification email successfully', async () => {
-      const emailData = {
-        email: 'test@example.com',
-        token: 'verification_token_123'
-      };
+  it('sends a 2-hour reminder and marks the appointment', async () => {
+    const reminderDate = new Date(Date.now() + 60 * 60 * 1000);
+    const slotDate = `${reminderDate.getDate()}_${reminderDate.getMonth() + 1}_${reminderDate.getFullYear()}`;
+    const slotTime = reminderDate.toTimeString().slice(0, 5);
 
-      const response = await request(app)
-        .post('/api/notification/send-verification-email')
-        .send(emailData);
+    findMock.mockReturnValueOnce(
+      createPopulatedQuery([
+        {
+          _id: 'apt-1',
+          slotDate,
+          slotTime,
+          userId: { name: 'Alice', email: 'alice@example.com' },
+          docId: { name: 'Dr. Smith' },
+          reminderSent24h: false,
+          reminderSent2h: false,
+        },
+      ])
+    );
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Verification email sent successfully');
-    });
+    await sendReminders();
 
-    it('should return error for missing email', async () => {
-      const emailData = {
-        token: 'verification_token_123'
-        // Missing email
-      };
-
-      const response = await request(app)
-        .post('/api/notification/send-verification-email')
-        .send(emailData);
-
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-    });
+    expect(createTransportMock).toHaveBeenCalled();
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    expect(updateOneMock).toHaveBeenCalledWith(
+      { _id: 'apt-1' },
+      { $set: { reminderSent2h: true } }
+    );
   });
 
-  describe('POST /api/notification/send-reset-email', () => {
-    it('should send password reset email successfully', async () => {
-      const emailData = {
-        email: 'test@example.com',
-        resetToken: 'reset_token_123'
-      };
+  it('skips reminders that were already sent', async () => {
+    const reminderDate = new Date(Date.now() + 60 * 60 * 1000);
+    const slotDate = `${reminderDate.getDate()}_${reminderDate.getMonth() + 1}_${reminderDate.getFullYear()}`;
+    const slotTime = reminderDate.toTimeString().slice(0, 5);
 
-      const response = await request(app)
-        .post('/api/notification/send-reset-email')
-        .send(emailData);
+    findMock.mockReturnValueOnce(
+      createPopulatedQuery([
+        {
+          _id: 'apt-2',
+          slotDate,
+          slotTime,
+          userId: { name: 'Bob', email: 'bob@example.com' },
+          docId: { name: 'Dr. Jones' },
+          reminderSent24h: false,
+          reminderSent2h: true,
+        },
+      ])
+    );
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Password reset email sent successfully');
-    });
-  });
+    await sendReminders();
 
-  describe('POST /api/notification/send-appointment-reminder', () => {
-    it('should send appointment reminder successfully', async () => {
-      const reminderData = {
-        email: 'patient@example.com',
-        phone: '+1234567890',
-        doctorName: 'Dr. Smith',
-        appointmentDate: '2024-12-01',
-        appointmentTime: '10:00'
-      };
-
-      const response = await request(app)
-        .post('/api/notification/send-appointment-reminder')
-        .send(reminderData);
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Appointment reminder sent successfully');
-    });
-  });
-
-  describe('POST /api/notification/send-sms', () => {
-    it('should send SMS successfully', async () => {
-      const smsData = {
-        phone: '+1234567890',
-        message: 'Your appointment is confirmed for tomorrow at 10:00 AM'
-      };
-
-      const response = await request(app)
-        .post('/api/notification/send-sms')
-        .send(smsData);
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('SMS sent successfully');
-    });
-
-    it('should return error for missing phone number', async () => {
-      const smsData = {
-        message: 'Test message'
-        // Missing phone
-      };
-
-      const response = await request(app)
-        .post('/api/notification/send-sms')
-        .send(smsData);
-
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-    });
+    expect(sendMailMock).not.toHaveBeenCalled();
+    expect(updateOneMock).not.toHaveBeenCalled();
   });
 });
