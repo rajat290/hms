@@ -7,6 +7,8 @@ import reviewModel from "../models/reviewModel.js";
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import validator from "validator";
+import { cancelAppointmentRecord } from "../utils/appointmentIntegrity.js";
+import { runInTransaction } from "../utils/transaction.js";
 
 // API to verify email for doctor
 const verifyEmail = async (req, res) => {
@@ -100,23 +102,17 @@ const appointmentCancel = async (req, res) => {
 
         const { docId, appointmentId } = req.body
 
-        const appointmentData = await appointmentModel.findById(appointmentId)
-        if (appointmentData && appointmentData.docId.toString() === docId) {
-            await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
-            const doctorData = await doctorModel.findById(docId)
-            const slots_booked = doctorData?.slots_booked || {}
+        await runInTransaction(async (session) => {
+            const appointmentData = await appointmentModel.findById(appointmentId).session(session)
 
-            if (slots_booked[appointmentData.slotDate]) {
-                slots_booked[appointmentData.slotDate] = slots_booked[appointmentData.slotDate].filter(
-                    slot => slot !== appointmentData.slotTime
-                )
-                await doctorModel.findByIdAndUpdate(docId, { slots_booked })
+            if (!appointmentData || appointmentData.docId.toString() !== docId) {
+                throw new Error('Unauthorized or appointment not found')
             }
 
-            return res.json({ success: true, message: 'Appointment Cancelled' })
-        }
+            await cancelAppointmentRecord({ appointmentId, session })
+        })
 
-        res.json({ success: false, message: 'Unauthorized or appointment not found' })
+        res.json({ success: true, message: 'Appointment Cancelled' })
 
     } catch (error) {
         console.log(error)

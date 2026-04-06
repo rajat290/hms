@@ -8,6 +8,8 @@ import validator from "validator";
 import { v2 as cloudinary } from "cloudinary";
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod } from "../utils/appointmentIntegrity.js";
+import { runInTransaction } from "../utils/transaction.js";
 
 // API to verify email for staff
 const verifyEmail = async (req, res) => {
@@ -116,23 +118,10 @@ const getAllAppointments = async (req, res) => {
 const cancelAppointment = async (req, res) => {
     try {
         const { appointmentId } = req.body
-        const appointment = await appointmentModel.findById(appointmentId)
 
-        if (!appointment) {
-            return res.json({ success: false, message: 'Appointment not found' })
-        }
-
-        await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
-
-        const doctorData = await doctorModel.findById(appointment.docId)
-        const slots_booked = doctorData?.slots_booked || {}
-
-        if (slots_booked[appointment.slotDate]) {
-            slots_booked[appointment.slotDate] = slots_booked[appointment.slotDate].filter(
-                slot => slot !== appointment.slotTime
-            )
-            await doctorModel.findByIdAndUpdate(appointment.docId, { slots_booked })
-        }
+        await runInTransaction(async (session) => {
+            await cancelAppointmentRecord({ appointmentId, session })
+        })
 
         res.json({ success: true, message: 'Appointment Cancelled' })
     } catch (error) {
@@ -307,32 +296,49 @@ const updatePayment = async (req, res) => {
     try {
         const { appointmentId, paymentStatus, paymentMethod, partialAmount, billingItems } = req.body;
 
-        let updateData = { paymentStatus };
+        await runInTransaction(async (session) => {
+            const appointment = await appointmentModel.findById(appointmentId).populate('userId', 'name').session(session);
 
-        if (paymentMethod) updateData.paymentMethod = paymentMethod;
-        if (partialAmount !== undefined) {
-            // For itemized billing, partialAmount we receive is the new Grand Total
-            updateData.amount = partialAmount;
-            updateData.partialAmount = partialAmount;
-        }
-        if (billingItems) updateData.billingItems = billingItems;
-        updateData.invoiceDate = Date.now();
+            if (!appointment) {
+                throw new Error('Appointment not found');
+            }
 
-        // If status is paid, set payment boolean to true
-        if (paymentStatus === 'paid') {
-            updateData.payment = true;
-        }
+            appointment.paymentStatus = paymentStatus;
 
-        const appointment = await appointmentModel.findByIdAndUpdate(appointmentId, updateData).populate('userId', 'name');
+            if (paymentMethod) {
+                appointment.paymentMethod = normalizeAppointmentPaymentMethod(paymentMethod);
+            }
 
-        // Create notification for staff
-        const staffNotification = new notificationModel({
-            recipientType: 'staff',
-            title: "Payment Received",
-            message: `Payment of ${partialAmount || appointment.amount} received from ${appointment.userId.name} via ${paymentMethod || 'standard method'}.`,
-            type: "payment"
+            if (partialAmount !== undefined) {
+                appointment.amount = Number(partialAmount);
+                appointment.partialAmount = Number(partialAmount);
+            }
+
+            if (billingItems) {
+                appointment.billingItems = billingItems;
+            }
+
+            appointment.invoiceDate = new Date();
+
+            if (paymentStatus === 'paid') {
+                appointment.payment = true;
+            } else if (paymentStatus === 'unpaid') {
+                appointment.payment = false;
+                appointment.partialAmount = 0;
+            } else {
+                appointment.payment = false;
+            }
+
+            await appointment.save({ session });
+            await ensureInvoiceForAppointmentId(appointmentId, session);
+
+            await notificationModel.create([{
+                recipientType: 'staff',
+                title: "Payment Received",
+                message: `Payment of ${partialAmount || appointment.amount} received from ${appointment.userId.name} via ${paymentMethod || 'standard method'}.`,
+                type: "payment"
+            }], { session })
         })
-        await staffNotification.save()
 
         res.json({ success: true, message: 'Payment Updated' });
     } catch (error) {

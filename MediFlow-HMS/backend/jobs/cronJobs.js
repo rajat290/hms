@@ -10,7 +10,7 @@ const checkOverdueInvoices = async () => {
 
         // Find unpaid invoices past due date
         const overdueInvoices = await invoiceModel.find({
-            status: 'unpaid',
+            status: { $in: ['unpaid', 'partially paid'] },
             dueDate: { $lt: currentDate }
         }).populate('patientId');
 
@@ -20,6 +20,14 @@ const checkOverdueInvoices = async () => {
         }
 
         console.log(`Found ${overdueInvoices.length} overdue invoices.`);
+
+        await invoiceModel.updateMany(
+            {
+                _id: { $in: overdueInvoices.map(invoice => invoice._id) },
+                status: { $in: ['unpaid', 'partially paid'] }
+            },
+            { $set: { status: 'overdue', updatedAt: new Date() } }
+        );
 
         // Email Config
         const transporter = nodemailer.createTransport({

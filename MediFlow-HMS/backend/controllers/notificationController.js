@@ -1,6 +1,18 @@
 import nodemailer from 'nodemailer';
 import appointmentModel from '../models/appointmentModel.js';
 
+const REMINDER_LOCK_MINUTES = 20;
+
+const getReminderMetadata = (reminderType) => {
+    const isTwoHourReminder = reminderType === '2-hour';
+
+    return {
+        sentField: isTwoHourReminder ? 'reminderSent2h' : 'reminderSent24h',
+        sentAtField: isTwoHourReminder ? 'reminderSent2hAt' : 'reminderSent24hAt',
+        lockField: isTwoHourReminder ? 'reminder2hLockUntil' : 'reminder24hLockUntil',
+    };
+};
+
 const sendReminders = async () => {
     try {
         console.log('Checking for upcoming appointments to send reminders...');
@@ -46,6 +58,28 @@ const sendReminders = async () => {
             }
 
             if (reminderType) {
+                const { sentField, sentAtField, lockField } = getReminderMetadata(reminderType);
+                const lockUntil = new Date(Date.now() + REMINDER_LOCK_MINUTES * 60 * 1000);
+                const claimedAppointment = await appointmentModel.findOneAndUpdate(
+                    {
+                        _id: appointment._id,
+                        [sentField]: false,
+                        $or: [
+                            { [lockField]: { $exists: false } },
+                            { [lockField]: null },
+                            { [lockField]: { $lte: now } }
+                        ]
+                    },
+                    {
+                        $set: { [lockField]: lockUntil }
+                    },
+                    { new: true }
+                );
+
+                if (!claimedAppointment) {
+                    continue;
+                }
+
                 const mailOptions = {
                     from: process.env.EMAIL_USER,
                     to: userId.email,
@@ -68,10 +102,20 @@ const sendReminders = async () => {
 
                     await appointmentModel.updateOne(
                         { _id: appointment._id },
-                        { $set: { [reminderType === '2-hour' ? 'reminderSent2h' : 'reminderSent24h']: true } }
+                        {
+                            $set: {
+                                [sentField]: true,
+                                [sentAtField]: new Date()
+                            },
+                            $unset: { [lockField]: '' }
+                        }
                     );
                 } catch (err) {
                     console.error(`Failed to send reminder to ${userId.email}:`, err);
+                    await appointmentModel.updateOne(
+                        { _id: appointment._id },
+                        { $unset: { [lockField]: '' } }
+                    );
                 }
             }
         }

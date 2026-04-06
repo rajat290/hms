@@ -14,7 +14,8 @@ const invoiceSchema = new mongoose.Schema({
     appointmentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'appointment',
-        required: true
+        required: true,
+        unique: true
     },
     items: [{
         description: {
@@ -44,7 +45,7 @@ const invoiceSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['paid', 'unpaid', 'overdue', 'cancelled'],
+        enum: ['paid', 'unpaid', 'overdue', 'cancelled', 'partially paid', 'refunded'],
         default: 'unpaid'
     },
     dueDate: {

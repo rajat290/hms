@@ -13,5 +13,7 @@ const paymentLogSchema = new mongoose.Schema({
     timestamp: { type: Date, default: Date.now }
 })
 
+paymentLogSchema.index({ transactionId: 1 }, { unique: true, sparse: true });
+
 const paymentLogModel = mongoose.models.paymentLog || mongoose.model("paymentLog", paymentLogSchema);
 export default paymentLogModel;

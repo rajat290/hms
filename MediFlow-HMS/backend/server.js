@@ -7,6 +7,7 @@ import mongoose from "mongoose"
 import helmet from "helmet"
 import mongoSanitize from "express-mongo-sanitize"
 import connectDB from "./config/mongodb.js"
+import initializeDatabaseIntegrity from "./config/databaseIntegrity.js"
 import connectCloudinary from "./config/cloudinary.js"
 import userRouter from "./routes/userRoute.js"
 import doctorRouter from "./routes/doctorRoute.js"
@@ -27,6 +28,7 @@ app.set('trust proxy', 1)
 
 try {
   await connectDB()
+  await initializeDatabaseIntegrity()
   connectCloudinary()
   console.log("Infrastructure connections initialized")
 } catch (error) {

@@ -7,6 +7,7 @@ const sendMailMock = jest.fn();
 const createTransportMock = jest.fn(() => ({
   sendMail: sendMailMock,
 }));
+const findOneAndUpdateMock = jest.fn();
 const updateOneMock = jest.fn();
 const findMock = jest.fn();
 
@@ -17,6 +18,7 @@ jest.unstable_mockModule('nodemailer', () => ({
 jest.unstable_mockModule('../models/appointmentModel.js', () => ({
   default: {
     find: findMock,
+    findOneAndUpdate: findOneAndUpdateMock,
     updateOne: updateOneMock,
   },
 }));
@@ -32,6 +34,7 @@ const createPopulatedQuery = (appointments) => {
 describe('notificationController sendReminders', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    findOneAndUpdateMock.mockResolvedValue(null);
   });
 
   it('sends a 2-hour reminder and marks the appointment', async () => {
@@ -52,14 +55,33 @@ describe('notificationController sendReminders', () => {
         },
       ])
     );
+    findOneAndUpdateMock.mockResolvedValueOnce({ _id: 'apt-1' });
 
     await sendReminders();
 
     expect(createTransportMock).toHaveBeenCalled();
+    expect(findOneAndUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: 'apt-1',
+        reminderSent2h: false,
+      }),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          reminder2hLockUntil: expect.any(Date),
+        }),
+      }),
+      { new: true }
+    );
     expect(sendMailMock).toHaveBeenCalledTimes(1);
     expect(updateOneMock).toHaveBeenCalledWith(
       { _id: 'apt-1' },
-      { $set: { reminderSent2h: true } }
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          reminderSent2h: true,
+          reminderSent2hAt: expect.any(Date),
+        }),
+        $unset: { reminder2hLockUntil: '' },
+      })
     );
   });
 
@@ -85,6 +107,7 @@ describe('notificationController sendReminders', () => {
     await sendReminders();
 
     expect(sendMailMock).not.toHaveBeenCalled();
+    expect(findOneAndUpdateMock).not.toHaveBeenCalled();
     expect(updateOneMock).not.toHaveBeenCalled();
   });
 });
