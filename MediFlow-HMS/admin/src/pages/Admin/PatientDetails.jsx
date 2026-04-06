@@ -4,6 +4,7 @@ import { AdminContext } from '../../context/AdminContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { assets } from '../../assets/assets'
+import { formatSlotDate } from '@shared/utils/date.js'
 
 const PatientDetails = () => {
     const { userId } = useParams()
@@ -14,13 +15,6 @@ const PatientDetails = () => {
     const [appointments, setAppointments] = useState([])
     const [financial, setFinancial] = useState({})
     const [prescriptions, setPrescriptions] = useState([])
-
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-    const slotDateFormat = (slotDate) => {
-        const dateArray = slotDate.split('_')
-        return dateArray[0] + " " + months[Number(dateArray[1]) - 1] + " " + dateArray[2]
-    }
 
     const getPatientDetails = async () => {
         try {
@@ -114,7 +108,7 @@ const PatientDetails = () => {
                             <div className='flex-1'>
                                 <p className='font-medium'>{item.docId?.name}</p>
                                 <p className='text-sm text-gray-600'>{item.docId?.speciality}</p>
-                                <p className='text-sm text-gray-500'>{slotDateFormat(item.slotDate)} | {item.slotTime}</p>
+                                <p className='text-sm text-gray-500'>{formatSlotDate(item.slotDate)} | {item.slotTime}</p>
                                 <div className='flex gap-2 mt-2'>
                                     {item.cancelled && <span className='text-xs bg-red-100 text-red-600 px-2 py-1 rounded'>Cancelled</span>}
                                     {item.isCompleted && <span className='text-xs bg-green-100 text-green-600 px-2 py-1 rounded'>Completed</span>}

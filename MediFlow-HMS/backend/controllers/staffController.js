@@ -6,11 +6,11 @@ import userModel from "../models/userModel.js";
 import validator from "validator";
 import { v2 as cloudinary } from "cloudinary";
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod } from "../utils/appointmentIntegrity.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../services/emailService.js";
 
 // API to verify email for staff
 const verifyEmail = async (req, res) => {
@@ -48,24 +48,15 @@ const loginStaff = async (req, res) => {
                 staff.verificationToken = verificationToken;
                 await staff.save();
 
-                const transporter = nodemailer.createTransport({
-                    service: 'gmail',
-                    auth: {
-                        user: process.env.EMAIL_USER,
-                        pass: process.env.EMAIL_PASS
-                    }
-                });
-
-                const verificationUrl = `${req.headers.origin}/verify-email?token=${verificationToken}&role=staff`;
-
-                const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: email,
+                await sendVerificationEmail({
+                    email,
+                    origin: req.headers.origin,
+                    token: verificationToken,
+                    role: 'staff',
                     subject: 'Verify Your Staff Account - Mediflow',
-                    html: `<h3>Email Verification Required</h3><p>Please click <a href="${verificationUrl}">here</a> to verify your account.</p>`
-                };
-
-                await transporter.sendMail(mailOptions);
+                    heading: 'Email Verification Required',
+                    body: 'Please click the button below to verify your staff account.',
+                });
                 return res.json({ success: false, message: "Email not verified. A new verification link has been sent." })
             }
             const session = await issueAuthTokens({
@@ -468,24 +459,14 @@ const forgotPassword = async (req, res) => {
         staff.resetTokenExpiry = Date.now() + 3600000; // 1 hour
         await staff.save();
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
-
-        const resetUrl = `${req.headers.origin}/reset-password?token=${resetToken}&role=staff`;
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email,
+        await sendPasswordResetEmail({
+            email,
+            origin: req.headers.origin,
+            token: resetToken,
+            role: 'staff',
             subject: 'Password Reset - Mediflow Staff Panel',
-            html: `<h3>Password Reset Request</h3><p>Click <a href="${resetUrl}">here</a> to reset your password.</p>`
-        };
-
-        await transporter.sendMail(mailOptions);
+            accountLabel: 'Staff account',
+        });
         res.json({ success: true, message: 'Reset link sent' });
     } catch (error) {
         console.log(error);

@@ -1,18 +1,13 @@
 import { jest } from '@jest/globals';
 
-process.env.EMAIL_USER = 'alerts@mediflow.test';
-process.env.EMAIL_PASS = 'app-password';
-
-const sendMailMock = jest.fn();
-const createTransportMock = jest.fn(() => ({
-  sendMail: sendMailMock,
-}));
+const sendAppointmentReminderEmailMock = jest.fn();
 const findOneAndUpdateMock = jest.fn();
 const updateOneMock = jest.fn();
 const findMock = jest.fn();
 
-jest.unstable_mockModule('nodemailer', () => ({
-  default: { createTransport: createTransportMock },
+jest.unstable_mockModule('../services/emailService.js', () => ({
+  sendAppointmentReminderEmail: sendAppointmentReminderEmailMock,
+  logEmailFailure: jest.fn(),
 }));
 
 jest.unstable_mockModule('../models/appointmentModel.js', () => ({
@@ -59,7 +54,6 @@ describe('notificationController sendReminders', () => {
 
     await sendReminders();
 
-    expect(createTransportMock).toHaveBeenCalled();
     expect(findOneAndUpdateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         _id: 'apt-1',
@@ -72,7 +66,7 @@ describe('notificationController sendReminders', () => {
       }),
       { new: true }
     );
-    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    expect(sendAppointmentReminderEmailMock).toHaveBeenCalledTimes(1);
     expect(updateOneMock).toHaveBeenCalledWith(
       { _id: 'apt-1' },
       expect.objectContaining({
@@ -106,7 +100,7 @@ describe('notificationController sendReminders', () => {
 
     await sendReminders();
 
-    expect(sendMailMock).not.toHaveBeenCalled();
+    expect(sendAppointmentReminderEmailMock).not.toHaveBeenCalled();
     expect(findOneAndUpdateMock).not.toHaveBeenCalled();
     expect(updateOneMock).not.toHaveBeenCalled();
   });

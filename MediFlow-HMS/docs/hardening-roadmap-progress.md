@@ -11,9 +11,8 @@ For each phase, it records:
 
 ## Branch Strategy
 - Every phase or major module change should be done on its own branch.
-- Current branch for this phase: `Phase4-API-quality-improvement`
+- Current branch for this phase: `Phase5-code-architecturere-factor`
 - Recommended future branches:
-  - `phase-5-architecture-refactor`
   - `phase-6-testing-expansion`
   - `phase-7-devops-docs`
 
@@ -23,7 +22,7 @@ For each phase, it records:
 - Phase 2: Data Integrity Fixes - completed
 - Phase 3: Authentication Hardening - completed
 - Phase 4: API Quality - completed
-- Phase 5: Code Architecture Refactor - pending
+- Phase 5: Code Architecture Refactor - completed
 - Phase 6: Testing - pending
 - Phase 7: DevOps and Documentation - pending
 - Phase 8: Advanced Scaling Features - pending
@@ -615,11 +614,161 @@ Why:
 - some business-rule failures still intentionally return `success: false` without changing their historical HTTP status so existing clients do not break during this phase
 - logging infrastructure, service extraction, and broader architecture cleanup still belong to Phase 5 and later phases
 
+## Phase 5 - Code Architecture Refactor
+
+### Why This Phase Was Needed
+After the API-quality pass, the biggest remaining technical-debt issues were architectural:
+- startup configuration still depended on raw `process.env` reads with no schema-based validation
+- the backend had no structured application logging or shared request logging
+- business logic for user auth and admin read endpoints still lived directly inside very large controllers
+- email delivery logic was duplicated across controllers and cron jobs
+- the frontend and admin apps still duplicated basic date/session utility logic
+
+### What Changed
+
+#### 1. Runtime configuration is now validated with a schema on startup
+Files:
+- `backend/config/appConfig.js`
+- `backend/server.js`
+- `backend/config/security.js`
+- `backend/config/cloudinary.js`
+- `backend/config/mongodb.js`
+- `backend/package.json`
+- `backend/package-lock.json`
+
+What changed:
+- added a `zod`-based runtime configuration module with normalized values and explicit startup validation
+- moved startup reads for MongoDB, Cloudinary, and CORS into config-backed modules
+- added startup warnings for optional integrations like email and Cloudinary when they are intentionally not configured
+- kept validation at server startup so tests and utility imports can still load config safely without booting the whole app
+
+Why:
+- this makes startup failures deterministic and much easier to debug than scattered missing-env crashes later in request handling
+
+#### 2. Structured logging and request logging were introduced
+Files:
+- `backend/config/logger.js`
+- `backend/middleware/requestLogger.js`
+- `backend/server.js`
+- `backend/config/mongodb.js`
+- `backend/controllers/notificationController.js`
+- `backend/jobs/cronJobs.js`
+
+What changed:
+- added a shared Winston logger with environment-aware formatting
+- added Morgan request logging through the shared logger
+- replaced ad hoc startup and cron logging with structured application logs
+- kept health checks and test runs quiet where that noise would not add value
+
+Why:
+- this gives the backend one consistent logging path for startup, request tracing, and scheduled job behavior
+
+#### 3. User auth logic was extracted into a service and repository layer
+Files:
+- `backend/repositories/userAuthRepository.js`
+- `backend/services/auth/userAuthService.js`
+- `backend/controllers/userController.js`
+- `backend/services/emailService.js`
+
+What changed:
+- moved patient registration, login, verification, forgot-password, reset-password, and 2FA logic out of `userController.js`
+- controllers now focus on request/response handling while the service owns password hashing, verification-token generation, email dispatch, and session issuance
+- user auth data access now goes through a dedicated repository instead of direct model calls from the controller
+
+Why:
+- this reduces controller size, centralizes auth business rules, and creates a cleaner seam for later testing and expansion
+
+#### 4. Admin read endpoints now flow through services and repositories
+Files:
+- `backend/repositories/adminReadRepository.js`
+- `backend/services/admin/adminReadService.js`
+- `backend/controllers/adminController.js`
+
+What changed:
+- moved admin appointment, doctor, patient, invoice, payment-history, audit-log, staff, and dashboard read logic into a dedicated service/repository path
+- controllers now delegate pagination, counting, and dashboard shaping instead of embedding query logic inline
+- response contracts stayed the same because controllers still return the existing paginated API shape
+
+Why:
+- these are the easiest large-controller sections to extract safely, and they create a reusable read layer for future admin features
+
+#### 5. Email delivery was centralized across backend roles and jobs
+Files:
+- `backend/services/emailService.js`
+- `backend/controllers/adminController.js`
+- `backend/controllers/doctorController.js`
+- `backend/controllers/staffController.js`
+- `backend/controllers/notificationController.js`
+- `backend/jobs/cronJobs.js`
+
+What changed:
+- moved shared verification, password-reset, welcome, reminder, and overdue-invoice email behavior behind one service
+- doctor and staff auth flows now reuse the same verification/reset email helpers
+- admin patient onboarding now uses the shared welcome-email helper
+- reminder and overdue-invoice jobs now use the shared email service plus structured failure logging
+
+Why:
+- duplicated email setup was spreading behavior across controllers and jobs, which makes every mail-related change harder and riskier than it needs to be
+
+#### 6. The frontend and admin apps now share a small utilities package
+Files:
+- `shared/package.json`
+- `shared/utils/date.js`
+- `shared/utils/sessionStorage.js`
+- `frontend/src/context/AppContext.jsx`
+- `frontend/src/pages/MyBilling.jsx`
+- `frontend/src/pages/MyAppointments.jsx`
+- `frontend/src/pages/AppointmentDetails.jsx`
+- `frontend/vite.config.js`
+- `frontend/vitest.config.js`
+- `admin/src/context/AppContext.jsx`
+- `admin/src/context/AdminContext.jsx`
+- `admin/src/context/DoctorContext.jsx`
+- `admin/src/context/StaffContext.jsx`
+- `admin/src/pages/Admin/PatientDetails.jsx`
+- `admin/vite.config.js`
+
+What changed:
+- added a shared package at the repo root for date formatting and session-storage helpers
+- both React apps now reuse the same slot-date formatter instead of carrying separate implementations
+- patient, admin, doctor, and staff session persistence now reuse the same browser-storage helper
+- Vite and Vitest were updated so both apps can resolve the shared package cleanly
+
+Why:
+- this creates a first low-risk shared layer between the two React apps without forcing a large monorepo or component-system migration
+
+#### 7. Phase 5 coverage was expanded around the new architecture seams
+Files:
+- `backend/__tests__/appConfig.test.js`
+- `backend/__tests__/adminReadService.test.js`
+- `backend/__tests__/userAuthService.test.js`
+- `backend/__tests__/notificationController.test.js`
+
+What changed:
+- added direct tests for schema-based config validation and startup warnings
+- added direct tests for the new admin read service
+- added direct tests for the new user auth service flows
+- updated reminder tests to mock the shared email service instead of direct Nodemailer transport creation
+
+Why:
+- Phase 5 changes structure more than behavior, so tests need to cover the new service and config boundaries directly
+
+### Verification Results
+- Backend tests: passed (`36/36`)
+- Backend startup, validator/index sync, `/api/health`, and `/api/v1/health`: passed
+- Frontend tests: passed (`2/2`)
+- Frontend production build: passed
+- Admin production build: passed
+
+### Remaining Notes After Phase 5
+- the shared frontend/admin package is intentionally small and utility-focused for now; shared components and API client abstractions can still be added later without redoing this phase
+- structured logging now exists, but log shipping/aggregation still belongs to later operational work
+- large controllers still exist for some write-heavy domains like billing analytics, doctor workflows, and staff workflows, but the core extraction pattern is now in place for those follow-on refactors
+- bundle-size warnings still remain on both React apps and can be handled separately from this architectural cleanup
+
 ## Next Recommended Phase
-Phase 5: Code Architecture Refactor
+Phase 6: Testing
 
 Planned focus:
-- extract service-layer logic from large controllers
-- isolate database query responsibilities more cleanly
-- centralize configuration and startup validation further
-- add logging infrastructure that works cleanly with the new API envelope
+- expand unit and integration coverage around booking, webhook verification, slot conflicts, and auth middleware
+- raise confidence before the DevOps/documentation phase adds CI and deployment automation

@@ -1,21 +1,23 @@
-const configuredOrigins = (process.env.CORS_ORIGINS || '')
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean)
-
-const singleOrigins = [
-    process.env.FRONTEND_URL,
-    process.env.ADMIN_URL,
-    process.env.CLIENT_URL,
-    process.env.APP_URL,
-].filter(Boolean)
-
-const allowedOrigins = new Set([...configuredOrigins, ...singleOrigins])
+import { getAppConfig } from './appConfig.js'
 
 const isLocalOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
 
+const getAllowedOrigins = () => {
+    const { security } = getAppConfig()
+    const singleOrigins = [
+        security.frontendUrl,
+        security.adminUrl,
+        security.clientUrl,
+        security.appUrl,
+    ].filter(Boolean)
+
+    return new Set([...security.corsOrigins, ...singleOrigins])
+}
+
 const corsOptions = {
     origin(origin, callback) {
+        const allowedOrigins = getAllowedOrigins()
+
         if (!origin || allowedOrigins.has(origin) || isLocalOrigin(origin)) {
             return callback(null, true)
         }

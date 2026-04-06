@@ -1,12 +1,26 @@
 import mongoose from "mongoose";
+import { getAppConfig } from "./appConfig.js";
+import { logger } from "./logger.js";
+
+let connectionListenersRegistered = false;
+
+const registerConnectionListeners = () => {
+    if (connectionListenersRegistered) {
+        return;
+    }
+
+    connectionListenersRegistered = true;
+
+    mongoose.connection.on('connected', () => logger.info("Database connected"));
+    mongoose.connection.on('error', (error) => logger.error("Database connection error", { message: error.message }));
+    mongoose.connection.on('disconnected', () => logger.warn("Database disconnected"));
+};
 
 const connectDB = async () => {
+    const { database } = getAppConfig();
 
-    mongoose.connection.on('connected', () => console.log("Database Connected"))
-    mongoose.connection.on('error', (err) => console.log("Database Connection Error:", err))
-    mongoose.connection.on('disconnected', () => console.log("Database Disconnected"))
-
-    await mongoose.connect(`${process.env.MONGODB_URI}`)
+    registerConnectionListeners();
+    await mongoose.connect(database.uri);
 }
 
 export default connectDB;

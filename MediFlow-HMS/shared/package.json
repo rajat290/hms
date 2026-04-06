@@ -1,0 +1,5 @@
+{
+  "name": "mediflow-shared",
+  "private": true,
+  "type": "module"
+}

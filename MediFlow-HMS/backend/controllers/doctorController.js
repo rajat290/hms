@@ -3,13 +3,13 @@ import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import prescriptionModel from "../models/prescriptionModel.js";
 import reviewModel from "../models/reviewModel.js";
-import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import validator from "validator";
 import { cancelAppointmentRecord } from "../utils/appointmentIntegrity.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../services/emailService.js";
 
 // API to verify email for doctor
 const verifyEmail = async (req, res) => {
@@ -49,24 +49,15 @@ const loginDoctor = async (req, res) => {
                 user.verificationToken = verificationToken;
                 await user.save();
 
-                const transporter = nodemailer.createTransport({
-                    service: 'gmail',
-                    auth: {
-                        user: process.env.EMAIL_USER,
-                        pass: process.env.EMAIL_PASS
-                    }
-                });
-
-                const verificationUrl = `${req.headers.origin}/verify-email?token=${verificationToken}&role=doctor`;
-
-                const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: email,
+                await sendVerificationEmail({
+                    email,
+                    origin: req.headers.origin,
+                    token: verificationToken,
+                    role: 'doctor',
                     subject: 'Verify Your Doctor Account - Mediflow',
-                    html: `<h3>Email Verification Required</h3><p>Please click <a href="${verificationUrl}">here</a> to verify your account.</p>`
-                };
-
-                await transporter.sendMail(mailOptions);
+                    heading: 'Email Verification Required',
+                    body: 'Please click the button below to verify your doctor account.',
+                });
                 return res.json({ success: false, message: "Email not verified. A new verification link has been sent." })
             }
             const session = await issueAuthTokens({
@@ -481,34 +472,14 @@ const forgotPassword = async (req, res) => {
         doctor.resetTokenExpiry = Date.now() + 3600000; // 1 hour
         await doctor.save();
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
-
-        // Use origin from headers to support different environments
-        const resetUrl = `${req.headers.origin}/reset-password?token=${resetToken}&role=doctor`;
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email,
+        await sendPasswordResetEmail({
+            email,
+            origin: req.headers.origin,
+            token: resetToken,
+            role: 'doctor',
             subject: 'Password Reset - Mediflow Doctor Panel',
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Password Reset Request</h2>
-                    <p>You requested a password reset for your Doctor account. Please click the button below to set a new password:</p>
-                    <a href="${resetUrl}" style="background-color: #5f6FFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Reset Password</a>
-                    <p>This link will expire in 1 hour.</p>
-                    <p>If you did not request this, please ignore this email.</p>
-                    <p>Thank you,<br>The Mediflow Team</p>
-                </div>
-            `
-        };
-
-        await transporter.sendMail(mailOptions);
+            accountLabel: 'Doctor account',
+        });
         res.json({ success: true, message: 'Reset link sent to your email' });
     } catch (error) {
         console.log(error);

@@ -5,6 +5,7 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import { assets } from '../assets/assets'
 import { jsPDF } from "jspdf"
+import { formatSlotDate } from '@shared/utils/date.js'
 
 const MyAppointments = () => {
 
@@ -22,14 +23,6 @@ const MyAppointments = () => {
     const [slotIndex, setSlotIndex] = useState(0)
     const [slotTime, setSlotTime] = useState('')
     const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
-
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-    // Function to format the date eg. ( 20_01_2000 => 20 Jan 2000 )
-    const slotDateFormat = (slotDate) => {
-        const dateArray = slotDate.split('_')
-        return dateArray[0] + " " + months[Number(dateArray[1])] + " " + dateArray[2]
-    }
 
     // Getting User Appointments Data Using API
     const getUserAppointments = async () => {
@@ -67,7 +60,7 @@ const MyAppointments = () => {
         doc.setFontSize(12);
         doc.text(`Doctor: ${appointment.docData.name}`, 20, 40);
         doc.text(`Speciality: ${appointment.docData.speciality}`, 20, 50);
-        doc.text(`Date: ${slotDateFormat(appointment.slotDate)}`, 20, 60);
+        doc.text(`Date: ${formatSlotDate(appointment.slotDate)}`, 20, 60);
 
         doc.setLineWidth(0.5);
         doc.line(20, 70, 190, 70);
@@ -244,7 +237,7 @@ const MyAppointments = () => {
                             <p className='text-[#464646] font-medium mt-1'>Address:</p>
                             <p className=''>{item.docData.address.line1}</p>
                             <p className=''>{item.docData.address.line2}</p>
-                            <p className=' mt-1'><span className='text-sm text-[#3C3C3C] font-medium'>Date & Time:</span> {slotDateFormat(item.slotDate)} |  {item.slotTime}</p>
+                            <p className=' mt-1'><span className='text-sm text-[#3C3C3C] font-medium'>Date & Time:</span> {formatSlotDate(item.slotDate)} |  {item.slotTime}</p>
                         </div>
                         <div></div>
                         <div className='flex flex-col gap-2 justify-end text-sm text-center'>

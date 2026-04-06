@@ -1,6 +1,7 @@
 import axios from "axios";
 import { createContext, useState } from "react";
 import { toast } from "react-toastify";
+import { persistStoredSession, readStoredValue } from "@shared/utils/sessionStorage.js";
 
 export const StaffContext = createContext()
 
@@ -8,8 +9,8 @@ const StaffContextProvider = (props) => {
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-    const [sToken, setSToken] = useState(localStorage.getItem('sToken') ? localStorage.getItem('sToken') : '')
-    const [sRefreshToken, setSRefreshToken] = useState(localStorage.getItem('sRefreshToken') ? localStorage.getItem('sRefreshToken') : '')
+    const [sToken, setSToken] = useState(() => readStoredValue('sToken'))
+    const [sRefreshToken, setSRefreshToken] = useState(() => readStoredValue('sRefreshToken'))
 
     const [staffProfile, setStaffProfile] = useState(false)
     const [dashData, setDashData] = useState(false)
@@ -17,17 +18,15 @@ const StaffContextProvider = (props) => {
     const [patients, setPatients] = useState([])
 
     const persistStaffSession = (nextAccessToken, nextRefreshToken) => {
-        const resolvedAccessToken = nextAccessToken || ''
-        const resolvedRefreshToken = nextRefreshToken || ''
+        const { accessToken, refreshToken } = persistStoredSession({
+            accessKey: 'sToken',
+            refreshKey: 'sRefreshToken',
+            accessToken: nextAccessToken,
+            refreshToken: nextRefreshToken,
+        })
 
-        setSToken(resolvedAccessToken)
-        setSRefreshToken(resolvedRefreshToken)
-
-        if (resolvedAccessToken) localStorage.setItem('sToken', resolvedAccessToken)
-        else localStorage.removeItem('sToken')
-
-        if (resolvedRefreshToken) localStorage.setItem('sRefreshToken', resolvedRefreshToken)
-        else localStorage.removeItem('sRefreshToken')
+        setSToken(accessToken)
+        setSRefreshToken(refreshToken)
     }
 
     const clearStaffSession = () => {

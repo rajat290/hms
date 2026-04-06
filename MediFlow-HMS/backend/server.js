@@ -21,21 +21,28 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js"
 import sanitizeRequestInput from "./middleware/requestSanitizer.js"
 import { apiLimiter } from "./middleware/rateLimiters.js"
 import normalizeApiResponse from "./middleware/responseNormalizer.js"
+import { validateRuntimeConfig } from "./config/appConfig.js"
+import { logger } from "./config/logger.js"
+import requestLogger from "./middleware/requestLogger.js"
 
 // app config
 const app = express()
-const port = process.env.PORT || 4000
+const { config, warnings } = validateRuntimeConfig()
+const port = config.server.port
 const apiRouter = express.Router()
 
 app.set('trust proxy', 1)
+app.use(requestLogger)
+
+warnings.forEach((warning) => logger.warn(warning))
 
 try {
   await connectDB()
   await initializeDatabaseIntegrity()
   connectCloudinary()
-  console.log("Infrastructure connections initialized")
+  logger.info("Infrastructure connections initialized")
 } catch (error) {
-  console.error("Failed to connect to required services:", error.message)
+  logger.error("Failed to connect to required services", { message: error.message })
 }
 
 initCronJobs()
@@ -113,4 +120,4 @@ app.get("/", (req, res) => {
 
 app.use(errorHandler)
 
-app.listen(port, () => console.log(`Server started on PORT:${port}`))
+app.listen(port, () => logger.info(`Server started on PORT:${port}`))
