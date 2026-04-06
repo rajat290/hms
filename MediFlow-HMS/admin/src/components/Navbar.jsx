@@ -10,24 +10,19 @@ import { AppContext } from '../context/AppContext'
 
 const Navbar = () => {
 
-  const { dToken, setDToken } = useContext(DoctorContext)
-  const { aToken, setAToken } = useContext(AdminContext)
-  const { sToken, setSToken } = useContext(StaffContext)
+  const { dToken } = useContext(DoctorContext)
+  const { aToken } = useContext(AdminContext)
+  const { sToken } = useContext(StaffContext)
   const { unreadCount, notifications, markAsRead } = useContext(NotificationContext)
   const [showNotifications, setShowNotifications] = React.useState(false)
 
-  const { isEmergencyMode, setIsEmergencyMode, isDarkMode, setIsDarkMode } = useContext(AppContext)
+  const { isEmergencyMode, setIsEmergencyMode, isDarkMode, setIsDarkMode, logoutCurrentSession } = useContext(AppContext)
 
   const navigate = useNavigate()
 
-  const logout = () => {
+  const logout = async () => {
+    await logoutCurrentSession()
     navigate('/')
-    dToken && setDToken('')
-    dToken && localStorage.removeItem('dToken')
-    aToken && setAToken('')
-    aToken && localStorage.removeItem('aToken')
-    sToken && setSToken('')
-    sToken && localStorage.removeItem('sToken')
   }
 
   return (

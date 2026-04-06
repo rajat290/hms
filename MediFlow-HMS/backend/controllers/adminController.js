@@ -1,4 +1,3 @@
-import jwt from "jsonwebtoken";
 import appointmentModel from "../models/appointmentModel.js";
 import doctorModel from "../models/doctorModel.js";
 import settingsModel from "../models/settingsModel.js";
@@ -15,6 +14,7 @@ import crypto from 'crypto';
 import PDFDocument from 'pdfkit';
 import auditLogModel from "../models/auditLogModel.js";
 import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod, normalizePaymentLogMethod, refundAppointmentPayment } from "../utils/appointmentIntegrity.js";
+import { getAdminSubjectId, issueAuthTokens, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
 
 // Helper function for audit logging
@@ -39,8 +39,12 @@ const loginAdmin = async (req, res) => {
         const { email, password } = req.body
 
         if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-            const token = jwt.sign(email + password, process.env.JWT_SECRET)
-            res.json({ success: true, token })
+            const session = await issueAuthTokens({
+                subjectId: getAdminSubjectId(),
+                role: 'admin',
+                req,
+            });
+            res.json({ success: true, ...session })
         } else {
             res.json({ success: false, message: "Invalid credentials" })
         }
@@ -50,6 +54,28 @@ const loginAdmin = async (req, res) => {
         res.json({ success: false, message: error.message })
     }
 
+}
+
+const refreshSession = async (req, res) => {
+    try {
+        const { refreshToken } = req.body;
+        const session = await rotateRefreshSession(refreshToken, 'admin', req);
+
+        res.json({ success: true, ...session });
+    } catch (error) {
+        console.log(error);
+        res.status(401).json({ success: false, message: error.message || 'Session refresh failed' });
+    }
+}
+
+const logoutAdmin = async (req, res) => {
+    try {
+        await revokeSessionById(req.auth?.sessionId, 'Admin logout');
+        res.json({ success: true, message: 'Logged out successfully' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
 }
 
 // API to get all appointments list
@@ -1211,7 +1237,7 @@ const allStaff = async (req, res) => {
 }
 
 export {
-    loginAdmin, appointmentsAdmin, appointmentCancel, addDoctor, allDoctors, adminDashboard,
+    loginAdmin, refreshSession, logoutAdmin, appointmentsAdmin, appointmentCancel, addDoctor, allDoctors, adminDashboard,
     appointmentAccept, getSettings, updateSettings, getPatientDetails, getAnalytics, getAllPatients,
     updatePaymentStatus, updatePaymentMethods, updateDoctor, createPatientAdmin,
     generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF,

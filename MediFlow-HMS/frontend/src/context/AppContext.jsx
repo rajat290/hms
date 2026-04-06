@@ -1,81 +1,209 @@
-import { createContext, useEffect, useState } from "react";
+import { createContext, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import axios from 'axios'
+import axios from 'axios';
 
-export const AppContext = createContext()
+export const AppContext = createContext();
 
 const AppContextProvider = (props) => {
 
-    const currencySymbol = '₹'
-    const backendUrl = import.meta.env.VITE_BACKEND_URL
+    const currencySymbol = '\u20B9';
+    const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-    const [doctors, setDoctors] = useState([])
-    const [token, setToken] = useState(localStorage.getItem('token') ? localStorage.getItem('token') : '')
-    const [userData, setUserData] = useState(false)
+    const [doctors, setDoctors] = useState([]);
+    const [token, setToken] = useState(localStorage.getItem('token') ? localStorage.getItem('token') : '');
+    const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken') ? localStorage.getItem('refreshToken') : '');
+    const [userData, setUserData] = useState(false);
+    const refreshRequestRef = useRef(null);
 
-    // Getting Doctors using API
+    const persistSession = (nextAccessToken, nextRefreshToken) => {
+        const resolvedAccessToken = nextAccessToken || '';
+        const resolvedRefreshToken = nextRefreshToken || '';
+
+        setToken(resolvedAccessToken);
+        setRefreshToken(resolvedRefreshToken);
+
+        if (resolvedAccessToken) {
+            localStorage.setItem('token', resolvedAccessToken);
+        } else {
+            localStorage.removeItem('token');
+        }
+
+        if (resolvedRefreshToken) {
+            localStorage.setItem('refreshToken', resolvedRefreshToken);
+        } else {
+            localStorage.removeItem('refreshToken');
+        }
+    };
+
+    const clearSession = () => {
+        persistSession('', '');
+        setUserData(false);
+    };
+
+    const normalizeAxiosError = (error) => {
+        const message = error?.response?.data?.message || error?.message || 'Request failed';
+        const normalizedError = new Error(message);
+        normalizedError.response = error?.response;
+        normalizedError.config = error?.config;
+        return normalizedError;
+    };
+
+    const refreshUserSession = async () => {
+        const storedRefreshToken = refreshToken || localStorage.getItem('refreshToken') || '';
+
+        if (!storedRefreshToken) {
+            throw new Error('No refresh token available');
+        }
+
+        const { data } = await axios.post(
+            backendUrl + '/api/user/refresh-session',
+            { refreshToken: storedRefreshToken },
+            { skipSessionRefresh: true },
+        );
+
+        if (!data.success) {
+            throw new Error(data.message || 'Session refresh failed');
+        }
+
+        persistSession(data.token, data.refreshToken);
+        return data;
+    };
+
+    const logout = async () => {
+        try {
+            if (token) {
+                await axios.post(
+                    backendUrl + '/api/user/logout',
+                    {},
+                    {
+                        headers: { token },
+                        skipSessionRefresh: true,
+                    },
+                );
+            }
+        } catch (error) {
+            console.log(error);
+        } finally {
+            clearSession();
+        }
+    };
+
     const getDoctosData = async () => {
 
         try {
 
-            const { data } = await axios.get(backendUrl + '/api/doctor/list')
+            const { data } = await axios.get(backendUrl + '/api/doctor/list');
             if (data.success) {
-                setDoctors(data.doctors)
+                setDoctors(data.doctors);
             } else {
-                toast.error(data.message)
+                toast.error(data.message);
             }
 
         } catch (error) {
-            console.log(error)
-            toast.error(error.message)
+            console.log(error);
+            toast.error(error.message);
         }
 
-    }
+    };
 
-    // Getting User Profile using API
     const loadUserProfileData = async () => {
+        if (!token) {
+            return;
+        }
 
         try {
 
-            const { data } = await axios.get(backendUrl + '/api/user/get-profile', { headers: { token } })
+            const { data } = await axios.get(backendUrl + '/api/user/get-profile', { headers: { token } });
 
             if (data.success) {
-                setUserData(data.userData)
+                setUserData(data.userData);
             } else {
-                toast.error(data.message)
+                toast.error(data.message);
             }
 
         } catch (error) {
-            console.log(error)
-            toast.error(error.message)
+            console.log(error);
+            toast.error(error.message);
         }
 
-    }
+    };
 
     useEffect(() => {
-        getDoctosData()
-    }, [])
+        getDoctosData();
+    }, []);
 
     useEffect(() => {
         if (token) {
-            loadUserProfileData()
+            loadUserProfileData();
+        } else {
+            setUserData(false);
         }
-    }, [token])
+    }, [token]);
+
+    useEffect(() => {
+        const interceptorId = axios.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                const originalRequest = error?.config || {};
+                const shouldAttemptRefresh = error?.response?.status === 401
+                    && !originalRequest._sessionRetried
+                    && !originalRequest.skipSessionRefresh
+                    && Boolean(refreshToken || localStorage.getItem('refreshToken'));
+
+                if (!shouldAttemptRefresh) {
+                    return Promise.reject(normalizeAxiosError(error));
+                }
+
+                originalRequest._sessionRetried = true;
+
+                try {
+                    if (!refreshRequestRef.current) {
+                        refreshRequestRef.current = refreshUserSession();
+                    }
+
+                    const refreshedSession = await refreshRequestRef.current;
+                    originalRequest.headers = {
+                        ...(originalRequest.headers || {}),
+                        token: refreshedSession.token,
+                    };
+
+                    return axios(originalRequest);
+                } catch (refreshError) {
+                    clearSession();
+                    if (window.location.pathname !== '/login') {
+                        window.location.assign('/login');
+                    }
+                    return Promise.reject(normalizeAxiosError(refreshError));
+                } finally {
+                    refreshRequestRef.current = null;
+                }
+            },
+        );
+
+        return () => {
+            axios.interceptors.response.eject(interceptorId);
+        };
+    }, [backendUrl, refreshToken, token]);
 
     const value = {
         doctors, getDoctosData,
         currencySymbol,
         backendUrl,
         token, setToken,
-        userData, setUserData, loadUserProfileData
-    }
+        refreshToken, setRefreshToken,
+        persistSession,
+        clearSession,
+        refreshUserSession,
+        logout,
+        userData, setUserData, loadUserProfileData,
+    };
 
     return (
         <AppContext.Provider value={value}>
             {props.children}
         </AppContext.Provider>
-    )
+    );
 
-}
+};
 
-export default AppContextProvider
+export default AppContextProvider;

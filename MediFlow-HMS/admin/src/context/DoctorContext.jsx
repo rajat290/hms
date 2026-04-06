@@ -10,9 +10,31 @@ const DoctorContextProvider = (props) => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL
 
     const [dToken, setDToken] = useState(localStorage.getItem('dToken') ? localStorage.getItem('dToken') : '')
+    const [dRefreshToken, setDRefreshToken] = useState(localStorage.getItem('dRefreshToken') ? localStorage.getItem('dRefreshToken') : '')
     const [appointments, setAppointments] = useState([])
     const [dashData, setDashData] = useState(false)
     const [profileData, setProfileData] = useState(false)
+
+    const persistDoctorSession = (nextAccessToken, nextRefreshToken) => {
+        const resolvedAccessToken = nextAccessToken || ''
+        const resolvedRefreshToken = nextRefreshToken || ''
+
+        setDToken(resolvedAccessToken)
+        setDRefreshToken(resolvedRefreshToken)
+
+        if (resolvedAccessToken) localStorage.setItem('dToken', resolvedAccessToken)
+        else localStorage.removeItem('dToken')
+
+        if (resolvedRefreshToken) localStorage.setItem('dRefreshToken', resolvedRefreshToken)
+        else localStorage.removeItem('dRefreshToken')
+    }
+
+    const clearDoctorSession = () => {
+        persistDoctorSession('', '')
+        setProfileData(false)
+        setAppointments([])
+        setDashData(false)
+    }
 
     // Getting Doctor appointment data from Database using API
     const getAppointments = async () => {
@@ -129,6 +151,9 @@ const DoctorContextProvider = (props) => {
 
     const value = {
         dToken, setDToken, backendUrl,
+        dRefreshToken, setDRefreshToken,
+        persistDoctorSession,
+        clearDoctorSession,
         appointments,
         getAppointments,
         cancelAppointment,

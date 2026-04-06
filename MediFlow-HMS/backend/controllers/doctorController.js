@@ -1,4 +1,3 @@
-import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
@@ -8,6 +7,7 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import validator from "validator";
 import { cancelAppointmentRecord } from "../utils/appointmentIntegrity.js";
+import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
 
 // API to verify email for doctor
@@ -68,8 +68,12 @@ const loginDoctor = async (req, res) => {
                 await transporter.sendMail(mailOptions);
                 return res.json({ success: false, message: "Email not verified. A new verification link has been sent." })
             }
-            const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
-            res.json({ success: true, token })
+            const session = await issueAuthTokens({
+                subjectId: user._id,
+                role: 'doctor',
+                req,
+            });
+            res.json({ success: true, ...session })
         } else {
             res.json({ success: false, message: "Invalid credentials" })
         }
@@ -485,7 +489,42 @@ const resetPassword = async (req, res) => {
         doctor.isVerified = true;
         doctor.verificationToken = undefined;
         await doctor.save();
-        res.json({ success: true, message: 'Password reset successfully' });
+
+        await revokeAllSessionsForSubject({
+            subjectId: doctor._id,
+            role: 'doctor',
+            reason: 'Password reset',
+        });
+
+        const session = await issueAuthTokens({
+            subjectId: doctor._id,
+            role: 'doctor',
+            req,
+        });
+
+        res.json({ success: true, message: 'Password reset successfully', ...session });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const refreshSession = async (req, res) => {
+    try {
+        const { refreshToken } = req.body;
+        const session = await rotateRefreshSession(refreshToken, 'doctor', req);
+
+        res.json({ success: true, ...session });
+    } catch (error) {
+        console.log(error);
+        res.status(401).json({ success: false, message: error.message || 'Session refresh failed' });
+    }
+}
+
+const logoutDoctor = async (req, res) => {
+    try {
+        await revokeSessionById(req.auth?.sessionId, 'Doctor logout');
+        res.json({ success: true, message: 'Logged out successfully' });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -512,5 +551,7 @@ export {
     getDoctorReviews,
     forgotPassword,
     resetPassword,
+    refreshSession,
+    logoutDoctor,
     verifyEmail
 }

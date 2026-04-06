@@ -1,4 +1,3 @@
-import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import validator from "validator";
 import userModel from "../models/userModel.js";
@@ -14,6 +13,7 @@ import crypto from 'crypto';
 import { generateAvailableSlots } from "../utils/slotGenerator.js";
 import notificationModel from "../models/notificationModel.js";
 import { ensureInvoiceForAppointment, finalizeAppointmentPayment, isAppointmentSlotConflict, releaseDoctorSlot, reserveDoctorSlot } from "../utils/appointmentIntegrity.js";
+import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
 
 // Gateway Initialize
@@ -89,9 +89,7 @@ const registerUser = async (req, res) => {
 
         await transporter.sendMail(mailOptions);
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
-
-        res.json({ success: true, token, message: 'Registration successful! Please check your email to verify your account.' })
+        res.json({ success: true, message: 'Registration successful! Please check your email to verify your account.' })
 
     } catch (error) {
         console.log(error)
@@ -150,7 +148,8 @@ const loginUser = async (req, res) => {
             if (user.twoFactorEnabled) {
                 // Generate and send 2FA code
                 const code = crypto.randomInt(100000, 999999).toString();
-                user.verificationToken = code; // Using verificationToken field to store temp code
+                user.twoFactorCode = code;
+                user.twoFactorCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
                 await user.save();
 
                 // Send email
@@ -173,8 +172,12 @@ const loginUser = async (req, res) => {
                 return res.json({ success: true, twoFactorRequired: true, userId: user._id, message: "2FA code sent to your email." });
             }
 
-            const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
-            res.json({ success: true, token })
+            const session = await issueAuthTokens({
+                subjectId: user._id,
+                role: 'user',
+                req,
+            });
+            res.json({ success: true, ...session })
         }
         else {
             res.json({ success: false, message: "Invalid credentials" })
@@ -739,11 +742,23 @@ const resetPassword = async (req, res) => {
         user.resetTokenExpiry = undefined;
         user.isVerified = true;
         user.verificationToken = undefined;
+        user.twoFactorCode = undefined;
+        user.twoFactorCodeExpiry = undefined;
         await user.save();
 
-        // Return token for auto-login
-        const authToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
-        res.json({ success: true, message: 'Password reset successfully', token: authToken });
+        await revokeAllSessionsForSubject({
+            subjectId: user._id,
+            role: 'user',
+            reason: 'Password reset',
+        });
+
+        const session = await issueAuthTokens({
+            subjectId: user._id,
+            role: 'user',
+            req,
+        });
+
+        res.json({ success: true, message: 'Password reset successfully', ...session });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -759,11 +774,10 @@ const enable2FA = async (req, res) => {
             return res.json({ success: false, message: 'User not found' });
         }
         user.twoFactorEnabled = true;
-        // generate a simple code
-        const code = crypto.randomInt(100000, 999999).toString();
-        user.verificationToken = code; // using verificationToken for code
+        user.twoFactorCode = undefined;
+        user.twoFactorCodeExpiry = undefined;
         await user.save();
-        res.json({ success: true, message: '2FA enabled, code generated', code }); // in real app, don't send code in response
+        res.json({ success: true, message: '2FA enabled. Future logins will require an email verification code.' });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -778,14 +792,48 @@ const verify2FA = async (req, res) => {
         if (!user || !user.twoFactorEnabled) {
             return res.json({ success: false, message: '2FA not enabled' });
         }
-        if (user.verificationToken !== code) {
+        if (!user.twoFactorCode || user.twoFactorCodeExpiry <= new Date()) {
+            user.twoFactorCode = undefined;
+            user.twoFactorCodeExpiry = undefined;
+            await user.save();
+            return res.json({ success: false, message: '2FA code expired. Please login again.' });
+        }
+        if (user.twoFactorCode !== code) {
             return res.json({ success: false, message: 'Invalid code' });
         }
-        user.verificationToken = undefined;
+        user.twoFactorCode = undefined;
+        user.twoFactorCodeExpiry = undefined;
         await user.save();
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
-        res.json({ success: true, message: '2FA verified', token });
+        const session = await issueAuthTokens({
+            subjectId: user._id,
+            role: 'user',
+            req,
+        });
+
+        res.json({ success: true, message: '2FA verified', ...session });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const refreshSession = async (req, res) => {
+    try {
+        const { refreshToken } = req.body;
+        const session = await rotateRefreshSession(refreshToken, 'user', req);
+
+        res.json({ success: true, ...session });
+    } catch (error) {
+        console.log(error);
+        res.status(401).json({ success: false, message: error.message || 'Session refresh failed' });
+    }
+}
+
+const logoutUser = async (req, res) => {
+    try {
+        await revokeSessionById(req.auth?.sessionId, 'User logout');
+        res.json({ success: true, message: 'Logged out successfully' });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -942,6 +990,8 @@ export {
     resetPassword,
     enable2FA,
     verify2FA,
+    refreshSession,
+    logoutUser,
     getFinancialSummary,
     getUserPrescriptions,
     getDoctorSlots,

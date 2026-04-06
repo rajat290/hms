@@ -1,13 +1,15 @@
 import express from 'express';
-import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, verifyEmail, forgotPassword, resetPassword, enable2FA, verify2FA, getFinancialSummary, getUserPrescriptions, getDoctorSlots, rescheduleAppointment, getNotifications, markNotificationsRead } from '../controllers/userController.js';
+import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, verifyEmail, forgotPassword, resetPassword, enable2FA, verify2FA, refreshSession, logoutUser, getFinancialSummary, getUserPrescriptions, getDoctorSlots, rescheduleAppointment, getNotifications, markNotificationsRead } from '../controllers/userController.js';
 import upload from '../middleware/multer.js';
 import authUser from '../middleware/authUser.js';
 import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
-import { validateAppointmentId, validateAppointmentReschedule, validateBooking, validateDoctorIdParam, validateForgotPassword, validateLogin, validateRazorpayVerification, validateResetPassword, validateStripeVerification, validateTokenPayload, validateUserActionSubject, validateUserProfileUpdate, validateUserRegistration, validate2FAVerification } from '../middleware/validators.js';
+import { validateAppointmentId, validateAppointmentReschedule, validateBooking, validateDoctorIdParam, validateForgotPassword, validateLogin, validateRazorpayVerification, validateRefreshTokenPayload, validateResetPassword, validateStripeVerification, validateTokenPayload, validateUserActionSubject, validateUserProfileUpdate, validateUserRegistration, validate2FAVerification } from '../middleware/validators.js';
 const userRouter = express.Router();
 
 userRouter.post("/register", authLimiter, validateUserRegistration, registerUser)
 userRouter.post("/login", authLimiter, validateLogin, loginUser)
+userRouter.post("/refresh-session", validateRefreshTokenPayload, refreshSession)
+userRouter.post("/logout", authUser, logoutUser)
 
 userRouter.get("/get-profile", authUser, getProfile)
 userRouter.post("/update-profile", upload.single('image'), authUser, validateUserProfileUpdate, updateProfile)

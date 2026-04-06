@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import User from '../models/userModel.js';
 import Doctor from '../models/doctorModel.js';
 import Appointment from '../models/appointmentModel.js';
+import AuthSession from '../models/authSessionModel.js';
 import Invoice from '../models/invoiceModel.js';
 import PaymentLog from '../models/paymentLogModel.js';
 
@@ -15,6 +16,7 @@ describe('Model validation tests', () => {
 
     expect(user.isVerified).toBe(false);
     expect(user.twoFactorEnabled).toBe(false);
+    expect(user.twoFactorCode).toBeUndefined();
     expect(user.patientCategory).toBe('Standard');
   });
 
@@ -102,6 +104,23 @@ describe('Model validation tests', () => {
         [
           { transactionId: 1 },
           expect.objectContaining({ unique: true, sparse: true }),
+        ],
+      ])
+    );
+  });
+
+  it('registers refresh-session persistence and expiry indexes', () => {
+    const indexes = AuthSession.schema.indexes();
+
+    expect(indexes).toEqual(
+      expect.arrayContaining([
+        [
+          { sessionId: 1 },
+          expect.objectContaining({ unique: true }),
+        ],
+        [
+          { expiresAt: 1 },
+          expect.objectContaining({ expireAfterSeconds: 0 }),
         ],
       ])
     );

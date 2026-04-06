@@ -1,13 +1,15 @@
 import express from 'express';
-import { loginAdmin, appointmentsAdmin, appointmentCancel, appointmentAccept, addDoctor, allDoctors, adminDashboard, getAllPatients, updatePaymentStatus, getSettings, updateSettings, getPatientDetails, getAnalytics, updatePaymentMethods, updateDoctor, createPatientAdmin, generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF, processRefund, getPaymentHistory, getPaymentKPIs, getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs, addStaff, allStaff, deleteDoctor } from '../controllers/adminController.js';
+import { loginAdmin, refreshSession, logoutAdmin, appointmentsAdmin, appointmentCancel, appointmentAccept, addDoctor, allDoctors, adminDashboard, getAllPatients, updatePaymentStatus, getSettings, updateSettings, getPatientDetails, getAnalytics, updatePaymentMethods, updateDoctor, createPatientAdmin, generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF, processRefund, getPaymentHistory, getPaymentKPIs, getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs, addStaff, allStaff, deleteDoctor } from '../controllers/adminController.js';
 import { changeAvailablity } from '../controllers/doctorController.js';
 import authAdmin from '../middleware/authAdmin.js';
 import upload from '../middleware/multer.js';
 import { authLimiter } from '../middleware/rateLimiters.js';
-import { validateAdminAddDoctor, validateAdminAddStaff, validateAppointmentId, validateAppointmentIdParam, validateDocId, validateDoctorDeleteParam, validateInvoiceIdParam, validateInvoiceStatusUpdate, validateLogin, validatePatientCreate, validatePaymentMethods, validateRefund, validateUpdateDoctor, validateUpdatePaymentStatus, validateUpdateSettings, validateUserIdParam } from '../middleware/validators.js';
+import { validateAdminAddDoctor, validateAdminAddStaff, validateAppointmentId, validateAppointmentIdParam, validateDocId, validateDoctorDeleteParam, validateInvoiceIdParam, validateInvoiceStatusUpdate, validateLogin, validatePatientCreate, validatePaymentMethods, validateRefund, validateRefreshTokenPayload, validateUpdateDoctor, validateUpdatePaymentStatus, validateUpdateSettings, validateUserIdParam } from '../middleware/validators.js';
 const adminRouter = express.Router();
 
 adminRouter.post("/login", authLimiter, validateLogin, loginAdmin)
+adminRouter.post("/refresh-session", validateRefreshTokenPayload, refreshSession)
+adminRouter.post("/logout", authAdmin, logoutAdmin)
 adminRouter.post("/add-doctor", authAdmin, upload.single('image'), validateAdminAddDoctor, addDoctor)
 adminRouter.get("/appointments", authAdmin, appointmentsAdmin)
 adminRouter.post("/cancel-appointment", authAdmin, validateAppointmentId, appointmentCancel)

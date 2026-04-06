@@ -14,6 +14,8 @@ const userSchema = new mongoose.Schema({
     resetToken: { type: String },
     resetTokenExpiry: { type: Date },
     twoFactorEnabled: { type: Boolean, default: false },
+    twoFactorCode: { type: String },
+    twoFactorCodeExpiry: { type: Date },
     insuranceProvider: { type: String },
     insuranceId: { type: String },
     subscriptionPlan: { type: String, enum: ['basic', 'premium', 'none'], default: 'none' },

@@ -20,7 +20,7 @@ const Login = () => {
   const [errors, setErrors] = useState({ email: '', password: '' })
 
   const navigate = useNavigate()
-  const { backendUrl, token, setToken } = useContext(AppContext)
+  const { backendUrl, token, persistSession } = useContext(AppContext)
 
   const validateEmail = (email) => {
     return String(email)
@@ -76,8 +76,7 @@ const Login = () => {
             setUserId(data.userId)
             toast.info(data.message)
           } else {
-            localStorage.setItem('token', data.token)
-            setToken(data.token)
+            persistSession(data.token, data.refreshToken)
           }
         } else {
           toast.error(data.message)
@@ -98,8 +97,7 @@ const Login = () => {
     try {
       const { data } = await axios.post(backendUrl + '/api/user/verify-2fa', { userId, code: twoFactorCode })
       if (data.success) {
-        localStorage.setItem('token', data.token)
-        setToken(data.token)
+        persistSession(data.token, data.refreshToken)
         toast.success("Login Successful")
       } else {
         toast.error(data.message)

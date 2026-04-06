@@ -37,9 +37,9 @@ const Login = () => {
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL
 
-  const { setDToken } = useContext(DoctorContext)
-  const { setAToken } = useContext(AdminContext)
-  const { setSToken } = useContext(StaffContext)
+  const { persistDoctorSession, clearDoctorSession } = useContext(DoctorContext)
+  const { persistAdminSession, clearAdminSession } = useContext(AdminContext)
+  const { persistStaffSession, clearStaffSession } = useContext(StaffContext)
 
   const navigate = useNavigate()
 
@@ -79,24 +79,27 @@ const Login = () => {
       if (state === 'Admin') {
         const { data } = await axios.post(backendUrl + '/api/admin/login', { email, password })
         if (data.success) {
-          setAToken(data.token)
-          localStorage.setItem('aToken', data.token)
+          clearDoctorSession()
+          clearStaffSession()
+          persistAdminSession(data.token, data.refreshToken)
         } else {
           toast.error(data.message)
         }
       } else if (state === 'Doctor') {
         const { data } = await axios.post(backendUrl + '/api/doctor/login', { email, password })
         if (data.success) {
-          setDToken(data.token)
-          localStorage.setItem('dToken', data.token)
+          clearAdminSession()
+          clearStaffSession()
+          persistDoctorSession(data.token, data.refreshToken)
         } else {
           toast.error(data.message)
         }
       } else {
         const { data } = await axios.post(backendUrl + '/api/staff/login', { email, password })
         if (data.success) {
-          setSToken(data.token)
-          localStorage.setItem('sToken', data.token)
+          clearAdminSession()
+          clearDoctorSession()
+          persistStaffSession(data.token, data.refreshToken)
           navigate('/staff-dashboard')
         } else {
           toast.error(data.message)

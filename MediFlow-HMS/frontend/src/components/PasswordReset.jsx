@@ -11,7 +11,7 @@ const PasswordReset = () => {
   const [token, setToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [step, setStep] = useState(1) // 1: request reset, 2: enter token and new password
-  const { backendUrl, setToken: setAppToken } = useContext(AppContext)
+  const { backendUrl, persistSession } = useContext(AppContext)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -45,8 +45,7 @@ const PasswordReset = () => {
       if (data.success) {
         toast.success('Password reset successfully!')
         if (data.token) {
-          localStorage.setItem('token', data.token)
-          setAppToken(data.token)
+          persistSession(data.token, data.refreshToken)
         }
         setTimeout(() => {
           navigate('/')

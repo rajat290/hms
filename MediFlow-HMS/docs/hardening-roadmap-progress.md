@@ -11,11 +11,8 @@ For each phase, it records:
 
 ## Branch Strategy
 - Every phase or major module change should be done on its own branch.
-- Current branch for this phase: `Phase2-data-integrity`
+- Current branch for this phase: `Phase3-authentication-hardening`
 - Recommended future branches:
-  - `phase-1-security-hardening`
-  - `phase-2-data-integrity`
-  - `phase-3-auth-hardening`
   - `phase-4-api-quality`
   - `phase-5-architecture-refactor`
   - `phase-6-testing-expansion`
@@ -25,7 +22,7 @@ For each phase, it records:
 - Phase 0: Stabilization - completed
 - Phase 1: Security Fixes - completed
 - Phase 2: Data Integrity Fixes - completed
-- Phase 3: Authentication Hardening - pending
+- Phase 3: Authentication Hardening - completed
 - Phase 4: API Quality - pending
 - Phase 5: Code Architecture Refactor - pending
 - Phase 6: Testing - pending
@@ -395,11 +392,139 @@ Why:
 - pagination and API versioning still belong to Phase 4
 - upload file validation, logging infrastructure, and broader production operations work still belong to later phases
 
+## Phase 3 - Authentication Hardening
+
+### Why This Phase Was Needed
+After the data-integrity pass, authentication was still the biggest remaining runtime and security weakness:
+- all roles still used one long-lived JWT with no refresh flow
+- logout only removed browser storage and could not revoke a live token on the server
+- password resets did not invalidate previously issued sessions
+- admin auth still had no real session lifecycle even though it was protected by environment credentials
+- user 2FA reused the email verification token field and had no expiry
+- the two React apps had no automatic recovery path when an access token expired
+
+### What Changed
+
+#### 1. A shared server-side session layer was introduced
+Files:
+- `backend/models/authSessionModel.js`
+- `backend/utils/authSessions.js`
+- `backend/config/databaseIntegrity.js`
+- `backend/models/userModel.js`
+
+What changed:
+- added a dedicated auth-session collection with unique session IDs, refresh-token hashing, expiry timestamps, revocation metadata, and TTL cleanup
+- added shared helpers for access-token issuance, refresh-token rotation, access-token verification against the live session store, and role-aware session revocation
+- added unique token IDs so refresh rotation always produces a new token, even within the same second
+- added dedicated `twoFactorCode` and `twoFactorCodeExpiry` fields for users instead of reusing `verificationToken`
+- synchronized the new auth-session collection and updated user schema fields into the MongoDB validator setup
+
+Why:
+- this creates a real server-controlled session lifecycle instead of treating JWTs as self-contained forever-tokens
+- refresh tokens are now revocable, rotatable, and unlinkable from database leaks because only hashes are stored
+
+#### 2. All backend role auth flows now use short-lived access tokens plus refresh tokens
+Files:
+- `backend/controllers/userController.js`
+- `backend/controllers/doctorController.js`
+- `backend/controllers/staffController.js`
+- `backend/controllers/adminController.js`
+- `backend/middleware/createAuthMiddleware.js`
+- `backend/middleware/authUser.js`
+- `backend/middleware/authDoctor.js`
+- `backend/middleware/authStaff.js`
+- `backend/middleware/authAdmin.js`
+- `backend/routes/userRoute.js`
+- `backend/routes/doctorRoute.js`
+- `backend/routes/staffRoute.js`
+- `backend/routes/adminRoute.js`
+- `backend/middleware/validators.js`
+
+What changed:
+- login for patient, doctor, staff, and admin now issues both `token` and `refreshToken`
+- every role group now has `/refresh-session` and `/logout` endpoints
+- auth middleware now validates access tokens against the active session store and rejects revoked or expired sessions
+- logout now revokes the active server session instead of only clearing local state
+- password reset for patient, doctor, and staff now revokes all prior sessions for that subject before issuing a fresh login session
+- admin auth now gets the same session lifecycle as the other roles while still using the configured environment credentials
+
+Why:
+- this closes the production gap where a stolen token stayed valid until expiry with no meaningful server-side invalidation path
+- password changes now behave like true credential rotations instead of leaving older sessions alive
+
+#### 3. User 2FA is now separated from email verification and has an expiry window
+Files:
+- `backend/controllers/userController.js`
+- `backend/models/userModel.js`
+- `backend/config/databaseIntegrity.js`
+
+What changed:
+- login-time 2FA codes now use dedicated `twoFactorCode` and `twoFactorCodeExpiry` fields
+- 2FA codes expire after 10 minutes
+- expired codes are cleared and force the user to re-run login instead of remaining valid indefinitely
+- enabling 2FA no longer exposes the code in the API response
+
+Why:
+- email verification and login verification are different security events and should not share a storage field
+- expiring codes reduce replay risk and make the 2FA flow operationally predictable
+
+#### 4. Both React apps now keep access and refresh tokens in sync and recover from access-token expiry
+Files:
+- `frontend/src/context/AppContext.jsx`
+- `frontend/src/pages/Login.jsx`
+- `frontend/src/components/PasswordReset.jsx`
+- `frontend/src/components/Navbar.jsx`
+- `admin/src/context/AdminContext.jsx`
+- `admin/src/context/DoctorContext.jsx`
+- `admin/src/context/StaffContext.jsx`
+- `admin/src/context/AppContext.jsx`
+- `admin/src/pages/Login.jsx`
+- `admin/src/pages/ResetPassword.jsx`
+- `admin/src/components/Navbar.jsx`
+
+What changed:
+- patient, admin, doctor, and staff sessions now store both access and refresh tokens
+- both React apps now register Axios response interceptors that automatically refresh the active session on `401` responses and retry the failed request once
+- logout now calls the backend revoke endpoint before clearing local storage
+- password-reset auto-login now stores both tokens where applicable
+- the admin shell now clears other role sessions on login so only one role session remains active at a time
+
+Why:
+- short-lived access tokens only work well when the client can renew them transparently
+- the admin app is a shared shell for three roles, so stale tokens from another role would otherwise break routing and refresh behavior
+
+#### 5. Phase 3 verification coverage was added
+Files:
+- `backend/__tests__/authSessions.test.js`
+- `backend/__tests__/models.test.js`
+
+What changed:
+- added direct tests for token duration parsing, session issuance, refresh-token rotation, access-token verification against the session store, subject-wide revocation, and admin fingerprint invalidation
+- extended model tests to cover the new auth-session schema indexes and new user 2FA fields
+
+Why:
+- session rotation and revocation are security-critical behavior and need direct regression coverage, not only manual testing
+
+### Verification Results
+- Backend tests: passed (`25/25`)
+- Backend startup, validator/index sync, and `/api/health`: passed
+- Frontend tests: passed (`2/2`)
+- Frontend production build: passed
+- Admin production build: passed
+
+### Remaining Notes After Phase 3
+- logout and refresh revocation are now enforced through MongoDB-backed session records; Redis can still be introduced later for lower-latency revocation or multi-service scale, but it is no longer required for correctness
+- admin credentials still come from environment variables, so a fuller admin identity model can still be considered later
+- centralized error handling and consistent response envelopes still belong to Phase 4
+- pagination and API versioning still belong to Phase 4
+- upload file validation, logging infrastructure, and broader production operations work still belong to later phases
+
 ## Next Recommended Phase
-Phase 3: Authentication Hardening
+Phase 4: API Quality
 
 Planned focus:
-- introduce short-lived access tokens with refresh-token rotation
-- add logout and token revocation support
-- tighten password-reset and token-lifecycle guarantees
-- prepare auth storage and middleware for production session management
+- introduce centralized error handling and a consistent API response contract
+- add pagination to list endpoints
+- add API versioning support
+- expand route-level validation where response contracts are still loose
+- keep `/api/health` aligned with operational monitoring needs

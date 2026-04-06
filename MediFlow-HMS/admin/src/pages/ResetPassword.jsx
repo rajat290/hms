@@ -2,13 +2,17 @@ import React, { useContext, useState } from 'react'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { AdminContext } from '../context/AdminContext'
+import { DoctorContext } from '../context/DoctorContext'
+import { StaffContext } from '../context/StaffContext'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 const ResetPassword = ({ setView }) => {
     const [newPassword, setNewPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [loading, setLoading] = useState(false)
-    const { backendUrl } = useContext(AdminContext)
+    const { backendUrl, clearAdminSession } = useContext(AdminContext)
+    const { persistDoctorSession, clearDoctorSession } = useContext(DoctorContext)
+    const { persistStaffSession, clearStaffSession } = useContext(StaffContext)
     const [searchParams] = useSearchParams()
     const navigate = useNavigate()
 
@@ -41,6 +45,17 @@ const ResetPassword = ({ setView }) => {
             const { data } = await axios.post(backendUrl + endpoint, { token, newPassword })
             if (data.success) {
                 toast.success(data.message || 'Password reset successful!')
+                if (data.token && data.refreshToken) {
+                    if (role === 'doctor') {
+                        clearAdminSession()
+                        clearStaffSession()
+                        persistDoctorSession(data.token, data.refreshToken)
+                    } else if (role === 'staff') {
+                        clearAdminSession()
+                        clearDoctorSession()
+                        persistStaffSession(data.token, data.refreshToken)
+                    }
+                }
                 setTimeout(() => {
                     if (setView) setView('login')
                     else navigate('/')

@@ -9,11 +9,34 @@ const StaffContextProvider = (props) => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
     const [sToken, setSToken] = useState(localStorage.getItem('sToken') ? localStorage.getItem('sToken') : '')
+    const [sRefreshToken, setSRefreshToken] = useState(localStorage.getItem('sRefreshToken') ? localStorage.getItem('sRefreshToken') : '')
 
     const [staffProfile, setStaffProfile] = useState(false)
     const [dashData, setDashData] = useState(false)
     const [appointments, setAppointments] = useState([])
     const [patients, setPatients] = useState([])
+
+    const persistStaffSession = (nextAccessToken, nextRefreshToken) => {
+        const resolvedAccessToken = nextAccessToken || ''
+        const resolvedRefreshToken = nextRefreshToken || ''
+
+        setSToken(resolvedAccessToken)
+        setSRefreshToken(resolvedRefreshToken)
+
+        if (resolvedAccessToken) localStorage.setItem('sToken', resolvedAccessToken)
+        else localStorage.removeItem('sToken')
+
+        if (resolvedRefreshToken) localStorage.setItem('sRefreshToken', resolvedRefreshToken)
+        else localStorage.removeItem('sRefreshToken')
+    }
+
+    const clearStaffSession = () => {
+        persistStaffSession('', '')
+        setStaffProfile(false)
+        setDashData(false)
+        setAppointments([])
+        setPatients([])
+    }
 
     // Getting Staff Profile
     const getStaffProfile = async () => {
@@ -117,6 +140,9 @@ const StaffContextProvider = (props) => {
 
     const value = {
         sToken, setSToken,
+        sRefreshToken, setSRefreshToken,
+        persistStaffSession,
+        clearStaffSession,
         backendUrl,
         staffProfile, setStaffProfile, getStaffProfile,
         appointments, getAllAppointments,

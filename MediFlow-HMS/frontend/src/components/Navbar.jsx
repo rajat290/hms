@@ -8,11 +8,10 @@ const Navbar = () => {
   const navigate = useNavigate()
 
   const [showMenu, setShowMenu] = useState(false)
-  const { token, setToken, userData } = useContext(AppContext)
+  const { token, userData, logout } = useContext(AppContext)
 
-  const logout = () => {
-    localStorage.removeItem('token')
-    setToken(false)
+  const handleLogout = async () => {
+    await logout()
     navigate('/login')
   }
 
@@ -50,7 +49,7 @@ const Navbar = () => {
                   <p onClick={() => navigate('/my-appointments')} className='hover:text-black cursor-pointer'>My Appointments</p>
                   <p onClick={() => navigate('/notifications')} className='hover:text-black cursor-pointer'>Notifications</p>
                   <p onClick={() => navigate('/my-billing')} className='hover:text-black cursor-pointer'>My Billing</p>
-                  <p onClick={logout} className='hover:text-black cursor-pointer'>Logout</p>
+                  <p onClick={handleLogout} className='hover:text-black cursor-pointer'>Logout</p>
                 </div>
               </div>
             </div>
@@ -103,7 +102,7 @@ const Navbar = () => {
                   <NavLink onClick={() => setShowMenu(false)} to='/notifications' className='p-1'>
                     <p className='px-5 py-3 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-all'>Notifications</p>
                   </NavLink>
-                  <p onClick={() => { logout(); setShowMenu(false); }} className='px-6 py-3 font-bold text-red-500 cursor-pointer hover:bg-red-50 rounded-xl transition-all mt-4'>Logout</p>
+                  <p onClick={async () => { await handleLogout(); setShowMenu(false); }} className='px-6 py-3 font-bold text-red-500 cursor-pointer hover:bg-red-50 rounded-xl transition-all mt-4'>Logout</p>
                 </>
               ) : (
                 <div className='px-5 mt-4'>
