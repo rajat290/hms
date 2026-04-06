@@ -17,12 +17,15 @@ import staffRouter from "./routes/staffRoute.js"
 import aiRouter from "./routes/aiRoute.js"
 import initCronJobs from "./jobs/cronJobs.js"
 import { corsOptions, helmetOptions } from "./config/security.js"
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js"
 import sanitizeRequestInput from "./middleware/requestSanitizer.js"
 import { apiLimiter } from "./middleware/rateLimiters.js"
+import normalizeApiResponse from "./middleware/responseNormalizer.js"
 
 // app config
 const app = express()
 const port = process.env.PORT || 4000
+const apiRouter = express.Router()
 
 app.set('trust proxy', 1)
 
@@ -39,21 +42,18 @@ initCronJobs()
 
 // middlewares
 app.use("/api/payment", paymentRouter)
+app.use("/api/v1/payment", paymentRouter)
 app.use(express.json({ limit: '1mb' }))
 app.use(cors(corsOptions))
 app.use(helmet(helmetOptions))
 app.use(mongoSanitize())
 app.use(sanitizeRequestInput)
 app.use("/api", apiLimiter)
+app.use("/api/v1", apiLimiter)
+apiRouter.use(normalizeApiResponse)
 
 // api endpoints
-app.use("/api/user", userRouter)
-app.use("/api/admin", adminRouter)
-app.use("/api/doctor", doctorRouter)
-app.use("/api/staff", staffRouter)
-app.use("/api/ai", aiRouter)
-
-app.get("/api/health", (req, res) => {
+const healthHandler = (req, res) => {
   const readyStateMap = {
     0: "disconnected",
     1: "connected",
@@ -65,6 +65,7 @@ app.get("/api/health", (req, res) => {
 
   res.json({
     success: true,
+    message: "Health check completed",
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     memoryUsage: process.memoryUsage(),
@@ -73,6 +74,24 @@ app.get("/api/health", (req, res) => {
       status: readyStateMap[dbReadyState] || "unknown",
     },
   })
+}
+
+apiRouter.get("/health", healthHandler)
+apiRouter.use("/user", userRouter)
+apiRouter.use("/admin", adminRouter)
+apiRouter.use("/doctor", doctorRouter)
+apiRouter.use("/staff", staffRouter)
+apiRouter.use("/ai", aiRouter)
+
+app.use("/api", apiRouter)
+app.use("/api/v1", apiRouter)
+
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith("/api/")) {
+    return notFoundHandler(req, res, next)
+  }
+
+  next()
 })
 
 // Serve PWA files
@@ -91,5 +110,7 @@ app.get("/manifest.json", (req, res) => {
 app.get("/", (req, res) => {
   res.send("API Working")
 });
+
+app.use(errorHandler)
 
 app.listen(port, () => console.log(`Server started on PORT:${port}`))

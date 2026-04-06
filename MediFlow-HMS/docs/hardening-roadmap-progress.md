@@ -11,9 +11,8 @@ For each phase, it records:
 
 ## Branch Strategy
 - Every phase or major module change should be done on its own branch.
-- Current branch for this phase: `Phase3-authentication-hardening`
+- Current branch for this phase: `Phase4-API-quality-improvement`
 - Recommended future branches:
-  - `phase-4-api-quality`
   - `phase-5-architecture-refactor`
   - `phase-6-testing-expansion`
   - `phase-7-devops-docs`
@@ -23,7 +22,7 @@ For each phase, it records:
 - Phase 1: Security Fixes - completed
 - Phase 2: Data Integrity Fixes - completed
 - Phase 3: Authentication Hardening - completed
-- Phase 4: API Quality - pending
+- Phase 4: API Quality - completed
 - Phase 5: Code Architecture Refactor - pending
 - Phase 6: Testing - pending
 - Phase 7: DevOps and Documentation - pending
@@ -519,12 +518,108 @@ Why:
 - pagination and API versioning still belong to Phase 4
 - upload file validation, logging infrastructure, and broader production operations work still belong to later phases
 
+## Phase 4 - API Quality
+
+### Why This Phase Was Needed
+After the authentication pass, the backend still had three API-quality gaps:
+- routes were only mounted under `/api/*`, so there was no versioned alias for safe future breaking changes
+- success and error responses were still shaped ad hoc by each controller
+- several list endpoints still returned entire collections with no paging controls
+
+### What Changed
+
+#### 1. Centralized API response normalization and error handling were added
+Files:
+- `backend/utils/apiResponse.js`
+- `backend/middleware/responseNormalizer.js`
+- `backend/middleware/errorHandler.js`
+- `backend/server.js`
+
+What changed:
+- added shared helpers for normalized success and error envelopes
+- added a response-normalizer middleware that standardizes API JSON into a consistent shape with `success`, `message`, `data`, and `error` or `pagination` where applicable
+- kept the legacy top-level fields alongside the new `data` envelope so the current frontend and admin apps remain compatible
+- added a centralized API 404 handler and final error handler for unresolved API routes and thrown application errors
+
+Why:
+- this makes the API easier to reason about and safer to evolve without forcing a full client rewrite in the same phase
+
+#### 2. Versioned API aliases were introduced
+Files:
+- `backend/server.js`
+
+What changed:
+- mounted the main API route groups under both `/api/*` and `/api/v1/*`
+- mounted payment webhooks under both `/api/payment/*` and `/api/v1/payment/*`
+- exposed health checks under both `/api/health` and `/api/v1/health`
+
+Why:
+- this creates a stable path for future breaking API changes while preserving the existing client contract
+
+#### 3. Shared pagination utilities and query validation were added
+Files:
+- `backend/utils/pagination.js`
+- `backend/middleware/validators.js`
+- `backend/routes/adminRoute.js`
+- `backend/routes/doctorRoute.js`
+- `backend/routes/staffRoute.js`
+- `backend/routes/userRoute.js`
+
+What changed:
+- added shared parsing and metadata helpers for `page` and `limit`
+- added route-level pagination validation for list endpoints
+- added doctor-list query validation and optional slot-date query validation for staff daily appointments
+
+Why:
+- pagination needs to be consistent at both the route-validation layer and the controller layer to be reliable
+
+#### 4. List-heavy endpoints now return paginated data with metadata
+Files:
+- `backend/controllers/adminController.js`
+- `backend/controllers/doctorController.js`
+- `backend/controllers/staffController.js`
+- `backend/controllers/userController.js`
+
+What changed:
+- paginated admin appointments, doctors, staff, patients, invoices, payment history, and audit logs
+- paginated doctor appointments, public doctor list, and doctor reviews
+- paginated staff appointments, patients, daily appointments, and notifications
+- paginated user appointments, prescriptions, and notifications
+- every paginated response now includes metadata such as `page`, `limit`, `totalItems`, `totalPages`, `hasNextPage`, and `hasPreviousPage`
+
+Why:
+- this prevents unbounded collection reads and gives the API a consistent contract for list navigation
+
+#### 5. Phase 4 backend coverage was added
+Files:
+- `backend/__tests__/apiQualityMiddleware.test.js`
+
+What changed:
+- added tests for versioned API success responses
+- added tests for paginated response metadata
+- added tests for centralized 404 handling on versioned API paths
+
+Why:
+- these changes are cross-cutting infrastructure behavior, so direct tests help keep future route work safe
+
+### Verification Results
+- Backend tests: passed (`28/28`)
+- Backend startup, validator/index sync, `/api/health`, and `/api/v1/health`: passed
+- Frontend tests: passed (`2/2`)
+- Frontend production build: passed
+- Admin production build: passed
+
+### Remaining Notes After Phase 4
+- the backend now supports pagination, but the current React screens still mostly rely on the legacy top-level arrays and first-page defaults; dedicated UI pagination controls can be added later without changing the API again
+- legacy `/api/*` routes remain live alongside `/api/v1/*` for backward compatibility
+- some business-rule failures still intentionally return `success: false` without changing their historical HTTP status so existing clients do not break during this phase
+- logging infrastructure, service extraction, and broader architecture cleanup still belong to Phase 5 and later phases
+
 ## Next Recommended Phase
-Phase 4: API Quality
+Phase 5: Code Architecture Refactor
 
 Planned focus:
-- introduce centralized error handling and a consistent API response contract
-- add pagination to list endpoints
-- add API versioning support
-- expand route-level validation where response contracts are still loose
-- keep `/api/health` aligned with operational monitoring needs
+- extract service-layer logic from large controllers
+- isolate database query responsibilities more cleanly
+- centralize configuration and startup validation further
+- add logging infrastructure that works cleanly with the new API envelope

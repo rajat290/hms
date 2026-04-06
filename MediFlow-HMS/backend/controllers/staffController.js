@@ -8,6 +8,7 @@ import { v2 as cloudinary } from "cloudinary";
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod } from "../utils/appointmentIntegrity.js";
+import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
 
@@ -110,8 +111,27 @@ const updateProfile = async (req, res) => {
 // API to get all appointments for Staff
 const getAllAppointments = async (req, res) => {
     try {
-        const appointments = await appointmentModel.find({}).populate('docId', 'name speciality image').populate('userId', 'name dob gender image')
-        res.json({ success: true, appointments: appointments.reverse() })
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 50 });
+        const query = {};
+
+        const [totalItems, appointments] = await Promise.all([
+            appointmentModel.countDocuments(query),
+            appointmentModel.find(query)
+                .populate('docId', 'name speciality image')
+                .populate('userId', 'name dob gender image')
+                .sort({ date: -1 })
+                .skip(skip)
+                .limit(limit),
+        ]);
+
+        sendPaginatedResponse(res, {
+            message: 'Staff appointments fetched successfully',
+            itemKey: 'appointments',
+            items: appointments,
+            page,
+            limit,
+            totalItems,
+        });
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
@@ -137,8 +157,26 @@ const cancelAppointment = async (req, res) => {
 // API to get all patients
 const getAllPatients = async (req, res) => {
     try {
-        const patients = await userModel.find({}).select('-password')
-        res.json({ success: true, patients })
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 50 });
+        const query = {};
+
+        const [totalItems, patients] = await Promise.all([
+            userModel.countDocuments(query),
+            userModel.find(query)
+                .select('-password')
+                .sort({ _id: -1 })
+                .skip(skip)
+                .limit(limit),
+        ]);
+
+        sendPaginatedResponse(res, {
+            message: 'Patients fetched successfully',
+            itemKey: 'patients',
+            items: patients,
+            page,
+            limit,
+            totalItems,
+        });
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
@@ -255,6 +293,7 @@ const staffDashboard = async (req, res) => {
 const getDailyAppointments = async (req, res) => {
     try {
         const { date } = req.query; // Expects dd_mm_yyyy format
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 50 });
 
         // If date is provided, filter by it. Otherwise return all (or logic could specific to today)
         // For now, let's keep it flexible. If date matches slotDate
@@ -264,8 +303,24 @@ const getDailyAppointments = async (req, res) => {
             query.slotDate = date;
         }
 
-        const appointments = await appointmentModel.find(query).populate('docId', 'name speciality image').populate('userId', 'name dob gender image')
-        res.json({ success: true, appointments: appointments.reverse() })
+        const [totalItems, appointments] = await Promise.all([
+            appointmentModel.countDocuments(query),
+            appointmentModel.find(query)
+                .populate('docId', 'name speciality image')
+                .populate('userId', 'name dob gender image')
+                .sort({ date: -1 })
+                .skip(skip)
+                .limit(limit),
+        ]);
+
+        sendPaginatedResponse(res, {
+            message: 'Daily appointments fetched successfully',
+            itemKey: 'appointments',
+            items: appointments,
+            page,
+            limit,
+            totalItems,
+        });
 
     } catch (error) {
         console.log(error)
@@ -357,14 +412,31 @@ import notificationModel from "../models/notificationModel.js";
 const getStaffNotifications = async (req, res) => {
     try {
         const { staffId } = req.body;
-        const notifications = await notificationModel.find({
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 20 });
+        const query = {
             $or: [
                 { staffId },
                 { recipientType: 'staff' },
                 { recipientType: 'all' }
             ]
-        }).sort({ date: -1 });
-        res.json({ success: true, notifications });
+        };
+
+        const [totalItems, notifications] = await Promise.all([
+            notificationModel.countDocuments(query),
+            notificationModel.find(query)
+                .sort({ date: -1 })
+                .skip(skip)
+                .limit(limit),
+        ]);
+
+        sendPaginatedResponse(res, {
+            message: 'Notifications fetched successfully',
+            itemKey: 'notifications',
+            items: notifications,
+            page,
+            limit,
+            totalItems,
+        });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
