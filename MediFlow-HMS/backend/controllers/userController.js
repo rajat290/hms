@@ -13,6 +13,7 @@ import crypto from 'crypto';
 import { generateAvailableSlots } from "../utils/slotGenerator.js";
 import notificationModel from "../models/notificationModel.js";
 import { ensureInvoiceForAppointment, finalizeAppointmentPayment, isAppointmentSlotConflict, releaseDoctorSlot, reserveDoctorSlot } from "../utils/appointmentIntegrity.js";
+import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
 
@@ -411,9 +412,22 @@ const listAppointment = async (req, res) => {
     try {
 
         const { userId } = req.body
-        const appointments = await appointmentModel.find({ userId })
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 20 })
+        const query = { userId }
 
-        res.json({ success: true, appointments })
+        const [totalItems, appointments] = await Promise.all([
+            appointmentModel.countDocuments(query),
+            appointmentModel.find(query).sort({ date: -1 }).skip(skip).limit(limit),
+        ])
+
+        sendPaginatedResponse(res, {
+            message: 'Appointments fetched successfully',
+            itemKey: 'appointments',
+            items: appointments,
+            page,
+            limit,
+            totalItems,
+        })
 
     } catch (error) {
         console.log(error)
@@ -452,8 +466,22 @@ const getFinancialSummary = async (req, res) => {
 const getUserPrescriptions = async (req, res) => {
     try {
         const { userId } = req.body;
-        const prescriptions = await prescriptionModel.find({ userId });
-        res.json({ success: true, prescriptions });
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 20 });
+        const query = { userId };
+
+        const [totalItems, prescriptions] = await Promise.all([
+            prescriptionModel.countDocuments(query),
+            prescriptionModel.find(query).sort({ date: -1 }).skip(skip).limit(limit),
+        ]);
+
+        sendPaginatedResponse(res, {
+            message: 'Prescriptions fetched successfully',
+            itemKey: 'prescriptions',
+            items: prescriptions,
+            page,
+            limit,
+            totalItems,
+        });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -923,8 +951,22 @@ const rescheduleAppointment = async (req, res) => {
 const getNotifications = async (req, res) => {
     try {
         const { userId } = req.body;
-        const notifications = await notificationModel.find({ userId }).sort({ date: -1 }).limit(20);
-        res.json({ success: true, notifications });
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 20 });
+        const query = { userId };
+
+        const [totalItems, notifications] = await Promise.all([
+            notificationModel.countDocuments(query),
+            notificationModel.find(query).sort({ date: -1 }).skip(skip).limit(limit),
+        ]);
+
+        sendPaginatedResponse(res, {
+            message: 'Notifications fetched successfully',
+            itemKey: 'notifications',
+            items: notifications,
+            page,
+            limit,
+            totalItems,
+        });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });

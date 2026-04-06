@@ -3,7 +3,7 @@ import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, li
 import upload from '../middleware/multer.js';
 import authUser from '../middleware/authUser.js';
 import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
-import { validateAppointmentId, validateAppointmentReschedule, validateBooking, validateDoctorIdParam, validateForgotPassword, validateLogin, validateRazorpayVerification, validateRefreshTokenPayload, validateResetPassword, validateStripeVerification, validateTokenPayload, validateUserActionSubject, validateUserProfileUpdate, validateUserRegistration, validate2FAVerification } from '../middleware/validators.js';
+import { validateAppointmentId, validateAppointmentReschedule, validateBooking, validateDoctorIdParam, validateForgotPassword, validateLogin, validatePaginationQuery, validateRazorpayVerification, validateRefreshTokenPayload, validateResetPassword, validateStripeVerification, validateTokenPayload, validateUserActionSubject, validateUserProfileUpdate, validateUserRegistration, validate2FAVerification } from '../middleware/validators.js';
 const userRouter = express.Router();
 
 userRouter.post("/register", authLimiter, validateUserRegistration, registerUser)
@@ -14,7 +14,7 @@ userRouter.post("/logout", authUser, logoutUser)
 userRouter.get("/get-profile", authUser, getProfile)
 userRouter.post("/update-profile", upload.single('image'), authUser, validateUserProfileUpdate, updateProfile)
 userRouter.post("/book-appointment", authUser, validateBooking, bookAppointment)
-userRouter.get("/appointments", authUser, listAppointment)
+userRouter.get("/appointments", authUser, validatePaginationQuery, listAppointment)
 userRouter.post("/cancel-appointment", authUser, validateAppointmentId, cancelAppointment)
 userRouter.post("/payment-razorpay", authUser, validateAppointmentId, paymentRazorpay)
 userRouter.post("/verifyRazorpay", authUser, validateRazorpayVerification, verifyRazorpay)
@@ -26,10 +26,10 @@ userRouter.post("/reset-password", forgotPasswordLimiter, validateResetPassword,
 userRouter.post("/enable-2fa", authUser, validateUserActionSubject, enable2FA)
 userRouter.post("/verify-2fa", authLimiter, validate2FAVerification, verify2FA)
 userRouter.get("/financial-summary", authUser, getFinancialSummary)
-userRouter.get("/prescriptions", authUser, getUserPrescriptions)
+userRouter.get("/prescriptions", authUser, validatePaginationQuery, getUserPrescriptions)
 userRouter.get('/doctor-slots/:docId', validateDoctorIdParam, getDoctorSlots)
 userRouter.post("/reschedule-appointment", authUser, validateAppointmentReschedule, rescheduleAppointment)
-userRouter.get("/notifications", authUser, getNotifications)
+userRouter.get("/notifications", authUser, validatePaginationQuery, getNotifications)
 userRouter.post("/mark-notifications-read", authUser, validateUserActionSubject, markNotificationsRead)
 
 export default userRouter;

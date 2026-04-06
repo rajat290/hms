@@ -7,6 +7,7 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import validator from "validator";
 import { cancelAppointmentRecord } from "../utils/appointmentIntegrity.js";
+import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
 
@@ -90,9 +91,22 @@ const appointmentsDoctor = async (req, res) => {
     try {
 
         const { docId } = req.body
-        const appointments = await appointmentModel.find({ docId })
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 50 })
+        const query = { docId }
 
-        res.json({ success: true, appointments })
+        const [totalItems, appointments] = await Promise.all([
+            appointmentModel.countDocuments(query),
+            appointmentModel.find(query).sort({ date: -1 }).skip(skip).limit(limit),
+        ])
+
+        sendPaginatedResponse(res, {
+            message: 'Doctor appointments fetched successfully',
+            itemKey: 'appointments',
+            items: appointments,
+            page,
+            limit,
+            totalItems,
+        })
 
     } catch (error) {
         console.log(error)
@@ -166,6 +180,7 @@ const appointmentComplete = async (req, res) => {
 const doctorList = async (req, res) => {
     try {
         const { speciality, gender, maxFees, search } = req.query;
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 24 });
         let filter = {};
 
         if (speciality) filter.speciality = speciality;
@@ -175,8 +190,23 @@ const doctorList = async (req, res) => {
             filter.name = { $regex: search, $options: 'i' };
         }
 
-        const doctors = await doctorModel.find(filter).select(['-password', '-email'])
-        res.json({ success: true, doctors })
+        const [totalItems, doctors] = await Promise.all([
+            doctorModel.countDocuments(filter),
+            doctorModel.find(filter)
+                .select(['-password', '-email'])
+                .sort({ date: -1 })
+                .skip(skip)
+                .limit(limit),
+        ])
+
+        sendPaginatedResponse(res, {
+            message: 'Doctors fetched successfully',
+            itemKey: 'doctors',
+            items: doctors,
+            page,
+            limit,
+            totalItems,
+        })
 
     } catch (error) {
         console.log(error)
@@ -398,8 +428,26 @@ const addReview = async (req, res) => {
 const getDoctorReviews = async (req, res) => {
     try {
         const { docId } = req.params;
-        const reviews = await reviewModel.find({ docId }).populate('userId', 'name image');
-        res.json({ success: true, reviews });
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 20 });
+        const query = { docId };
+
+        const [totalItems, reviews] = await Promise.all([
+            reviewModel.countDocuments(query),
+            reviewModel.find(query)
+                .populate('userId', 'name image')
+                .sort({ date: -1 })
+                .skip(skip)
+                .limit(limit),
+        ]);
+
+        sendPaginatedResponse(res, {
+            message: 'Doctor reviews fetched successfully',
+            itemKey: 'reviews',
+            items: reviews,
+            page,
+            limit,
+            totalItems,
+        });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });

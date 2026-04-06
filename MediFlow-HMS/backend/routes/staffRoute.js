@@ -3,7 +3,7 @@ import { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppoin
 import authStaff from '../middleware/authStaff.js'
 import upload from '../middleware/multer.js';
 import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
-import { validateAppointmentId, validateForgotPassword, validateLogin, validateNotificationId, validatePatientCreate, validateRefreshTokenPayload, validateResetPassword, validateStaffProfileUpdate, validateTokenPayload, validateUpdatePaymentStatus } from '../middleware/validators.js';
+import { validateAppointmentId, validateForgotPassword, validateLogin, validateNotificationId, validateOptionalSlotDateQuery, validatePaginationQuery, validatePatientCreate, validateRefreshTokenPayload, validateResetPassword, validateStaffProfileUpdate, validateTokenPayload, validateUpdatePaymentStatus } from '../middleware/validators.js';
 
 const staffRouter = express.Router()
 
@@ -13,16 +13,16 @@ staffRouter.post('/logout', authStaff, logoutStaff)
 staffRouter.post('/verify-email', validateTokenPayload, verifyEmail)
 staffRouter.get('/profile', authStaff, getProfile)
 staffRouter.post('/update-profile', authStaff, validateStaffProfileUpdate, updateProfile)
-staffRouter.get('/appointments', authStaff, getAllAppointments)
+staffRouter.get('/appointments', authStaff, validatePaginationQuery, getAllAppointments)
 staffRouter.post('/cancel-appointment', authStaff, validateAppointmentId, cancelAppointment)
-staffRouter.get('/all-patients', authStaff, getAllPatients)
+staffRouter.get('/all-patients', authStaff, validatePaginationQuery, getAllPatients)
 staffRouter.post('/create-patient', authStaff, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'aadharImage', maxCount: 1 }]), validatePatientCreate, createPatient)
 staffRouter.get('/dashboard', authStaff, staffDashboard)
 
-staffRouter.get('/daily-appointments', authStaff, getDailyAppointments)
+staffRouter.get('/daily-appointments', authStaff, validateOptionalSlotDateQuery, validatePaginationQuery, getDailyAppointments)
 staffRouter.post('/mark-checkin', authStaff, validateAppointmentId, markCheckIn)
 staffRouter.post('/update-payment', authStaff, validateUpdatePaymentStatus, updatePayment)
-staffRouter.get('/notifications', authStaff, getStaffNotifications)
+staffRouter.get('/notifications', authStaff, validatePaginationQuery, getStaffNotifications)
 staffRouter.post('/mark-notification-read', authStaff, validateNotificationId, markNotificationRead)
 staffRouter.post('/forgot-password', forgotPasswordLimiter, validateForgotPassword, forgotPassword)
 staffRouter.post('/reset-password', forgotPasswordLimiter, validateResetPassword, resetPassword)

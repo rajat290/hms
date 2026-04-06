@@ -177,6 +177,24 @@ const validateTimeSlotFormat = (field, source = 'body') => (req) => {
     return null
 }
 
+const validatePaginationQuery = validate([
+    validateNumberField('page', { min: 1, max: 100000, integer: true }, 'query'),
+    validateNumberField('limit', { min: 1, max: 100, integer: true }, 'query'),
+])
+
+const validateOptionalSlotDateQuery = validate([
+    validateDateSlotFormat('date', 'query'),
+])
+
+const validateDoctorListQuery = validate([
+    validateStringLength('speciality', { min: 1, max: 100 }, 'query'),
+    validateStringLength('gender', { min: 1, max: 30 }, 'query'),
+    validateNumberField('maxFees', { min: 0, max: 1000000 }, 'query'),
+    validateStringLength('search', { min: 1, max: 100 }, 'query'),
+    validateNumberField('page', { min: 1, max: 100000, integer: true }, 'query'),
+    validateNumberField('limit', { min: 1, max: 100, integer: true }, 'query'),
+])
+
 const validateUserRegistration = validate([
     requireFields(['name', 'email', 'password']),
     validateEmailField('email'),
@@ -439,6 +457,9 @@ const validateAISchedule = validate([
 export {
     validateUserRegistration,
     validateLogin,
+    validatePaginationQuery,
+    validateOptionalSlotDateQuery,
+    validateDoctorListQuery,
     validateTokenPayload,
     validateRefreshTokenPayload,
     validateForgotPassword,
