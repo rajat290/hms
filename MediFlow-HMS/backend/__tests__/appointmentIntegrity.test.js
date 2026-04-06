@@ -1,4 +1,10 @@
-import { buildInvoiceItemsFromAppointment, getInvoiceStatusForAppointment, normalizeAppointmentPaymentMethod, normalizePaymentLogMethod } from '../utils/appointmentIntegrity.js';
+import {
+  buildInvoiceItemsFromAppointment,
+  getInvoiceStatusForAppointment,
+  isAppointmentSlotConflict,
+  normalizeAppointmentPaymentMethod,
+  normalizePaymentLogMethod,
+} from '../utils/appointmentIntegrity.js';
 
 describe('appointmentIntegrity helpers', () => {
   it('maps appointment payment state to invoice state', () => {
@@ -50,5 +56,17 @@ describe('appointmentIntegrity helpers', () => {
     expect(normalizePaymentLogMethod('card')).toBe('card');
     expect(normalizePaymentLogMethod('upi')).toBe('online');
     expect(normalizePaymentLogMethod('unknown')).toBe('cash');
+  });
+
+  it('detects duplicate active-slot errors coming from the appointment uniqueness index', () => {
+    expect(isAppointmentSlotConflict({
+      code: 11000,
+      keyPattern: { docId: 1, slotDate: 1, slotTime: 1 },
+    })).toBe(true);
+
+    expect(isAppointmentSlotConflict({
+      code: 11000,
+      keyPattern: { invoiceNumber: 1 },
+    })).toBe(false);
   });
 });
