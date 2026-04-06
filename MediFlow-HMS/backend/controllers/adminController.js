@@ -69,7 +69,23 @@ const appointmentCancel = async (req, res) => {
     try {
 
         const { appointmentId } = req.body
+        const appointment = await appointmentModel.findById(appointmentId)
+
+        if (!appointment) {
+            return res.json({ success: false, message: 'Appointment not found' })
+        }
+
         await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
+
+        const doctorData = await doctorModel.findById(appointment.docId)
+        const slots_booked = doctorData?.slots_booked || {}
+
+        if (slots_booked[appointment.slotDate]) {
+            slots_booked[appointment.slotDate] = slots_booked[appointment.slotDate].filter(
+                slot => slot !== appointment.slotTime
+            )
+            await doctorModel.findByIdAndUpdate(appointment.docId, { slots_booked })
+        }
 
         res.json({ success: true, message: 'Appointment Cancelled' })
 
@@ -98,7 +114,7 @@ const getSettings = async (req, res) => {
     try {
         let settings = await settingsModel.findOne({})
         if (!settings) {
-            settings = await settingsModel.create({ cancellationWindow: 2 })
+            settings = await settingsModel.create({ cancellationWindow: 24 })
         }
 
         res.json({ success: true, settings })
@@ -113,8 +129,8 @@ const updateSettings = async (req, res) => {
     try {
         const { cancellationWindow } = req.body;
 
-        if (!cancellationWindow || cancellationWindow < 1 || cancellationWindow > 7) {
-            return res.json({ success: false, message: 'Cancellation window must be between 1 and 7 days' });
+        if (!cancellationWindow || cancellationWindow < 1 || cancellationWindow > 168) {
+            return res.json({ success: false, message: 'Cancellation window must be between 1 and 168 hours' });
         }
 
         let settings = await settingsModel.findOne({})
@@ -541,7 +557,7 @@ const createPatientAdmin = async (req, res) => {
         await patient.save();
 
         // Send welcome email with credentials
-        const transporter = nodemailer.createTransporter({
+        const transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
             port: 587,
             secure: false,
@@ -571,13 +587,11 @@ const createPatientAdmin = async (req, res) => {
             `
         };
 
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.log('Email sending failed:', error);
-            } else {
-                console.log('Welcome email sent:', info.response);
-            }
-        });
+        try {
+            await transporter.sendMail(mailOptions);
+        } catch (mailError) {
+            console.log('Welcome email sending failed:', mailError);
+        }
 
         res.json({
             success: true,
@@ -776,6 +790,38 @@ const processRefund = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
+
+const deleteDoctor = async (req, res) => {
+    try {
+        const { doctorId } = req.params;
+        const doctor = await doctorModel.findById(doctorId);
+
+        if (!doctor) {
+            return res.json({ success: false, message: 'Doctor not found' });
+        }
+
+        const activeAppointments = await appointmentModel.countDocuments({
+            docId: doctorId,
+            cancelled: false,
+            isCompleted: false
+        });
+
+        if (activeAppointments > 0) {
+            return res.json({
+                success: false,
+                message: 'Doctor has active appointments and cannot be deleted yet'
+            });
+        }
+
+        await doctorModel.findByIdAndDelete(doctorId);
+        await logAdminAction(process.env.ADMIN_EMAIL, 'DELETE_DOCTOR', 'doctor', doctorId, { name: doctor.name });
+
+        res.json({ success: true, message: 'Doctor deleted successfully' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
 
 // API to get payment history for an appointment
 const getPaymentHistory = async (req, res) => {
@@ -1202,5 +1248,5 @@ export {
     generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF,
     processRefund, getPaymentHistory, getPaymentKPIs,
     getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs,
-    addStaff, allStaff
+    addStaff, allStaff, deleteDoctor
 }

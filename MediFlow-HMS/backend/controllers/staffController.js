@@ -116,7 +116,24 @@ const getAllAppointments = async (req, res) => {
 const cancelAppointment = async (req, res) => {
     try {
         const { appointmentId } = req.body
+        const appointment = await appointmentModel.findById(appointmentId)
+
+        if (!appointment) {
+            return res.json({ success: false, message: 'Appointment not found' })
+        }
+
         await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
+
+        const doctorData = await doctorModel.findById(appointment.docId)
+        const slots_booked = doctorData?.slots_booked || {}
+
+        if (slots_booked[appointment.slotDate]) {
+            slots_booked[appointment.slotDate] = slots_booked[appointment.slotDate].filter(
+                slot => slot !== appointment.slotTime
+            )
+            await doctorModel.findByIdAndUpdate(appointment.docId, { slots_booked })
+        }
+
         res.json({ success: true, message: 'Appointment Cancelled' })
     } catch (error) {
         console.log(error)

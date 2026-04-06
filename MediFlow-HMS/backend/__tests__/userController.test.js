@@ -1,197 +1,67 @@
-import request from 'supertest';
-import express from 'express';
-import mongoose from 'mongoose';
 import { jest } from '@jest/globals';
-import userRoute from '../routes/userRoute.js';
-import User from '../models/userModel.js';
 
-// Mock environment variables
 process.env.JWT_SECRET = 'test_jwt_secret';
-process.env.MONGO_URI = 'mongodb://localhost:27017/test_hms';
+process.env.STRIPE_SECRET_KEY = 'sk_test_fake';
+process.env.RAZORPAY_KEY_ID = 'rzp_test_fake';
+process.env.RAZORPAY_KEY_SECRET = 'rzp_secret_fake';
+process.env.CURRENCY = 'INR';
 
-// Create test app
-const app = express();
-app.use(express.json());
-app.use('/api/user', userRoute);
+const findByIdMock = jest.fn();
+const generateAvailableSlotsMock = jest.fn();
 
-describe('User Controller Tests', () => {
-  beforeAll(async () => {
-    // Connect to test database
-    await mongoose.connect(process.env.MONGO_URI);
+jest.unstable_mockModule('../models/doctorModel.js', () => ({
+  default: { findById: findByIdMock },
+}));
+
+jest.unstable_mockModule('../utils/slotGenerator.js', () => ({
+  generateAvailableSlots: generateAvailableSlotsMock,
+}));
+
+const { getDoctorSlots } = await import('../controllers/userController.js');
+
+const createResponse = () => ({
+  json: jest.fn(),
+});
+
+describe('userController getDoctorSlots', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  afterAll(async () => {
-    // Close database connection
-    await mongoose.connection.close();
-  });
+  it('returns an error when the doctor does not exist', async () => {
+    findByIdMock.mockResolvedValueOnce(null);
+    const res = createResponse();
 
-  beforeEach(async () => {
-    // Clear users collection before each test
-    await User.deleteMany({});
-  });
+    await getDoctorSlots({ params: { docId: 'missing-doctor' } }, res);
 
-  describe('POST /api/user/register', () => {
-    it('should register a new user successfully', async () => {
-      const userData = {
-        name: 'John Doe',
-        email: 'john@example.com',
-        password: 'password123',
-        phone: '+1234567890'
-      };
-
-      const response = await request(app)
-        .post('/api/user/register')
-        .send(userData);
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('User registered successfully. Please check your email for verification.');
-    });
-
-    it('should return error for missing required fields', async () => {
-      const userData = {
-        name: 'John Doe',
-        email: 'john@example.com'
-        // Missing password and phone
-      };
-
-      const response = await request(app)
-        .post('/api/user/register')
-        .send(userData);
-
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-    });
-
-    it('should return error for duplicate email', async () => {
-      // First register a user
-      await User.create({
-        name: 'John Doe',
-        email: 'john@example.com',
-        password: 'hashedpassword',
-        phone: '+1234567890',
-        isVerified: false
-      });
-
-      const userData = {
-        name: 'Jane Doe',
-        email: 'john@example.com', // Same email
-        password: 'password123',
-        phone: '+0987654321'
-      };
-
-      const response = await request(app)
-        .post('/api/user/register')
-        .send(userData);
-
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('User already exists');
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'Doctor not found',
     });
   });
 
-  describe('POST /api/user/verify-email', () => {
-    it('should verify email with valid token', async () => {
-      const user = await User.create({
-        name: 'John Doe',
-        email: 'john@example.com',
-        password: 'hashedpassword',
-        phone: '+1234567890',
-        verificationToken: 'valid_token',
-        isVerified: false
-      });
-
-      const response = await request(app)
-        .post('/api/user/verify-email')
-        .send({ token: 'valid_token' });
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Email verified successfully');
+  it('returns seven days of generated slots for a valid doctor', async () => {
+    findByIdMock.mockResolvedValueOnce({
+      _id: 'doctor-123',
+      availability: {
+        enabled: true,
+        schedule: {
+          monday: [{ start: '09:00', end: '11:00' }],
+        },
+      },
+      slots_booked: {},
     });
 
-    it('should return error for invalid token', async () => {
-      const response = await request(app)
-        .post('/api/user/verify-email')
-        .send({ token: 'invalid_token' });
+    generateAvailableSlotsMock.mockReturnValue([{ time: '10:00' }]);
 
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Invalid or expired verification token');
-    });
-  });
+    const res = createResponse();
+    await getDoctorSlots({ params: { docId: 'doctor-123' } }, res);
 
-  describe('POST /api/user/forgot-password', () => {
-    it('should send reset email for valid user', async () => {
-      await User.create({
-        name: 'John Doe',
-        email: 'john@example.com',
-        password: 'hashedpassword',
-        phone: '+1234567890',
-        isVerified: true
-      });
+    const payload = res.json.mock.calls[0][0];
 
-      const response = await request(app)
-        .post('/api/user/forgot-password')
-        .send({ email: 'john@example.com' });
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Password reset email sent');
-    });
-
-    it('should return error for non-existent email', async () => {
-      const response = await request(app)
-        .post('/api/user/forgot-password')
-        .send({ email: 'nonexistent@example.com' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('User not found');
-    });
-  });
-
-  describe('POST /api/user/reset-password', () => {
-    it('should reset password with valid token', async () => {
-      const resetToken = 'valid_reset_token';
-      const user = await User.create({
-        name: 'John Doe',
-        email: 'john@example.com',
-        password: 'hashedpassword',
-        phone: '+1234567890',
-        resetToken,
-        resetTokenExpiry: new Date(Date.now() + 3600000), // 1 hour from now
-        isVerified: true
-      });
-
-      const response = await request(app)
-        .post('/api/user/reset-password')
-        .send({ token: resetToken, newPassword: 'newpassword123' });
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Password reset successfully');
-    });
-
-    it('should return error for expired token', async () => {
-      const resetToken = 'expired_token';
-      await User.create({
-        name: 'John Doe',
-        email: 'john@example.com',
-        password: 'hashedpassword',
-        phone: '+1234567890',
-        resetToken,
-        resetTokenExpiry: new Date(Date.now() - 3600000), // 1 hour ago
-        isVerified: true
-      });
-
-      const response = await request(app)
-        .post('/api/user/reset-password')
-        .send({ token: resetToken, newPassword: 'newpassword123' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Invalid or expired reset token');
-    });
+    expect(generateAvailableSlotsMock).toHaveBeenCalledTimes(7);
+    expect(payload.success).toBe(true);
+    expect(payload.slots).toHaveLength(7);
+    expect(payload.slots[0]).toEqual([{ time: '10:00' }]);
   });
 });

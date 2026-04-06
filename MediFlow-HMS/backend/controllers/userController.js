@@ -346,7 +346,7 @@ const cancelAppointment = async (req, res) => {
 
         // 4. Check Cancellation Window (Time Restriction)
         const settings = await settingsModel.findOne({})
-        const cancelWindow = settings ? settings.cancellationWindow : 2 // Default 2 hours
+        const cancelWindow = settings ? settings.cancellationWindow : 24 // Default 24 hours
 
         const { slotDate, slotTime } = appointmentData
 
@@ -464,11 +464,19 @@ const getUserPrescriptions = async (req, res) => {
 const paymentRazorpay = async (req, res) => {
     try {
 
-        const { appointmentId } = req.body
+        const { userId, appointmentId } = req.body
         const appointmentData = await appointmentModel.findById(appointmentId)
 
         if (!appointmentData || appointmentData.cancelled) {
             return res.json({ success: false, message: 'Appointment Cancelled or not found' })
+        }
+
+        if (appointmentData.userId.toString() !== userId) {
+            return res.json({ success: false, message: 'Unauthorized payment request' })
+        }
+
+        if (appointmentData.paymentStatus === 'paid') {
+            return res.json({ success: false, message: 'Appointment is already paid' })
         }
 
         // creating options for razorpay payment
@@ -495,8 +503,27 @@ const paymentRazorpay = async (req, res) => {
 // API to verify payment of razorpay
 const verifyRazorpay = async (req, res) => {
     try {
-        const { razorpay_order_id } = req.body
+        const { userId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
+
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return res.json({ success: false, message: 'Missing payment verification details' })
+        }
+
         const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
+        const generatedSignature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+            .digest('hex')
+
+        if (generatedSignature !== razorpay_signature) {
+            return res.json({ success: false, message: 'Payment signature verification failed' })
+        }
+
+        const appointmentData = await appointmentModel.findById(orderInfo.receipt)
+
+        if (!appointmentData || appointmentData.userId.toString() !== userId) {
+            return res.json({ success: false, message: 'Unauthorized payment verification request' })
+        }
 
         if (orderInfo.status === 'paid') {
             await appointmentModel.findByIdAndUpdate(orderInfo.receipt, { payment: true, paymentStatus: 'paid' })
@@ -515,13 +542,21 @@ const verifyRazorpay = async (req, res) => {
 const paymentStripe = async (req, res) => {
     try {
 
-        const { appointmentId } = req.body
+        const { userId, appointmentId } = req.body
         const { origin } = req.headers
 
         const appointmentData = await appointmentModel.findById(appointmentId)
 
         if (!appointmentData || appointmentData.cancelled) {
             return res.json({ success: false, message: 'Appointment Cancelled or not found' })
+        }
+
+        if (appointmentData.userId.toString() !== userId) {
+            return res.json({ success: false, message: 'Unauthorized payment request' })
+        }
+
+        if (appointmentData.paymentStatus === 'paid') {
+            return res.json({ success: false, message: 'Appointment is already paid' })
         }
 
         const currency = process.env.CURRENCY.toLocaleLowerCase()
@@ -538,7 +573,7 @@ const paymentStripe = async (req, res) => {
         }]
 
         const session = await stripeInstance.checkout.sessions.create({
-            success_url: `${origin}/verify?success=true&appointmentId=${appointmentData._id}`,
+            success_url: `${origin}/verify?success=true&appointmentId=${appointmentData._id}&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${origin}/verify?success=false&appointmentId=${appointmentData._id}`,
             line_items: line_items,
             mode: 'payment',
@@ -559,9 +594,25 @@ const paymentStripe = async (req, res) => {
 const verifyStripe = async (req, res) => {
     try {
 
-        const { appointmentId, success } = req.body
+        const { userId, appointmentId, sessionId } = req.body
 
-        if (success === "true") {
+        if (!sessionId) {
+            return res.json({ success: false, message: 'Missing Stripe session details' })
+        }
+
+        const appointmentData = await appointmentModel.findById(appointmentId)
+
+        if (!appointmentData || appointmentData.userId.toString() !== userId) {
+            return res.json({ success: false, message: 'Unauthorized payment verification request' })
+        }
+
+        const session = await stripeInstance.checkout.sessions.retrieve(sessionId)
+
+        if (session.client_reference_id !== appointmentId) {
+            return res.json({ success: false, message: 'Stripe session does not match appointment' })
+        }
+
+        if (session.payment_status === 'paid') {
             await appointmentModel.findByIdAndUpdate(appointmentId, { payment: true, paymentStatus: 'paid' })
             return res.json({ success: true, message: 'Payment Successful' })
         }

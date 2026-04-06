@@ -20,25 +20,17 @@ const DoctorAppointments = () => {
     const note = prompt("Enter note for this appointment:");
     if (!note) return;
     try {
-      const { data } = await axios.post(backendUrl + '/api/doctor/add-notes', { docId: dToken, appointmentId, notes: note }, { headers: { dToken } }) // docId is mostly inferred or passed if needed, controller uses dToken to verify but appointmentModel has docId. My updated controller logic expects docId in body? No, middleware sets it? 
-      // Wait, doctorMiddleware adds `docId` to body? 
-      // Let's check authDoctor.js? Usually it acts like that.
-      // But the previous controller code: `const { docId, appointmentId, notes } = req.body;`
-      // So I MUST send docId if the middleware doesn't inject it into body but into req.docId. 
-      // `authDoctor` typically: `req.body.docId = decoded.id`.
-      // So I don't need to send it explicitly if I rely on that. 
-      // But for safety I can rely on what the context does. 
-      // Context calls look like: `axios.post(..., { appointmentId }, ...)`
-      // So likely middleware handles it.
-      // Actually, looking at `api/doctor/cancel-appointment` in context: `axios.post(..., { appointmentId }, ...)`
-      // So `docId` is injected.
+      const { data } = await axios.post(
+        backendUrl + '/api/doctor/add-notes',
+        { appointmentId, notes: note },
+        { headers: { dToken } }
+      )
 
-      // Wait, `addAppointmentNotes` controller: `const { docId, ... } = req.body`
-      // `authDoctor` middleware usually does `req.body.docId = decoded.id`.
-      // So simply sending `notes` and `appointmentId` is enough.
-
-      await axios.post(backendUrl + '/api/doctor/add-notes', { appointmentId, notes: note }, { headers: { dToken } })
-      toast.success("Note added")
+      if (data.success) {
+        toast.success("Note added")
+      } else {
+        toast.error(data.message)
+      }
     } catch (error) {
       toast.error(error.message)
     }

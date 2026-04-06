@@ -10,7 +10,6 @@ const StaffContextProvider = (props) => {
 
     const [sToken, setSToken] = useState(localStorage.getItem('sToken') ? localStorage.getItem('sToken') : '')
 
-    console.log("StaffContext sToken:", sToken);
     const [staffProfile, setStaffProfile] = useState(false)
     const [dashData, setDashData] = useState(false)
     const [appointments, setAppointments] = useState([])
@@ -74,9 +73,7 @@ const StaffContextProvider = (props) => {
 
     const getDashData = async () => {
         try {
-            console.log("Fetching Staff Dashboard Data with token:", sToken);
             const { data } = await axios.get(backendUrl + '/api/staff/dashboard', { headers: { sToken } })
-            console.log("Staff Dashboard API Response:", data);
             if (data.success) {
                 setDashData(data.dashData)
             } else {
@@ -84,20 +81,6 @@ const StaffContextProvider = (props) => {
             }
         } catch (error) {
             console.log(error)
-            toast.error(error.message)
-        }
-    }
-
-    const markAppointmentPaid = async (appointmentId) => {
-        try {
-            const { data } = await axios.post(backendUrl + '/api/staff/mark-paid', { appointmentId }, { headers: { sToken } })
-            if (data.success) {
-                toast.success(data.message)
-                getAllAppointments()
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
             toast.error(error.message)
         }
     }
@@ -137,7 +120,7 @@ const StaffContextProvider = (props) => {
         backendUrl,
         staffProfile, setStaffProfile, getStaffProfile,
         appointments, getAllAppointments,
-        cancelAppointment, markAppointmentPaid,
+        cancelAppointment,
         patients, getAllPatients,
         dashData, getDashData,
         checkInAppointment, updatePayment

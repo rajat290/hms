@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginAdmin, appointmentsAdmin, appointmentCancel, appointmentAccept, addDoctor, allDoctors, adminDashboard, getAllPatients, updatePaymentStatus, getSettings, updateSettings, getPatientDetails, getAnalytics, updatePaymentMethods, updateDoctor, createPatientAdmin, generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF, processRefund, getPaymentHistory, getPaymentKPIs, getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs, addStaff, allStaff } from '../controllers/adminController.js';
+import { loginAdmin, appointmentsAdmin, appointmentCancel, appointmentAccept, addDoctor, allDoctors, adminDashboard, getAllPatients, updatePaymentStatus, getSettings, updateSettings, getPatientDetails, getAnalytics, updatePaymentMethods, updateDoctor, createPatientAdmin, generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF, processRefund, getPaymentHistory, getPaymentKPIs, getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs, addStaff, allStaff, deleteDoctor } from '../controllers/adminController.js';
 import { changeAvailablity } from '../controllers/doctorController.js';
 import authAdmin from '../middleware/authAdmin.js';
 import upload from '../middleware/multer.js';
@@ -30,6 +30,8 @@ adminRouter.post("/create-patient", authAdmin, upload.fields([{ name: 'image', m
 adminRouter.post("/generate-invoice", authAdmin, generateInvoice)
 adminRouter.get("/all-invoices", authAdmin, getAllInvoices)
 adminRouter.post("/update-invoice-status", authAdmin, updateInvoiceStatus)
+adminRouter.get("/download-invoice/:invoiceId", authAdmin, downloadInvoicePDF)
+adminRouter.delete("/delete-doctor/:doctorId", authAdmin, deleteDoctor)
 // Billing analytics
 adminRouter.get("/billing-analytics", authAdmin, getBillingMetrics)
 adminRouter.get("/payment-kpis", authAdmin, getPaymentKPIs)

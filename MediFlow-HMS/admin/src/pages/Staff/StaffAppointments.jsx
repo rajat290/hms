@@ -6,7 +6,7 @@ import { AppContext } from '../../context/AppContext'
 
 const StaffAppointments = () => {
 
-    const { sToken, appointments, cancelAppointment, getAllAppointments, markAppointmentPaid, checkInAppointment } = useContext(StaffContext)
+    const { sToken, appointments, cancelAppointment, getAllAppointments, checkInAppointment } = useContext(StaffContext)
     const { slotDateFormat, calculateAge, currency } = useContext(AppContext)
 
     const [searchTerm, setSearchTerm] = useState("")

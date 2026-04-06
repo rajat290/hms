@@ -5,7 +5,7 @@ import { toast } from 'react-toastify'
 import EditDoctorModal from "./EditDoctorModal"
 
 const DoctorsList = () => {
-  const { doctors, changeAvailability , aToken , getAllDoctors } = useContext(AdminContext)
+  const { doctors, changeAvailability , aToken , getAllDoctors, backendUrl } = useContext(AdminContext)
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("")
   const [specialityFilter, setSpecialityFilter] = useState("")
@@ -44,7 +44,7 @@ const DoctorsList = () => {
     if(window.confirm('Are you sure you want to delete this doctor?')){
       try {
         const { data } = await axios.delete(
-          `${process.env.REACT_APP_BACKEND_URL || doctors[0]?.backendUrl || ''}/api/admin/delete-doctor/${doctorId}`,
+          `${backendUrl}/api/admin/delete-doctor/${doctorId}`,
           { headers: { aToken } }
         )
         if(data.success){

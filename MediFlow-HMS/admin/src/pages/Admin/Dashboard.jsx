@@ -16,26 +16,6 @@ const Dashboard = () => {
   const { slotDateFormat, currency, backendUrl } = useContext(AppContext);
   const navigate = useNavigate();
 
-  // Original Dashboard States (Locations)
-  const [locations, setLocations] = useState([]);
-  const [newLocation, setNewLocation] = useState({ name: "", address: "" });
-
-  const addLocation = async () => {
-    try {
-      const { data } = await axios.post(
-        `${backendUrl}/api/admin/add-location`,
-        newLocation,
-        { headers: { aToken } },
-      );
-      if (data.success) {
-        setLocations([...locations, data.location]);
-        setNewLocation({ name: "", address: "" });
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   // Analytics Hub States
   const [activeTabHub, setActiveTabHub] = useState('overview')
   const [analyticsHub, setAnalyticsHub] = useState(null)
@@ -115,7 +95,7 @@ const Dashboard = () => {
       <div className="m-5">
         <div className="flex flex-wrap gap-3">
           <div
-            onclick={() => navigate("/doctor-list")}
+            onClick={() => navigate("/doctor-list")}
             className="flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all"
           >
             <img className="w-14" src={assets.doctor_icon} alt="" />

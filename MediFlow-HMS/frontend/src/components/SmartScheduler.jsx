@@ -30,11 +30,11 @@ const SmartScheduler = () => {
         <p>Get optimal appointment time</p>
         <div className='w-full'>
           <p>Doctor ID</p>
-          <input onChange={(e) => setDoctorId(e.target.value)} value={doctorId} className='border border-[#DADADA] rounded w-full p-2 mt-1' type="text" required />
+          <input aria-label='Doctor ID' onChange={(e) => setDoctorId(e.target.value)} value={doctorId} className='border border-[#DADADA] rounded w-full p-2 mt-1' type="text" required />
         </div>
         <div className='w-full'>
           <p>Date</p>
-          <input onChange={(e) => setDate(e.target.value)} value={date} className='border border-[#DADADA] rounded w-full p-2 mt-1' type="date" required />
+          <input aria-label='Date' onChange={(e) => setDate(e.target.value)} value={date} className='border border-[#DADADA] rounded w-full p-2 mt-1' type="date" required />
         </div>
         <button onClick={getSuggestion} className='bg-primary text-white w-full py-2 my-2 rounded-md text-base'>Get Suggestion</button>
         {suggestedTime && <p className='text-lg font-medium'>Suggested Time: {suggestedTime}</p>}
