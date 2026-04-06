@@ -1,6 +1,7 @@
 import { createContext, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import axios from 'axios';
+import { persistStoredSession, readStoredValue } from "@shared/utils/sessionStorage.js";
 
 export const AppContext = createContext();
 
@@ -10,29 +11,21 @@ const AppContextProvider = (props) => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
     const [doctors, setDoctors] = useState([]);
-    const [token, setToken] = useState(localStorage.getItem('token') ? localStorage.getItem('token') : '');
-    const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken') ? localStorage.getItem('refreshToken') : '');
+    const [token, setToken] = useState(() => readStoredValue('token'));
+    const [refreshToken, setRefreshToken] = useState(() => readStoredValue('refreshToken'));
     const [userData, setUserData] = useState(false);
     const refreshRequestRef = useRef(null);
 
     const persistSession = (nextAccessToken, nextRefreshToken) => {
-        const resolvedAccessToken = nextAccessToken || '';
-        const resolvedRefreshToken = nextRefreshToken || '';
+        const { accessToken, refreshToken: storedRefreshToken } = persistStoredSession({
+            accessKey: 'token',
+            refreshKey: 'refreshToken',
+            accessToken: nextAccessToken,
+            refreshToken: nextRefreshToken,
+        });
 
-        setToken(resolvedAccessToken);
-        setRefreshToken(resolvedRefreshToken);
-
-        if (resolvedAccessToken) {
-            localStorage.setItem('token', resolvedAccessToken);
-        } else {
-            localStorage.removeItem('token');
-        }
-
-        if (resolvedRefreshToken) {
-            localStorage.setItem('refreshToken', resolvedRefreshToken);
-        } else {
-            localStorage.removeItem('refreshToken');
-        }
+        setToken(accessToken);
+        setRefreshToken(storedRefreshToken);
     };
 
     const clearSession = () => {
@@ -49,7 +42,7 @@ const AppContextProvider = (props) => {
     };
 
     const refreshUserSession = async () => {
-        const storedRefreshToken = refreshToken || localStorage.getItem('refreshToken') || '';
+        const storedRefreshToken = refreshToken || readStoredValue('refreshToken') || '';
 
         if (!storedRefreshToken) {
             throw new Error('No refresh token available');
@@ -148,7 +141,7 @@ const AppContextProvider = (props) => {
                 const shouldAttemptRefresh = error?.response?.status === 401
                     && !originalRequest._sessionRetried
                     && !originalRequest.skipSessionRefresh
-                    && Boolean(refreshToken || localStorage.getItem('refreshToken'));
+                    && Boolean(refreshToken || readStoredValue('refreshToken'));
 
                 if (!shouldAttemptRefresh) {
                     return Promise.reject(normalizeAxiosError(error));

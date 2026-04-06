@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { AdminContext } from "./AdminContext";
 import { DoctorContext } from "./DoctorContext";
 import { StaffContext } from "./StaffContext";
+import { calculateAgeFromDob, formatSlotDate } from "@shared/utils/date.js";
 
 export const AppContext = createContext();
 
@@ -10,31 +11,14 @@ const AppContextProvider = (props) => {
 
     const currency = import.meta.env.VITE_CURRENCY;
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const refreshRequestRef = useRef(null);
 
     const { aToken, aRefreshToken, persistAdminSession, clearAdminSession } = useContext(AdminContext);
     const { dToken, dRefreshToken, persistDoctorSession, clearDoctorSession } = useContext(DoctorContext);
     const { sToken, sRefreshToken, persistStaffSession, clearStaffSession } = useContext(StaffContext);
 
-    const slotDateFormat = (slotDate) => {
-        const dateArray = slotDate.split('_');
-        return dateArray[0] + " " + months[Number(dateArray[1]) - 1] + " " + dateArray[2];
-    };
-
-    const calculateAge = (dob) => {
-        const today = new Date();
-        const birthDate = new Date(dob);
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDifference = today.getMonth() - birthDate.getMonth();
-
-        if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
-            age -= 1;
-        }
-
-        return age;
-    };
+    const slotDateFormat = formatSlotDate;
+    const calculateAge = calculateAgeFromDob;
 
     const [isEmergencyMode, setIsEmergencyMode] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('darkMode') === 'true');

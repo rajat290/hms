@@ -1,5 +1,3 @@
-import bcrypt from "bcrypt";
-import validator from "validator";
 import userModel from "../models/userModel.js";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
@@ -8,14 +6,22 @@ import prescriptionModel from "../models/prescriptionModel.js";
 import { v2 as cloudinary } from 'cloudinary'
 import stripe from "stripe";
 import razorpay from 'razorpay';
-import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { generateAvailableSlots } from "../utils/slotGenerator.js";
 import notificationModel from "../models/notificationModel.js";
 import { ensureInvoiceForAppointment, finalizeAppointmentPayment, isAppointmentSlotConflict, releaseDoctorSlot, reserveDoctorSlot } from "../utils/appointmentIntegrity.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
-import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
+import { revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
+import {
+    enableUserTwoFactor,
+    loginUserAccount,
+    registerUserAccount,
+    requestUserPasswordReset,
+    resetUserPassword,
+    verifyUserEmail,
+    verifyUserTwoFactor,
+} from "../services/auth/userAuthService.js";
 
 // Gateway Initialize
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
@@ -29,68 +35,14 @@ const registerUser = async (req, res) => {
 
     try {
         const { name, email, password } = req.body;
-
-        // checking for all data to register user
-        if (!name || !email || !password) {
-            return res.json({ success: false, message: 'Missing Details' })
-        }
-
-        // validating email format
-        if (!validator.isEmail(email)) {
-            return res.json({ success: false, message: "Please enter a valid email" })
-        }
-
-        // validating strong password
-        if (password.length < 8) {
-            return res.json({ success: false, message: "Please enter a strong password" })
-        }
-
-        // hashing user password
-        const salt = await bcrypt.genSalt(10); // the more no. round the more time it will take
-        const hashedPassword = await bcrypt.hash(password, salt)
-
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-
-        const userData = {
+        const response = await registerUserAccount({
             name,
             email,
-            password: hashedPassword,
-            verificationToken
-        }
-
-        const newUser = new userModel(userData)
-        const user = await newUser.save()
-
-        // Send verification email
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
+            password,
+            origin: req.headers.origin,
         });
 
-        const verificationUrl = `${req.headers.origin}/verify-email?token=${verificationToken}`;
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'Email Verification - Mediflow',
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Welcome to Mediflow!</h2>
-                    <p>Please click the button below to verify your email address and activate your account:</p>
-                    <a href="${verificationUrl}" style="background-color: #5f6FFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Verify Email</a>
-                    <p>If the button doesn't work, copy and paste this link into your browser:</p>
-                    <p>${verificationUrl}</p>
-                    <p>Thank you,<br>The Mediflow Team</p>
-                </div>
-            `
-        };
-
-        await transporter.sendMail(mailOptions);
-
-        res.json({ success: true, message: 'Registration successful! Please check your email to verify your account.' })
+        res.json(response)
 
     } catch (error) {
         console.log(error)
@@ -103,86 +55,14 @@ const loginUser = async (req, res) => {
 
     try {
         const { email, password } = req.body;
-        const user = await userModel.findOne({ email })
+        const response = await loginUserAccount({
+            email,
+            password,
+            origin: req.headers.origin,
+            req,
+        });
 
-        if (!user) {
-            return res.json({ success: false, message: "User does not exist" })
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password)
-
-        if (isMatch) {
-            if (!user.isVerified) {
-                // Resend verification email
-                const verificationToken = crypto.randomBytes(32).toString('hex');
-                user.verificationToken = verificationToken;
-                await user.save();
-
-                const transporter = nodemailer.createTransport({
-                    service: 'gmail',
-                    auth: {
-                        user: process.env.EMAIL_USER,
-                        pass: process.env.EMAIL_PASS
-                    }
-                });
-
-                const verificationUrl = `${req.headers.origin}/verify-email?token=${verificationToken}`;
-
-                const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: email,
-                    subject: 'Verify Your Email - Mediflow',
-                    html: `
-                        <div style="font-family: Arial, sans-serif; padding: 20px;">
-                            <h2>Email Verification Required</h2>
-                            <p>Please click the button below to verify your email address:</p>
-                            <a href="${verificationUrl}" style="background-color: #5f6FFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Verify Email</a>
-                            <p>Thank you,<br>The Mediflow Team</p>
-                        </div>
-                    `
-                };
-
-                await transporter.sendMail(mailOptions);
-                return res.json({ success: false, message: "Email not verified. A new verification link has been sent to your email." })
-            }
-
-            if (user.twoFactorEnabled) {
-                // Generate and send 2FA code
-                const code = crypto.randomInt(100000, 999999).toString();
-                user.twoFactorCode = code;
-                user.twoFactorCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
-                await user.save();
-
-                // Send email
-                const transporter = nodemailer.createTransport({
-                    service: 'gmail',
-                    auth: {
-                        user: process.env.EMAIL_USER,
-                        pass: process.env.EMAIL_PASS
-                    }
-                });
-
-                const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: email,
-                    subject: '2FA Verification Code - Mediflow',
-                    html: `<h3>Your 2FA code is: ${code}</h3><p>Use this code to complete your login.</p>`
-                };
-                await transporter.sendMail(mailOptions);
-
-                return res.json({ success: true, twoFactorRequired: true, userId: user._id, message: "2FA code sent to your email." });
-            }
-
-            const session = await issueAuthTokens({
-                subjectId: user._id,
-                role: 'user',
-                req,
-            });
-            res.json({ success: true, ...session })
-        }
-        else {
-            res.json({ success: false, message: "Invalid credentials" })
-        }
+        res.json(response)
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
@@ -689,14 +569,8 @@ const verifyStripe = async (req, res) => {
 const verifyEmail = async (req, res) => {
     try {
         const { token } = req.body;
-        const user = await userModel.findOne({ verificationToken: token });
-        if (!user) {
-            return res.json({ success: false, message: 'Invalid token' });
-        }
-        user.isVerified = true;
-        user.verificationToken = undefined;
-        await user.save();
-        res.json({ success: true, message: 'Email verified successfully' });
+        const response = await verifyUserEmail({ token });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -707,48 +581,11 @@ const verifyEmail = async (req, res) => {
 const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
-        const user = await userModel.findOne({ email });
-        if (!user) {
-            return res.json({ success: false, message: 'User not found' });
-        }
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        user.resetToken = resetToken;
-        user.resetTokenExpiry = Date.now() + 3600000; // 1 hour
-        await user.save();
-        // send email
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
+        const response = await requestUserPasswordReset({
+            email,
+            origin: req.headers.origin,
         });
-
-        const resetUrl = `${req.headers.origin}/reset-password?token=${resetToken}`;
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'Password Reset - Mediflow',
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Password Reset Request</h2>
-                    <p>You requested a password reset. Please click the button below to set a new password:</p>
-                    <a href="${resetUrl}" style="background-color: #5f6FFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Reset Password</a>
-                    <p>This link will expire in 1 hour.</p>
-                    <p>If you did not request this, please ignore this email.</p>
-                    <p>Thank you,<br>The Mediflow Team</p>
-                </div>
-            `
-        };
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.log(error);
-            } else {
-                console.log('Email sent: ' + info.response);
-            }
-        });
-        res.json({ success: true, message: 'Reset token sent to email' });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -759,34 +596,12 @@ const forgotPassword = async (req, res) => {
 const resetPassword = async (req, res) => {
     try {
         const { token, newPassword } = req.body;
-        const user = await userModel.findOne({ resetToken: token, resetTokenExpiry: { $gt: Date.now() } });
-        if (!user) {
-            return res.json({ success: false, message: 'Invalid or expired token' });
-        }
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(newPassword, salt);
-        user.password = hashedPassword;
-        user.resetToken = undefined;
-        user.resetTokenExpiry = undefined;
-        user.isVerified = true;
-        user.verificationToken = undefined;
-        user.twoFactorCode = undefined;
-        user.twoFactorCodeExpiry = undefined;
-        await user.save();
-
-        await revokeAllSessionsForSubject({
-            subjectId: user._id,
-            role: 'user',
-            reason: 'Password reset',
-        });
-
-        const session = await issueAuthTokens({
-            subjectId: user._id,
-            role: 'user',
+        const response = await resetUserPassword({
+            token,
+            newPassword,
             req,
         });
-
-        res.json({ success: true, message: 'Password reset successfully', ...session });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -797,15 +612,8 @@ const resetPassword = async (req, res) => {
 const enable2FA = async (req, res) => {
     try {
         const { userId } = req.body;
-        const user = await userModel.findById(userId);
-        if (!user) {
-            return res.json({ success: false, message: 'User not found' });
-        }
-        user.twoFactorEnabled = true;
-        user.twoFactorCode = undefined;
-        user.twoFactorCodeExpiry = undefined;
-        await user.save();
-        res.json({ success: true, message: '2FA enabled. Future logins will require an email verification code.' });
+        const response = await enableUserTwoFactor({ userId });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -816,30 +624,12 @@ const enable2FA = async (req, res) => {
 const verify2FA = async (req, res) => {
     try {
         const { userId, code } = req.body;
-        const user = await userModel.findById(userId);
-        if (!user || !user.twoFactorEnabled) {
-            return res.json({ success: false, message: '2FA not enabled' });
-        }
-        if (!user.twoFactorCode || user.twoFactorCodeExpiry <= new Date()) {
-            user.twoFactorCode = undefined;
-            user.twoFactorCodeExpiry = undefined;
-            await user.save();
-            return res.json({ success: false, message: '2FA code expired. Please login again.' });
-        }
-        if (user.twoFactorCode !== code) {
-            return res.json({ success: false, message: 'Invalid code' });
-        }
-        user.twoFactorCode = undefined;
-        user.twoFactorCodeExpiry = undefined;
-        await user.save();
-
-        const session = await issueAuthTokens({
-            subjectId: user._id,
-            role: 'user',
+        const response = await verifyUserTwoFactor({
+            userId,
+            code,
             req,
         });
-
-        res.json({ success: true, message: '2FA verified', ...session });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });

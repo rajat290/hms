@@ -9,14 +9,24 @@ import staffModel from "../models/staffModel.js";
 import bcrypt from "bcrypt";
 import validator from "validator";
 import { v2 as cloudinary } from "cloudinary";
-import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import PDFDocument from 'pdfkit';
 import auditLogModel from "../models/auditLogModel.js";
 import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod, normalizePaymentLogMethod, refundAppointmentPayment } from "../utils/appointmentIntegrity.js";
-import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
+import { sendPaginatedResponse } from "../utils/pagination.js";
 import { getAdminSubjectId, issueAuthTokens, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
+import {
+    getAdminDashboardData,
+    getPaginatedAppointmentsForAdmin,
+    getPaginatedAuditLogs,
+    getPaginatedDoctorsForAdmin,
+    getPaginatedInvoicesForAdmin,
+    getPaginatedPatientsForAdmin,
+    getPaginatedPaymentHistory,
+    getPaginatedStaffForAdmin,
+} from "../services/admin/adminReadService.js";
+import { logEmailFailure, sendWelcomeCredentialsEmail } from "../services/emailService.js";
 
 // Helper function for audit logging
 const logAdminAction = async (actorEmail, action, targetType, targetId, metadata) => {
@@ -82,22 +92,8 @@ const logoutAdmin = async (req, res) => {
 // API to get all appointments list
 const appointmentsAdmin = async (req, res) => {
     try {
-        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 50 });
-        const query = {};
-
-        const [totalItems, appointments] = await Promise.all([
-            appointmentModel.countDocuments(query),
-            appointmentModel.find(query).sort({ date: -1 }).skip(skip).limit(limit),
-        ]);
-
-        sendPaginatedResponse(res, {
-            message: 'Appointments fetched successfully',
-            itemKey: 'appointments',
-            items: appointments,
-            page,
-            limit,
-            totalItems,
-        });
+        const response = await getPaginatedAppointmentsForAdmin(req.query);
+        sendPaginatedResponse(res, response);
 
     } catch (error) {
         console.log(error)
@@ -353,22 +349,8 @@ const addDoctor = async (req, res) => {
 // API to get all doctors list
 const allDoctors = async (req, res) => {
     try {
-        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 50 });
-        const query = {};
-
-        const [totalItems, doctors] = await Promise.all([
-            doctorModel.countDocuments(query),
-            doctorModel.find(query).select('-password').sort({ date: -1 }).skip(skip).limit(limit),
-        ]);
-
-        sendPaginatedResponse(res, {
-            message: 'Doctors fetched successfully',
-            itemKey: 'doctors',
-            items: doctors,
-            page,
-            limit,
-            totalItems,
-        });
+        const response = await getPaginatedDoctorsForAdmin(req.query);
+        sendPaginatedResponse(res, response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -378,16 +360,7 @@ const allDoctors = async (req, res) => {
 // API to get admin dashboard data
 const adminDashboard = async (req, res) => {
     try {
-        const doctors = await doctorModel.find({});
-        const users = await userModel.find({});
-        const appointments = await appointmentModel.find({});
-
-        const dashData = {
-            doctors: doctors.length,
-            appointments: appointments.length,
-            patients: users.length,
-            latestAppointments: appointments.reverse().slice(0, 5)
-        };
+        const dashData = await getAdminDashboardData();
 
         res.json({ success: true, dashData });
     } catch (error) {
@@ -399,22 +372,8 @@ const adminDashboard = async (req, res) => {
 // API to get all patients
 const getAllPatients = async (req, res) => {
     try {
-        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 50 });
-        const query = {};
-
-        const [totalItems, patients] = await Promise.all([
-            userModel.countDocuments(query),
-            userModel.find(query).select('-password').sort({ _id: -1 }).skip(skip).limit(limit),
-        ]);
-
-        sendPaginatedResponse(res, {
-            message: 'Patients fetched successfully',
-            itemKey: 'patients',
-            items: patients,
-            page,
-            limit,
-            totalItems,
-        });
+        const response = await getPaginatedPatientsForAdmin(req.query);
+        sendPaginatedResponse(res, response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -636,41 +595,10 @@ const createPatientAdmin = async (req, res) => {
         const patient = new userModel(patientData);
         await patient.save();
 
-        // Send welcome email with credentials
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'Welcome to Mediflow - Your Account Details',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2>Welcome to Mediflow!</h2>
-                    <p>Your account has been created successfully.</p>
-                    <div style="background-color: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;">
-                        <h3>Your Login Credentials:</h3>
-                        <p><strong>Email:</strong> ${email}</p>
-                        <p><strong>Temporary Password:</strong> ${tempPassword}</p>
-                        <p style="color: #d32f2f;"><strong>Please change your password after first login.</strong></p>
-                    </div>
-                    <p>You can now book appointments and manage your healthcare needs through our platform.</p>
-                    <p>Best regards,<br>Mediflow Team</p>
-                </div>
-            `
-        };
-
         try {
-            await transporter.sendMail(mailOptions);
+            await sendWelcomeCredentialsEmail({ email, tempPassword });
         } catch (mailError) {
-            console.log('Welcome email sending failed:', mailError);
+            logEmailFailure('patient welcome email', mailError);
         }
 
         res.json({
@@ -722,27 +650,8 @@ const generateInvoice = async (req, res) => {
 // API to get all invoices
 const getAllInvoices = async (req, res) => {
     try {
-        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 50 });
-        const query = {};
-
-        const [totalItems, invoices] = await Promise.all([
-            invoiceModel.countDocuments(query),
-            invoiceModel.find(query)
-                .populate('patientId', 'name email phone')
-                .populate('appointmentId', 'slotDate slotTime')
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit),
-        ]);
-
-        sendPaginatedResponse(res, {
-            message: 'Invoices fetched successfully',
-            itemKey: 'invoices',
-            items: invoices,
-            page,
-            limit,
-            totalItems,
-        });
+        const response = await getPaginatedInvoicesForAdmin(req.query);
+        sendPaginatedResponse(res, response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -879,25 +788,11 @@ const deleteDoctor = async (req, res) => {
 const getPaymentHistory = async (req, res) => {
     try {
         const { appointmentId } = req.params;
-        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 20 });
-        const query = { appointmentId };
-
-        const [totalItems, paymentLogs] = await Promise.all([
-            paymentLogModel.countDocuments(query),
-            paymentLogModel.find(query)
-                .sort({ timestamp: -1 })
-                .skip(skip)
-                .limit(limit),
-        ]);
-
-        sendPaginatedResponse(res, {
-            message: 'Payment history fetched successfully',
-            itemKey: 'paymentHistory',
-            items: paymentLogs,
-            page,
-            limit,
-            totalItems,
+        const response = await getPaginatedPaymentHistory({
+            appointmentId,
+            query: req.query,
         });
+        sendPaginatedResponse(res, response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -1231,22 +1126,8 @@ const getAdvancedAnalytics = async (req, res) => {
 // API to get audit logs
 const getAuditLogs = async (req, res) => {
     try {
-        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 25 });
-        const query = {};
-
-        const [totalItems, logs] = await Promise.all([
-            auditLogModel.countDocuments(query),
-            auditLogModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
-        ]);
-
-        sendPaginatedResponse(res, {
-            message: 'Audit logs fetched successfully',
-            itemKey: 'logs',
-            items: logs,
-            page,
-            limit,
-            totalItems,
-        });
+        const response = await getPaginatedAuditLogs(req.query);
+        sendPaginatedResponse(res, response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -1313,22 +1194,8 @@ const addStaff = async (req, res) => {
 // API to get all staff
 const allStaff = async (req, res) => {
     try {
-        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 50 });
-        const query = {};
-
-        const [totalItems, staff] = await Promise.all([
-            staffModel.countDocuments(query),
-            staffModel.find(query).select('-password').sort({ date: -1 }).skip(skip).limit(limit),
-        ]);
-
-        sendPaginatedResponse(res, {
-            message: 'Staff fetched successfully',
-            itemKey: 'staff',
-            items: staff,
-            page,
-            limit,
-            totalItems,
-        });
+        const response = await getPaginatedStaffForAdmin(req.query);
+        sendPaginatedResponse(res, response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });

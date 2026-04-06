@@ -1,11 +1,12 @@
-import nodemailer from 'nodemailer';
 import cron from 'node-cron';
 import invoiceModel from '../models/invoiceModel.js';
 import { sendReminders } from '../controllers/notificationController.js';
+import { logger } from '../config/logger.js';
+import { logEmailFailure, sendOverdueInvoiceEmail } from '../services/emailService.js';
 
 const checkOverdueInvoices = async () => {
     try {
-        console.log('Running Overdue Invoice Check...');
+        logger.info('Running overdue invoice check');
         const currentDate = new Date();
 
         // Find unpaid invoices past due date
@@ -15,11 +16,11 @@ const checkOverdueInvoices = async () => {
         }).populate('patientId');
 
         if (overdueInvoices.length === 0) {
-            console.log('No overdue invoices found.');
+            logger.info('No overdue invoices found');
             return;
         }
 
-        console.log(`Found ${overdueInvoices.length} overdue invoices.`);
+        logger.info(`Found ${overdueInvoices.length} overdue invoices`);
 
         await invoiceModel.updateMany(
             {
@@ -29,45 +30,28 @@ const checkOverdueInvoices = async () => {
             { $set: { status: 'overdue', updatedAt: new Date() } }
         );
 
-        // Email Config
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
-
         for (const invoice of overdueInvoices) {
             const patient = invoice.patientId;
             if (patient && patient.email) {
-                const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: patient.email,
-                    subject: `Overdue Invoice Alert: ${invoice.invoiceNumber}`,
-                    html: `
-                        <div style="font-family: Arial, sans-serif; padding: 20px;">
-                            <h2>Payment Reminder</h2>
-                            <p>Dear ${patient.name},</p>
-                            <p>This is a reminder that your invoice <strong>${invoice.invoiceNumber}</strong> was due on ${new Date(invoice.dueDate).toDateString()}.</p>
-                            <p>Total Amount: <strong>$${invoice.totalAmount}</strong></p>
-                            <p>Please make the payment at your earliest convenience to avoid interruptions in service.</p>
-                            <p>Thank you,<br>Mediflow Admin</p>
-                        </div>
-                    `
-                };
-
-                // Send Email (Async, don't block loop)
-                transporter.sendMail(mailOptions, (err, info) => {
-                    if (err) console.error(`Failed to email ${patient.email}:`, err);
-                    else console.log(`Reminder sent to ${patient.email}`);
-                });
+                try {
+                    await sendOverdueInvoiceEmail({
+                        email: patient.email,
+                        patientName: patient.name,
+                        invoiceNumber: invoice.invoiceNumber,
+                        dueDate: invoice.dueDate,
+                        totalAmount: invoice.totalAmount,
+                    });
+                    logger.info('Overdue invoice reminder sent', {
+                        email: patient.email,
+                        invoiceNumber: invoice.invoiceNumber,
+                    });
+                } catch (error) {
+                    logEmailFailure('overdue invoice reminder', error);
+                }
             }
         }
     } catch (error) {
-        console.error('Error in cron job:', error);
+        logger.error('Error in overdue invoice cron job', { message: error.message });
     }
 };
 
@@ -83,7 +67,7 @@ const initCronJobs = () => {
         sendReminders();
     });
 
-    console.log('Cron jobs initialized: Overdue checks (09:00) and Appointment reminders (hourly).');
+    logger.info('Cron jobs initialized: overdue checks (09:00) and appointment reminders (hourly)');
 };
 
 export default initCronJobs;

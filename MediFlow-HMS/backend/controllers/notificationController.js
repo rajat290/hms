@@ -1,5 +1,6 @@
-import nodemailer from 'nodemailer';
 import appointmentModel from '../models/appointmentModel.js';
+import { logEmailFailure, sendAppointmentReminderEmail } from '../services/emailService.js';
+import { logger } from '../config/logger.js';
 
 const REMINDER_LOCK_MINUTES = 20;
 
@@ -15,11 +16,9 @@ const getReminderMetadata = (reminderType) => {
 
 const sendReminders = async () => {
     try {
-        console.log('Checking for upcoming appointments to send reminders...');
+        logger.info('Checking for upcoming appointments to send reminders');
 
         const now = new Date();
-        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
         // Fetch all upcoming, non-cancelled, non-completed appointments
         const appointments = await appointmentModel.find({
@@ -27,14 +26,6 @@ const sendReminders = async () => {
             isCompleted: false,
             // Filtering will be refined below
         }).populate('userId', 'name email').populate('docId', 'name');
-
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
 
         for (const appointment of appointments) {
             const { slotDate, slotTime, userId, docId, reminderSent24h, reminderSent2h } = appointment;
@@ -81,24 +72,16 @@ const sendReminders = async () => {
                 }
 
                 const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: userId.email,
-                    subject: `Appointment Reminder - Dr. ${docId.name}`,
-                    html: `
-                        <div style="font-family: Arial, sans-serif; padding: 20px;">
-                            <h2>Appointment Reminder</h2>
-                            <p>Dear ${userId.name},</p>
-                            <p>This is a reminder for your upcoming appointment with <strong>Dr. ${docId.name}</strong>.</p>
-                            <p><strong>Time:</strong> ${slotTime} on ${slotDate.replace(/_/g, '/')}</p>
-                            <p>Please arrive 10 minutes before your scheduled time.</p>
-                            <p>Thank you,<br>The Mediflow Team</p>
-                        </div>
-                    `
+                    email: userId.email,
+                    patientName: userId.name,
+                    doctorName: docId.name,
+                    slotTime,
+                    slotDate,
                 };
 
                 try {
-                    await transporter.sendMail(mailOptions);
-                    console.log(`Sent ${reminderType} reminder to ${userId.email}`);
+                    await sendAppointmentReminderEmail(mailOptions);
+                    logger.info(`Sent ${reminderType} reminder`, { email: userId.email, appointmentId: String(appointment._id) });
 
                     await appointmentModel.updateOne(
                         { _id: appointment._id },
@@ -111,7 +94,7 @@ const sendReminders = async () => {
                         }
                     );
                 } catch (err) {
-                    console.error(`Failed to send reminder to ${userId.email}:`, err);
+                    logEmailFailure('appointment reminder', err);
                     await appointmentModel.updateOne(
                         { _id: appointment._id },
                         { $unset: { [lockField]: '' } }
@@ -120,7 +103,7 @@ const sendReminders = async () => {
             }
         }
     } catch (error) {
-        console.error('Error in sendReminders:', error);
+        logger.error('Error while sending reminders', { message: error.message });
     }
 };
 

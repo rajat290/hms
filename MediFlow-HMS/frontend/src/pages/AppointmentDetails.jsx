@@ -5,6 +5,7 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import { assets } from '../assets/assets'
 import { jsPDF } from "jspdf"
+import { formatSlotDate } from '@shared/utils/date.js'
 
 const AppointmentDetails = () => {
     const { appointmentId } = useParams()
@@ -14,13 +15,6 @@ const AppointmentDetails = () => {
     const [appointment, setAppointment] = useState(null)
     const [loading, setLoading] = useState(true)
     const [prescriptions, setPrescriptions] = useState({})
-
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-    const slotDateFormat = (slotDate) => {
-        const dateArray = slotDate.split('_')
-        return dateArray[0] + " " + months[Number(dateArray[1])] + " " + dateArray[2]
-    }
 
     const fetchAppointmentDetails = async () => {
         try {
@@ -146,7 +140,7 @@ const AppointmentDetails = () => {
         // Items
         doc.setFont(undefined, 'normal');
         doc.text(`Medical Appointment Consultation`, 20, 105);
-        doc.text(`Date: ${slotDateFormat(appointment.slotDate)} Time: ${appointment.slotTime}`, 20, 111);
+        doc.text(`Date: ${formatSlotDate(appointment.slotDate)} Time: ${appointment.slotTime}`, 20, 111);
         doc.text(`${currency}${appointment.amount}`, 160, 105);
 
         // Total
@@ -174,7 +168,7 @@ const AppointmentDetails = () => {
         doc.setFontSize(12);
         doc.text(`Doctor: ${appointment.docData.name}`, 20, 40);
         doc.text(`Speciality: ${appointment.docData.speciality}`, 20, 50);
-        doc.text(`Date: ${slotDateFormat(appointment.slotDate)}`, 20, 60);
+        doc.text(`Date: ${formatSlotDate(appointment.slotDate)}`, 20, 60);
 
         doc.setLineWidth(0.5);
         doc.line(20, 70, 190, 70);
@@ -227,7 +221,7 @@ const AppointmentDetails = () => {
                     <div className='mt-6'>
                         <h3 className='font-medium text-gray-700'>Schedule:</h3>
                         <p className='text-gray-500 text-sm mt-1'>
-                            {slotDateFormat(appointment.slotDate)} at {appointment.slotTime}
+                            {formatSlotDate(appointment.slotDate)} at {appointment.slotTime}
                         </p>
                     </div>
 

@@ -4,6 +4,7 @@ import { AppContext } from '../context/AppContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { jsPDF } from "jspdf"
+import { formatSlotDate } from '@shared/utils/date.js'
 
 const MyBilling = () => {
     const { backendUrl, token, currency } = useContext(AppContext)
@@ -12,13 +13,6 @@ const MyBilling = () => {
     const [appointments, setAppointments] = useState([])
     const [financials, setFinancials] = useState({ totalPaid: 0, pendingDues: 0 })
     const [loading, setLoading] = useState(true)
-
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-    const slotDateFormat = (slotDate) => {
-        const dateArray = slotDate.split('_')
-        return dateArray[0] + " " + months[Number(dateArray[1])] + " " + dateArray[2]
-    }
 
     const fetchBillingData = async () => {
         try {
@@ -70,7 +64,7 @@ const MyBilling = () => {
         doc.line(20, 95, 190, 95);
 
         doc.setFont(undefined, 'normal');
-        doc.text(`Consultation: ${slotDateFormat(appointment.slotDate)}`, 20, 105);
+        doc.text(`Consultation: ${formatSlotDate(appointment.slotDate)}`, 20, 105);
         doc.text(`${currency}${appointment.amount}`, 160, 105);
 
         doc.line(20, 120, 190, 120);
@@ -118,7 +112,7 @@ const MyBilling = () => {
                     <tbody className='text-gray-700 text-sm'>
                         {appointments.map((item, index) => (
                             <tr key={index} className='hover:bg-gray-50 border-b last:border-none'>
-                                <td className='p-4'>{slotDateFormat(item.slotDate)}</td>
+                                <td className='p-4'>{formatSlotDate(item.slotDate)}</td>
                                 <td className='p-4'>Dr. {item.docData.name}</td>
                                 <td className='p-4'>{currency}{item.amount}</td>
                                 <td className='p-4'>
