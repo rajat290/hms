@@ -2,27 +2,29 @@ import express from 'express';
 import { loginDoctor, appointmentsDoctor, appointmentCancel, appointmentAccept, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, addAppointmentNotes, generatePrescriptionDoctor, getPatientFinancialSummary, getAvailability, updateAvailability, addReview, getDoctorReviews, forgotPassword, resetPassword, verifyEmail } from '../controllers/doctorController.js';
 import authDoctor from '../middleware/authDoctor.js';
 import authUser from '../middleware/authUser.js';
+import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
+import { validateAppointmentId, validateDocId, validateDoctorAvailabilityUpdate, validateDoctorIdParam, validateDoctorNote, validateDoctorProfileUpdate, validateForgotPassword, validateLogin, validatePatientFinancialRequest, validatePrescription, validateResetPassword, validateReview, validateTokenPayload } from '../middleware/validators.js';
 const doctorRouter = express.Router();
 
-doctorRouter.post("/login", loginDoctor)
-doctorRouter.post("/verify-email", verifyEmail)
-doctorRouter.post("/cancel-appointment", authDoctor, appointmentCancel)
-doctorRouter.post("/accept-appointment", authDoctor, appointmentAccept)
+doctorRouter.post("/login", authLimiter, validateLogin, loginDoctor)
+doctorRouter.post("/verify-email", validateTokenPayload, verifyEmail)
+doctorRouter.post("/cancel-appointment", authDoctor, validateAppointmentId, appointmentCancel)
+doctorRouter.post("/accept-appointment", authDoctor, validateAppointmentId, appointmentAccept)
 doctorRouter.get("/appointments", authDoctor, appointmentsDoctor)
 doctorRouter.get("/list", doctorList)
-doctorRouter.post("/change-availability", authDoctor, changeAvailablity)
-doctorRouter.post("/complete-appointment", authDoctor, appointmentComplete)
+doctorRouter.post("/change-availability", authDoctor, validateDocId, changeAvailablity)
+doctorRouter.post("/complete-appointment", authDoctor, validateAppointmentId, appointmentComplete)
 doctorRouter.get("/dashboard", authDoctor, doctorDashboard)
 doctorRouter.get("/profile", authDoctor, doctorProfile)
-doctorRouter.post("/update-profile", authDoctor, updateDoctorProfile)
-doctorRouter.post("/add-notes", authDoctor, addAppointmentNotes)
-doctorRouter.post("/generate-prescription", authDoctor, generatePrescriptionDoctor)
-doctorRouter.post("/patient-financial", authDoctor, getPatientFinancialSummary)
-doctorRouter.post("/get-availability", authDoctor, getAvailability)
-doctorRouter.post("/update-availability", authDoctor, updateAvailability)
-doctorRouter.get("/reviews/:docId", getDoctorReviews)
-doctorRouter.post("/add-review", authUser, addReview) // Use authUser for patients
-doctorRouter.post("/forgot-password", forgotPassword)
-doctorRouter.post("/reset-password", resetPassword)
+doctorRouter.post("/update-profile", authDoctor, validateDoctorProfileUpdate, updateDoctorProfile)
+doctorRouter.post("/add-notes", authDoctor, validateDoctorNote, addAppointmentNotes)
+doctorRouter.post("/generate-prescription", authDoctor, validatePrescription, generatePrescriptionDoctor)
+doctorRouter.post("/patient-financial", authDoctor, validatePatientFinancialRequest, getPatientFinancialSummary)
+doctorRouter.post("/get-availability", authDoctor, validateDocId, getAvailability)
+doctorRouter.post("/update-availability", authDoctor, validateDoctorAvailabilityUpdate, updateAvailability)
+doctorRouter.get("/reviews/:docId", validateDoctorIdParam, getDoctorReviews)
+doctorRouter.post("/add-review", authUser, validateReview, addReview) // Use authUser for patients
+doctorRouter.post("/forgot-password", forgotPasswordLimiter, validateForgotPassword, forgotPassword)
+doctorRouter.post("/reset-password", forgotPasswordLimiter, validateResetPassword, resetPassword)
 
 export default doctorRouter;

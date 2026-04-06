@@ -4,6 +4,8 @@ import 'dotenv/config'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import mongoose from "mongoose"
+import helmet from "helmet"
+import mongoSanitize from "express-mongo-sanitize"
 import connectDB from "./config/mongodb.js"
 import connectCloudinary from "./config/cloudinary.js"
 import userRouter from "./routes/userRoute.js"
@@ -13,10 +15,15 @@ import paymentRouter from "./routes/paymentRoute.js"
 import staffRouter from "./routes/staffRoute.js"
 import aiRouter from "./routes/aiRoute.js"
 import initCronJobs from "./jobs/cronJobs.js"
+import { corsOptions, helmetOptions } from "./config/security.js"
+import sanitizeRequestInput from "./middleware/requestSanitizer.js"
+import { apiLimiter } from "./middleware/rateLimiters.js"
 
 // app config
 const app = express()
 const port = process.env.PORT || 4000
+
+app.set('trust proxy', 1)
 
 try {
   await connectDB()
@@ -30,8 +37,12 @@ initCronJobs()
 
 // middlewares
 app.use("/api/payment", paymentRouter)
-app.use(express.json())
-app.use(cors())
+app.use(express.json({ limit: '1mb' }))
+app.use(cors(corsOptions))
+app.use(helmet(helmetOptions))
+app.use(mongoSanitize())
+app.use(sanitizeRequestInput)
+app.use("/api", apiLimiter)
 
 // api endpoints
 app.use("/api/user", userRouter)
