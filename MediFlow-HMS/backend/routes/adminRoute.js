@@ -4,7 +4,7 @@ import { changeAvailablity } from '../controllers/doctorController.js';
 import authAdmin from '../middleware/authAdmin.js';
 import upload from '../middleware/multer.js';
 import { authLimiter } from '../middleware/rateLimiters.js';
-import { validateAdminAddDoctor, validateAdminAddStaff, validateAppointmentId, validateAppointmentIdParam, validateDocId, validateDoctorDeleteParam, validateInvoiceIdParam, validateInvoiceStatusUpdate, validateLogin, validatePatientCreate, validatePaymentMethods, validateUpdateDoctor, validateUpdatePaymentStatus, validateUpdateSettings, validateUserIdParam } from '../middleware/validators.js';
+import { validateAdminAddDoctor, validateAdminAddStaff, validateAppointmentId, validateAppointmentIdParam, validateDocId, validateDoctorDeleteParam, validateInvoiceIdParam, validateInvoiceStatusUpdate, validateLogin, validatePatientCreate, validatePaymentMethods, validateRefund, validateUpdateDoctor, validateUpdatePaymentStatus, validateUpdateSettings, validateUserIdParam } from '../middleware/validators.js';
 const adminRouter = express.Router();
 
 adminRouter.post("/login", authLimiter, validateLogin, loginAdmin)
@@ -33,6 +33,7 @@ adminRouter.post("/generate-invoice", authAdmin, validateAppointmentId, generate
 adminRouter.get("/all-invoices", authAdmin, getAllInvoices)
 adminRouter.post("/update-invoice-status", authAdmin, validateInvoiceStatusUpdate, updateInvoiceStatus)
 adminRouter.get("/download-invoice/:invoiceId", authAdmin, validateInvoiceIdParam, downloadInvoicePDF)
+adminRouter.post("/process-refund", authAdmin, validateRefund, processRefund)
 adminRouter.delete("/delete-doctor/:doctorId", authAdmin, validateDoctorDeleteParam, deleteDoctor)
 // Billing analytics
 adminRouter.get("/billing-analytics", authAdmin, getBillingMetrics)

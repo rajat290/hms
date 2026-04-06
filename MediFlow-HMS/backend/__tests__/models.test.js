@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import User from '../models/userModel.js';
 import Doctor from '../models/doctorModel.js';
 import Appointment from '../models/appointmentModel.js';
+import Invoice from '../models/invoiceModel.js';
+import PaymentLog from '../models/paymentLogModel.js';
 
 describe('Model validation tests', () => {
   it('applies expected defaults to a new user', () => {
@@ -56,5 +58,52 @@ describe('Model validation tests', () => {
     const error = appointment.validateSync();
 
     expect(error.errors.paymentStatus).toBeDefined();
+  });
+
+  it('registers the active-slot unique index for appointments', () => {
+    const indexes = Appointment.schema.indexes();
+
+    expect(indexes).toEqual(
+      expect.arrayContaining([
+        [
+          { docId: 1, slotDate: 1, slotTime: 1 },
+          expect.objectContaining({
+            unique: true,
+            partialFilterExpression: { cancelled: false },
+          }),
+        ],
+      ])
+    );
+  });
+
+  it('locks invoices to one appointment and supports refunded and partially paid statuses', () => {
+    const indexes = Invoice.schema.indexes();
+    const statusEnum = Invoice.schema.path('status').enumValues;
+
+    expect(indexes).toEqual(
+      expect.arrayContaining([
+        [
+          { appointmentId: 1 },
+          expect.objectContaining({ unique: true }),
+        ],
+      ])
+    );
+
+    expect(statusEnum).toEqual(
+      expect.arrayContaining(['paid', 'unpaid', 'overdue', 'cancelled', 'partially paid', 'refunded'])
+    );
+  });
+
+  it('deduplicates payment logs by external transaction id', () => {
+    const indexes = PaymentLog.schema.indexes();
+
+    expect(indexes).toEqual(
+      expect.arrayContaining([
+        [
+          { transactionId: 1 },
+          expect.objectContaining({ unique: true, sparse: true }),
+        ],
+      ])
+    );
   });
 });

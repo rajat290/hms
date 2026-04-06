@@ -14,6 +14,8 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import PDFDocument from 'pdfkit';
 import auditLogModel from "../models/auditLogModel.js";
+import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod, normalizePaymentLogMethod, refundAppointmentPayment } from "../utils/appointmentIntegrity.js";
+import { runInTransaction } from "../utils/transaction.js";
 
 // Helper function for audit logging
 const logAdminAction = async (actorEmail, action, targetType, targetId, metadata) => {
@@ -69,23 +71,10 @@ const appointmentCancel = async (req, res) => {
     try {
 
         const { appointmentId } = req.body
-        const appointment = await appointmentModel.findById(appointmentId)
 
-        if (!appointment) {
-            return res.json({ success: false, message: 'Appointment not found' })
-        }
-
-        await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
-
-        const doctorData = await doctorModel.findById(appointment.docId)
-        const slots_booked = doctorData?.slots_booked || {}
-
-        if (slots_booked[appointment.slotDate]) {
-            slots_booked[appointment.slotDate] = slots_booked[appointment.slotDate].filter(
-                slot => slot !== appointment.slotTime
-            )
-            await doctorModel.findByIdAndUpdate(appointment.docId, { slots_booked })
-        }
+        await runInTransaction(async (session) => {
+            await cancelAppointmentRecord({ appointmentId, session })
+        })
 
         res.json({ success: true, message: 'Appointment Cancelled' })
 
@@ -369,49 +358,72 @@ const updatePaymentStatus = async (req, res) => {
     try {
         const { appointmentId, paymentStatus, partialAmount, paymentMethod = 'cash', notes = '' } = req.body;
 
-        const appointment = await appointmentModel.findById(appointmentId);
-        if (!appointment) {
-            return res.json({ success: false, message: 'Appointment not found' });
-        }
-
-        const updateData = { paymentStatus };
-        let logAmount = 0;
-
-        if (paymentStatus === 'partially paid') {
-            if (!partialAmount || partialAmount <= 0) {
-                return res.json({ success: false, message: 'Valid partial amount required' });
-            }
-            if (partialAmount >= appointment.amount) {
-                return res.json({ success: false, message: 'Partial amount must be less than total amount' });
+        await runInTransaction(async (session) => {
+            const appointment = await appointmentModel.findById(appointmentId).session(session);
+            if (!appointment) {
+                throw new Error('Appointment not found');
             }
 
-            updateData.partialAmount = (appointment.partialAmount || 0) + partialAmount;
-            updateData.payment = false; // Not fully paid
-            logAmount = partialAmount;
-        } else if (paymentStatus === 'paid') {
-            updateData.payment = true; // Fully paid
-            updateData.partialAmount = appointment.amount; // Set to full amount
-            logAmount = appointment.amount - (appointment.partialAmount || 0); // Log only the new payment
-        } else {
-            updateData.payment = false;
-            updateData.partialAmount = 0;
-        }
+            if (paymentStatus === 'refunded') {
+                const amountToRefund = appointment.partialAmount || (appointment.payment ? appointment.amount : 0);
 
-        await appointmentModel.findByIdAndUpdate(appointmentId, updateData);
+                await refundAppointmentPayment({
+                    appointmentId,
+                    refundAmount: amountToRefund,
+                    reason: notes || 'Refund processed from payment status update',
+                    processedBy: process.env.ADMIN_EMAIL,
+                    session,
+                });
 
-        // Log the payment transaction
-        if (logAmount > 0 || paymentStatus === 'paid') {
-            await paymentLogModel.create({
-                appointmentId,
-                patientId: appointment.userId,
-                amount: logAmount,
-                type: paymentStatus === 'paid' ? 'payment' : 'partial_payment',
-                method: paymentMethod,
-                status: 'completed',
-                notes,
-                processedBy: process.env.ADMIN_EMAIL
-            });
-        }
+                return;
+            }
+
+            const previousPartialAmount = appointment.partialAmount || 0;
+            let logAmount = 0;
+
+            if (paymentStatus === 'partially paid') {
+                if (!partialAmount || partialAmount <= 0) {
+                    throw new Error('Valid partial amount required');
+                }
+
+                const updatedPartialAmount = (appointment.partialAmount || 0) + Number(partialAmount);
+                if (updatedPartialAmount >= appointment.amount) {
+                    throw new Error('Partial amount must be less than total amount');
+                }
+
+                appointment.partialAmount = updatedPartialAmount;
+                appointment.payment = false;
+                appointment.paymentStatus = 'partially paid';
+                logAmount = Number(partialAmount);
+            } else if (paymentStatus === 'paid') {
+                appointment.payment = true;
+                appointment.partialAmount = appointment.amount;
+                appointment.paymentStatus = 'paid';
+                logAmount = Math.max(appointment.amount - previousPartialAmount, 0);
+            } else {
+                appointment.payment = false;
+                appointment.partialAmount = 0;
+                appointment.paymentStatus = 'unpaid';
+            }
+
+            appointment.paymentMethod = normalizeAppointmentPaymentMethod(paymentMethod);
+            appointment.invoiceDate = new Date();
+            await appointment.save({ session });
+            await ensureInvoiceForAppointmentId(appointmentId, session);
+
+            if (logAmount > 0) {
+                await paymentLogModel.create([{
+                    appointmentId,
+                    patientId: appointment.userId,
+                    amount: logAmount,
+                    type: paymentStatus === 'paid' ? 'payment' : 'partial_payment',
+                    method: normalizePaymentLogMethod(paymentMethod),
+                    status: 'completed',
+                    notes,
+                    processedBy: process.env.ADMIN_EMAIL
+                }], { session });
+            }
+        });
 
         res.json({ success: true, message: 'Payment status updated' });
     } catch (error) {
@@ -621,37 +633,15 @@ const generateInvoice = async (req, res) => {
     try {
         const { appointmentId } = req.body;
 
-        const appointment = await appointmentModel.findById(appointmentId)
-            .populate('userId', 'name email phone')
-            .populate('docId', 'name speciality fees');
+        const invoice = await runInTransaction(async (session) => {
+            const appointment = await appointmentModel.findById(appointmentId).session(session);
 
-        if (!appointment) {
-            return res.json({ success: false, message: 'Appointment not found' });
-        }
+            if (!appointment) {
+                throw new Error('Appointment not found');
+            }
 
-        // Generate invoice number
-        const currentYear = new Date().getFullYear();
-        const invoiceCount = await invoiceModel.countDocuments({ createdAt: { $gte: new Date(currentYear, 0, 1) } });
-        const invoiceNumber = `INV-${currentYear}-${String(invoiceCount + 1).padStart(4, '0')}`;
-
-        const invoiceData = {
-            invoiceNumber,
-            patientId: appointment.userId._id,
-            appointmentId: appointment._id,
-            items: [{
-                description: `Consultation with Dr. ${appointment.docData.name} (${appointment.docData.speciality})`,
-                quantity: 1,
-                unitPrice: appointment.amount,
-                total: appointment.amount
-            }],
-            totalAmount: appointment.amount,
-            status: appointment.payment ? 'paid' : 'unpaid',
-            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-            createdAt: new Date()
-        };
-
-        const invoice = new invoiceModel(invoiceData);
-        await invoice.save();
+            return ensureInvoiceForAppointmentId(appointmentId, session);
+        });
 
         res.json({ success: true, message: 'Invoice generated successfully', invoice });
 
@@ -753,35 +743,14 @@ const processRefund = async (req, res) => {
     try {
         const { appointmentId, refundAmount, reason } = req.body;
 
-        const appointment = await appointmentModel.findById(appointmentId);
-        if (!appointment) {
-            return res.json({ success: false, message: 'Appointment not found' });
-        }
-
-        if (!appointment.payment) {
-            return res.json({ success: false, message: 'Cannot refund unpaid appointment' });
-        }
-
-        if (refundAmount > appointment.amount) {
-            return res.json({ success: false, message: 'Refund amount cannot exceed appointment amount' });
-        }
-
-        // Update appointment status
-        await appointmentModel.findByIdAndUpdate(appointmentId, {
-            paymentStatus: 'refunded',
-            payment: false
-        });
-
-        // Log refund
-        await paymentLogModel.create({
-            appointmentId,
-            patientId: appointment.userId,
-            amount: refundAmount,
-            type: 'refund',
-            method: 'online', // Assuming refunds go back to original payment method
-            status: 'completed',
-            notes: reason,
-            processedBy: process.env.ADMIN_EMAIL
+        await runInTransaction(async (session) => {
+            await refundAppointmentPayment({
+                appointmentId,
+                refundAmount,
+                reason,
+                processedBy: process.env.ADMIN_EMAIL,
+                session,
+            });
         });
 
         res.json({ success: true, message: 'Refund processed successfully' });

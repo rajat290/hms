@@ -400,7 +400,7 @@ const validateUpdateDoctor = validate([
 const validateInvoiceStatusUpdate = validate([
     requireFields(['invoiceId', 'status']),
     validateObjectIdField('invoiceId'),
-    validateEnumField('status', ['paid', 'unpaid', 'overdue', 'cancelled']),
+    validateEnumField('status', ['paid', 'unpaid', 'overdue', 'cancelled', 'partially paid', 'refunded']),
 ])
 
 const validateRefund = validate([

@@ -24,8 +24,17 @@ const appointmentSchema = new mongoose.Schema({
     }],
     invoiceDate: { type: Date },
     reminderSent24h: { type: Boolean, default: false },
-    reminderSent2h: { type: Boolean, default: false }
+    reminderSent2h: { type: Boolean, default: false },
+    reminderSent24hAt: { type: Date },
+    reminderSent2hAt: { type: Date },
+    reminder24hLockUntil: { type: Date },
+    reminder2hLockUntil: { type: Date }
 })
+
+appointmentSchema.index(
+    { docId: 1, slotDate: 1, slotTime: 1 },
+    { unique: true, partialFilterExpression: { cancelled: false } }
+)
 
 const appointmentModel = mongoose.models.appointment || mongoose.model("appointment", appointmentSchema);
 export default appointmentModel;

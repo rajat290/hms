@@ -13,6 +13,8 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { generateAvailableSlots } from "../utils/slotGenerator.js";
 import notificationModel from "../models/notificationModel.js";
+import { ensureInvoiceForAppointment, finalizeAppointmentPayment, isAppointmentSlotConflict, releaseDoctorSlot, reserveDoctorSlot } from "../utils/appointmentIntegrity.js";
+import { runInTransaction } from "../utils/transaction.js";
 
 // Gateway Initialize
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
@@ -245,76 +247,84 @@ const bookAppointment = async (req, res) => {
     try {
 
         const { userId, docId, slotDate, slotTime, patientInfo, paymentMethod } = req.body
-        const docData = await doctorModel.findById(docId).select("-password")
 
-        if (!docData.available) {
-            return res.json({ success: false, message: 'Doctor Not Available' })
-        }
+        const newAppointment = await runInTransaction(async (session) => {
+            const docData = await doctorModel.findById(docId).select("-password").session(session)
 
-        // Validate payment method
-        if (paymentMethod === 'Online' && (!docData.paymentMethods || !docData.paymentMethods.online)) {
-            return res.json({ success: false, message: 'Online payment not available for this doctor' })
-        }
-
-        let slots_booked = docData.slots_booked
-
-        // checking for slot availablity 
-        if (slots_booked[slotDate]) {
-            if (slots_booked[slotDate].includes(slotTime)) {
-                return res.json({ success: false, message: 'Slot Not Available' })
+            if (!docData) {
+                throw new Error('Doctor not found')
             }
-            else {
-                slots_booked[slotDate].push(slotTime)
+
+            if (!docData.available) {
+                throw new Error('Doctor Not Available')
             }
-        } else {
-            slots_booked[slotDate] = []
-            slots_booked[slotDate].push(slotTime)
-        }
 
-        const userData = await userModel.findById(userId).select("-password")
+            if (paymentMethod === 'Online' && (!docData.paymentMethods || !docData.paymentMethods.online)) {
+                throw new Error('Online payment not available for this doctor')
+            }
 
-        delete docData.slots_booked
+            const existingAppointment = await appointmentModel.findOne({
+                docId,
+                slotDate,
+                slotTime,
+                cancelled: false,
+            }).session(session)
 
-        const appointmentData = {
-            userId,
-            docId,
-            userData: userData.toObject(),
-            docData: docData.toObject(),
-            amount: docData.fees,
-            slotTime,
-            slotDate,
-            date: Date.now(),
-            paymentMethod: paymentMethod || 'Cash',
-            patientInfo: patientInfo || null
-        }
+            if (existingAppointment) {
+                throw new Error('Slot Not Available')
+            }
 
-        const newAppointment = new appointmentModel(appointmentData)
-        await newAppointment.save()
+            const userData = await userModel.findById(userId).select("-password").session(session)
 
-        // save new slots data in docData
-        await doctorModel.findByIdAndUpdate(docId, { slots_booked })
+            if (!userData) {
+                throw new Error('User not found')
+            }
 
-        // Create Notification
-        const userNotification = new notificationModel({
-            userId,
-            title: "Appointment Booked",
-            message: `Your appointment with Dr. ${docData.name} has been booked for ${slotDate} at ${slotTime}.`,
-            type: "appointment"
+            const doctorSnapshot = docData.toObject()
+            delete doctorSnapshot.slots_booked
+
+            const appointmentData = {
+                userId,
+                docId,
+                userData: userData.toObject(),
+                docData: doctorSnapshot,
+                amount: docData.fees,
+                slotTime,
+                slotDate,
+                date: Date.now(),
+                paymentMethod: paymentMethod || 'Cash',
+                patientInfo: patientInfo || null
+            }
+
+            const [createdAppointment] = await appointmentModel.create([appointmentData], { session })
+
+            await reserveDoctorSlot({ docId, slotDate, slotTime, session })
+
+            await notificationModel.create([
+                {
+                    userId,
+                    title: "Appointment Booked",
+                    message: `Your appointment with Dr. ${docData.name} has been booked for ${slotDate} at ${slotTime}.`,
+                    type: "appointment"
+                },
+                {
+                    recipientType: 'staff',
+                    title: "New Appointment Booked",
+                    message: `New appointment booked by ${userData.name} with Dr. ${docData.name} on ${slotDate} at ${slotTime}`,
+                    type: "appointment"
+                }
+            ], { session })
+
+            return createdAppointment
         })
-        await userNotification.save()
-
-        // Create notification for staff
-        const staffNotification = new notificationModel({
-            recipientType: 'staff',
-            title: "New Appointment Booked",
-            message: `New appointment booked by ${userData.name} with Dr. ${docData.name} on ${slotDate} at ${slotTime}`,
-            type: "appointment"
-        })
-        await staffNotification.save()
 
         res.json({ success: true, message: 'Appointment Booked', appointmentId: newAppointment._id })
 
     } catch (error) {
+        if (isAppointmentSlotConflict(error)) {
+            return res.json({ success: false, message: 'Slot Not Available' })
+        }
+
         console.log(error)
         res.json({ success: false, message: error.message })
     }
@@ -327,77 +337,64 @@ const cancelAppointment = async (req, res) => {
 
         const { userId, appointmentId } = req.body
 
-        // 1. Check if appointment exists
-        const appointmentData = await appointmentModel.findById(appointmentId)
-        if (!appointmentData) {
-            return res.json({ success: false, message: 'Appointment not found' })
-        }
+        await runInTransaction(async (session) => {
+            const appointmentData = await appointmentModel.findById(appointmentId).session(session)
+            if (!appointmentData) {
+                throw new Error('Appointment not found')
+            }
 
-        // 2. Check ownership
-        if (appointmentData.userId.toString() !== userId) {
-            return res.json({ success: false, message: 'Unauthorized action' })
-        }
+            if (appointmentData.userId.toString() !== userId) {
+                throw new Error('Unauthorized action')
+            }
 
-        // 3. Check if already accepted
-        if (appointmentData.isAccepted) {
-            return res.json({ success: false, message: 'Appointment accepted by doctor. Cancellation Restricted.' })
-        }
+            if (appointmentData.isAccepted) {
+                throw new Error('Appointment accepted by doctor. Cancellation Restricted.')
+            }
 
+            const settings = await settingsModel.findOne({}).session(session)
+            const cancelWindow = settings ? settings.cancellationWindow : 24
 
-        // 4. Check Cancellation Window (Time Restriction)
-        const settings = await settingsModel.findOne({})
-        const cancelWindow = settings ? settings.cancellationWindow : 24 // Default 24 hours
+            const { slotDate, slotTime } = appointmentData
+            const dateParts = slotDate.split('_')
+            let day = parseInt(dateParts[0])
+            let month = parseInt(dateParts[1]) - 1
+            let year = parseInt(dateParts[2])
 
-        const { slotDate, slotTime } = appointmentData
+            let appointmentDateTime = new Date(year, month, day)
+            let timeParts = slotTime.split(':')
+            let hours = parseInt(timeParts[0])
+            let minutes = parseInt(timeParts[1])
 
-        // Parse "24_01_2000" and "10:00" / "10:30 PM"
-        const dateParts = slotDate.split('_')
-        let day = parseInt(dateParts[0])
-        let month = parseInt(dateParts[1]) - 1
-        let year = parseInt(dateParts[2])
+            if (slotTime.toLowerCase().includes('pm') && hours !== 12) {
+                hours += 12
+            }
+            if (slotTime.toLowerCase().includes('am') && hours === 12) {
+                hours = 0
+            }
 
-        let appointmentDateTime = new Date(year, month, day)
+            appointmentDateTime.setHours(hours, minutes, 0, 0)
 
-        // Parse Time
-        // slotTime is usually "10:00" or "09:30". Assumed 24h or handled.
-        // If the format is "10:00 AM" or "10:00 PM", we need to handle it.
-        // Based on Appointment.jsx: `currentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })`
-        // This might return "10:30 AM" or "10:30" depending on locale.
-        // Let's assume standard "HH:MM" or handle AM/PM crudely if needed.
+            const now = new Date()
+            const diffMs = appointmentDateTime - now
+            const diffHours = diffMs / (1000 * 60 * 60)
 
-        let timeParts = slotTime.split(':')
-        let hours = parseInt(timeParts[0])
-        let minutes = parseInt(timeParts[1])
+            if (diffHours < cancelWindow) {
+                throw new Error(`Cancellation restricted within ${cancelWindow} hours of appointment.`)
+            }
 
-        if (slotTime.toLowerCase().includes('pm') && hours !== 12) {
-            hours += 12
-        }
-        if (slotTime.toLowerCase().includes('am') && hours === 12) {
-            hours = 0
-        }
+            appointmentData.cancelled = true
+            await appointmentData.save({ session })
 
-        appointmentDateTime.setHours(hours, minutes, 0, 0)
+            await releaseDoctorSlot({
+                docId: appointmentData.docId,
+                slotDate: appointmentData.slotDate,
+                slotTime: appointmentData.slotTime,
+                session,
+            })
 
-        const now = new Date()
-        const diffMs = appointmentDateTime - now
-        const diffHours = diffMs / (1000 * 60 * 60)
+            await ensureInvoiceForAppointment(appointmentData, session, { createIfMissing: false })
+        })
 
-        // If appointment is in the past, definitely cannot cancel (unless logic allows?)
-        // Usually past appointments are handled by "Completed" or "Missed". 
-        // But for "Cancellation Window", it usually means "Before X hours".
-
-        if (diffHours < cancelWindow) {
-            return res.json({ success: false, message: `Cancellation restricted within ${cancelWindow} hours of appointment.` })
-        }
-
-        await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
-
-        // Releasing doctor slot 
-        const { docId } = appointmentData
-        const doctorData = await doctorModel.findById(docId)
-        let slots_booked = doctorData.slots_booked
-        slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime)
-        await doctorModel.findByIdAndUpdate(docId, { slots_booked })
         res.json({ success: true, message: 'Appointment Cancelled' })
 
     } catch (error) {
@@ -479,9 +476,15 @@ const paymentRazorpay = async (req, res) => {
             return res.json({ success: false, message: 'Appointment is already paid' })
         }
 
+        const payableAmount = appointmentData.amount - (appointmentData.partialAmount || 0)
+
+        if (payableAmount <= 0) {
+            return res.json({ success: false, message: 'No payment is due for this appointment' })
+        }
+
         // creating options for razorpay payment
         const options = {
-            amount: appointmentData.amount * 100,
+            amount: payableAmount * 100,
             currency: 'INR',
             receipt: appointmentId,
             notes: {
@@ -526,12 +529,21 @@ const verifyRazorpay = async (req, res) => {
         }
 
         if (orderInfo.status === 'paid') {
-            await appointmentModel.findByIdAndUpdate(orderInfo.receipt, { payment: true, paymentStatus: 'paid' })
-            res.json({ success: true, message: "Payment Successful" })
+            await runInTransaction(async (session) => {
+                await finalizeAppointmentPayment({
+                    appointmentId: orderInfo.receipt,
+                    transactionId: razorpay_payment_id,
+                    paymentMethod: 'Online',
+                    notes: 'Verified via Razorpay callback',
+                    processedBy: 'razorpay-verification',
+                    session,
+                })
+            })
+
+            return res.json({ success: true, message: "Payment Successful" })
         }
-        else {
-            res.json({ success: false, message: 'Payment Failed' })
-        }
+
+        res.json({ success: false, message: 'Payment Failed' })
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
@@ -559,6 +571,12 @@ const paymentStripe = async (req, res) => {
             return res.json({ success: false, message: 'Appointment is already paid' })
         }
 
+        const payableAmount = appointmentData.amount - (appointmentData.partialAmount || 0)
+
+        if (payableAmount <= 0) {
+            return res.json({ success: false, message: 'No payment is due for this appointment' })
+        }
+
         const currency = process.env.CURRENCY.toLocaleLowerCase()
 
         const line_items = [{
@@ -567,7 +585,7 @@ const paymentStripe = async (req, res) => {
                 product_data: {
                     name: "Appointment Fees"
                 },
-                unit_amount: appointmentData.amount * 100
+                unit_amount: payableAmount * 100
             },
             quantity: 1
         }]
@@ -613,7 +631,17 @@ const verifyStripe = async (req, res) => {
         }
 
         if (session.payment_status === 'paid') {
-            await appointmentModel.findByIdAndUpdate(appointmentId, { payment: true, paymentStatus: 'paid' })
+            await runInTransaction(async (dbSession) => {
+                await finalizeAppointmentPayment({
+                    appointmentId,
+                    transactionId: session.payment_intent || session.id,
+                    paymentMethod: 'Online',
+                    notes: 'Verified via Stripe checkout session',
+                    processedBy: 'stripe-verification',
+                    session: dbSession,
+                })
+            })
+
             return res.json({ success: true, message: 'Payment Successful' })
         }
 
@@ -769,46 +797,75 @@ const rescheduleAppointment = async (req, res) => {
     try {
         const { userId, appointmentId, newSlotDate, newSlotTime } = req.body;
 
-        const appointment = await appointmentModel.findById(appointmentId);
-        if (!appointment || appointment.userId.toString() !== userId) {
-            return res.json({ success: false, message: 'Appointment not found' });
-        }
-
-        if (appointment.cancelled || appointment.isCompleted) {
-            return res.json({ success: false, message: 'Cannot reschedule cancelled or completed appointment' });
-        }
-
-        // Release old slot
-        const doctorData = await doctorModel.findById(appointment.docId);
-        let slots_booked = doctorData.slots_booked;
-        slots_booked[appointment.slotDate] = slots_booked[appointment.slotDate].filter(e => e !== appointment.slotTime);
-
-        // Check and book new slot
-        if (slots_booked[newSlotDate]) {
-            if (slots_booked[newSlotDate].includes(newSlotTime)) {
-                return res.json({ success: false, message: 'New slot requested is not available' });
+        await runInTransaction(async (session) => {
+            const appointment = await appointmentModel.findById(appointmentId).session(session);
+            if (!appointment || appointment.userId.toString() !== userId) {
+                throw new Error('Appointment not found');
             }
-            slots_booked[newSlotDate].push(newSlotTime);
-        } else {
-            slots_booked[newSlotDate] = [newSlotTime];
-        }
 
-        // Update appointment and doctor
-        await appointmentModel.findByIdAndUpdate(appointmentId, { slotDate: newSlotDate, slotTime: newSlotTime });
-        await doctorModel.findByIdAndUpdate(appointment.docId, { slots_booked });
+            if (appointment.cancelled || appointment.isCompleted) {
+                throw new Error('Cannot reschedule cancelled or completed appointment');
+            }
 
-        // Create Notification
-        const newNotification = new notificationModel({
-            userId,
-            title: "Appointment Rescheduled",
-            message: `Your appointment with Dr. ${doctorData.name} has been moved to ${newSlotDate} at ${newSlotTime}.`,
-            type: "appointment"
+            const conflictingAppointment = await appointmentModel.findOne({
+                _id: { $ne: appointmentId },
+                docId: appointment.docId,
+                slotDate: newSlotDate,
+                slotTime: newSlotTime,
+                cancelled: false,
+            }).session(session);
+
+            if (conflictingAppointment) {
+                throw new Error('New slot requested is not available');
+            }
+
+            const doctorData = await doctorModel.findById(appointment.docId).session(session);
+            if (!doctorData) {
+                throw new Error('Doctor not found');
+            }
+
+            const previousSlotDate = appointment.slotDate;
+            const previousSlotTime = appointment.slotTime;
+
+            appointment.slotDate = newSlotDate;
+            appointment.slotTime = newSlotTime;
+            appointment.reminderSent24h = false;
+            appointment.reminderSent2h = false;
+            appointment.reminderSent24hAt = undefined;
+            appointment.reminderSent2hAt = undefined;
+            appointment.reminder24hLockUntil = undefined;
+            appointment.reminder2hLockUntil = undefined;
+            await appointment.save({ session });
+
+            await releaseDoctorSlot({
+                docId: appointment.docId,
+                slotDate: previousSlotDate,
+                slotTime: previousSlotTime,
+                session,
+            });
+
+            await reserveDoctorSlot({
+                docId: appointment.docId,
+                slotDate: newSlotDate,
+                slotTime: newSlotTime,
+                session,
+            });
+
+            await notificationModel.create([{
+                userId,
+                title: "Appointment Rescheduled",
+                message: `Your appointment with Dr. ${doctorData.name} has been moved to ${newSlotDate} at ${newSlotTime}.`,
+                type: "appointment"
+            }], { session })
         })
-        await newNotification.save()
 
         res.json({ success: true, message: 'Appointment Rescheduled Successfully' });
 
     } catch (error) {
+        if (isAppointmentSlotConflict(error)) {
+            return res.json({ success: false, message: 'New slot requested is not available' });
+        }
+
         console.log(error);
         res.json({ success: false, message: error.message });
     }

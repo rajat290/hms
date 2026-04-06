@@ -1,7 +1,8 @@
 import express from 'express';
 import crypto from 'crypto';
 import stripe from 'stripe';
-import appointmentModel from '../models/appointmentModel.js';
+import { finalizeAppointmentPayment } from '../utils/appointmentIntegrity.js';
+import { runInTransaction } from '../utils/transaction.js';
 
 const paymentRouter = express.Router();
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
@@ -23,7 +24,16 @@ paymentRouter.post('/razorpay-webhook', express.json(), async (req, res) => {
 
             if (event === 'payment.captured') {
                 const appointmentId = payload.payment.entity.notes.appointmentId || payload.payment.entity.receipt;
-                await appointmentModel.findByIdAndUpdate(appointmentId, { payment: true, paymentStatus: 'paid' });
+                await runInTransaction(async (session) => {
+                    await finalizeAppointmentPayment({
+                        appointmentId,
+                        transactionId: payload.payment.entity.id,
+                        paymentMethod: 'Online',
+                        notes: 'Captured from Razorpay webhook',
+                        processedBy: 'razorpay-webhook',
+                        session,
+                    });
+                });
             }
             res.status(200).send('Webhook received');
         } else {
@@ -56,7 +66,16 @@ paymentRouter.post('/stripe-webhook', express.raw({ type: 'application/json' }),
         const appointmentId = session.client_reference_id || (session.metadata ? session.metadata.appointmentId : null);
 
         if (appointmentId) {
-            await appointmentModel.findByIdAndUpdate(appointmentId, { payment: true, paymentStatus: 'paid' });
+            await runInTransaction(async (dbSession) => {
+                await finalizeAppointmentPayment({
+                    appointmentId,
+                    transactionId: session.payment_intent || session.id,
+                    paymentMethod: 'Online',
+                    notes: 'Completed from Stripe webhook',
+                    processedBy: 'stripe-webhook',
+                    session: dbSession,
+                });
+            });
         }
     }
 

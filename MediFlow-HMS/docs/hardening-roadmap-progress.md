@@ -11,7 +11,7 @@ For each phase, it records:
 
 ## Branch Strategy
 - Every phase or major module change should be done on its own branch.
-- Current branch for this phase: `phase-1-security-hardening`
+- Current branch for this phase: `Phase2-data-integrity`
 - Recommended future branches:
   - `phase-1-security-hardening`
   - `phase-2-data-integrity`
@@ -24,7 +24,7 @@ For each phase, it records:
 ## Master Phase Tracker
 - Phase 0: Stabilization - completed
 - Phase 1: Security Fixes - completed
-- Phase 2: Data Integrity Fixes - pending
+- Phase 2: Data Integrity Fixes - completed
 - Phase 3: Authentication Hardening - pending
 - Phase 4: API Quality - pending
 - Phase 5: Code Architecture Refactor - pending
@@ -275,12 +275,131 @@ Why:
 - centralized error handling and consistent response envelopes still belong to Phase 4
 - upload file-type and size restrictions are still worth hardening later
 
+## Phase 2 - Data Integrity Fixes
+
+### Why This Phase Was Needed
+After the security pass, the biggest remaining risks were data consistency and concurrency problems:
+- booking, payment verification, cancellation, and refund flows still performed multiple writes without atomic protection
+- appointment slots could still drift from the appointment collection during races or partial failures
+- invoice creation was duplicate-prone and not tightly synchronized with appointment payment state
+- reminder flags existed, but reminders could still be double-sent across retries or restarts
+- model-level validation was still mostly an application concern instead of also being enforced at the database layer
+
+### What Changed
+
+#### 1. A shared transaction and integrity layer was introduced
+Files:
+- `backend/utils/transaction.js`
+- `backend/utils/appointmentIntegrity.js`
+
+What changed:
+- added a shared MongoDB transaction runner
+- added reusable helpers for slot reservation/release, payment finalization, refund processing, invoice synchronization, and payment-method normalization
+- made invoice creation idempotent and collision-resistant instead of count-based
+
+Why:
+- this gives the booking and billing flows one consistent atomic path instead of multiple controllers each re-implementing partial logic
+
+#### 2. Booking, cancellation, rescheduling, and payment verification now run atomically
+Files:
+- `backend/controllers/userController.js`
+- `backend/controllers/adminController.js`
+- `backend/controllers/staffController.js`
+- `backend/controllers/doctorController.js`
+- `backend/routes/paymentRoute.js`
+
+What changed:
+- patient booking now creates the appointment, reserves the slot, and writes notifications in a single transaction
+- user/admin/staff/doctor cancellation paths now share a transaction-safe slot-release flow
+- rescheduling now updates the appointment and both slot mutations together, and resets reminder state for the new slot
+- Razorpay and Stripe verification plus webhook completion now finalize payment, payment logs, and invoice state through the same idempotent payment helper
+- online payment initiation now charges only the outstanding balance when an appointment is partially paid
+
+Why:
+- this closes the exact corruption windows where the system could previously save only part of a business action
+
+#### 3. Invoice and refund integrity was tightened
+Files:
+- `backend/controllers/adminController.js`
+- `backend/models/invoiceModel.js`
+- `backend/models/paymentLogModel.js`
+- `backend/routes/adminRoute.js`
+- `backend/middleware/validators.js`
+
+What changed:
+- invoice generation is now idempotent per appointment instead of producing duplicates
+- invoices are synchronized from appointment state for paid, unpaid, partially paid, cancelled, refunded, and overdue scenarios
+- refunds now run inside transactions and update appointment state, invoice state, and refund logs together
+- added the missing `/api/admin/process-refund` route wiring
+- payment logs now support transaction-level deduplication through a sparse unique `transactionId` index
+
+Why:
+- invoices and payment logs are billing records, so they need deterministic one-to-one linkage with appointments and payment events
+
+#### 4. Reminder idempotency was upgraded from flags-only to lock-and-confirm behavior
+Files:
+- `backend/controllers/notificationController.js`
+- `backend/jobs/cronJobs.js`
+- `backend/models/appointmentModel.js`
+
+What changed:
+- reminders now claim a short-lived lock before sending
+- reminders only mark `sent` after a successful email send, and failed sends release the lock for retry
+- reminder timestamps and lock fields were added to the appointment model
+- overdue invoice cron logic now promotes stale unpaid or partially paid invoices to `overdue`
+
+Why:
+- this makes reminder processing retry-safe and greatly reduces the chance of duplicate reminder emails during retries or overlapping job runs
+
+#### 5. Database-level protections were added
+Files:
+- `backend/models/appointmentModel.js`
+- `backend/models/invoiceModel.js`
+- `backend/models/paymentLogModel.js`
+- `backend/config/databaseIntegrity.js`
+- `backend/server.js`
+
+What changed:
+- added a unique active-slot compound index on `{ docId, slotDate, slotTime }` with cancelled appointments excluded
+- added invoice uniqueness per appointment
+- added collection-level MongoDB `$jsonSchema` validators for all current backend models
+- server startup now synchronizes validators and indexes after the MongoDB connection is established
+
+Why:
+- application logic should not be the only line of defense against duplicate slots or malformed writes
+
+#### 6. Phase 2 test coverage was expanded
+Files:
+- `backend/__tests__/appointmentIntegrity.test.js`
+- `backend/__tests__/models.test.js`
+- `backend/__tests__/notificationController.test.js`
+
+What changed:
+- added direct tests for invoice/status/payment helper behavior
+- added schema index assertions for appointment, invoice, and payment-log integrity constraints
+- updated reminder tests to cover claim-before-send behavior
+
+Why:
+- the new integrity layer is cross-cutting, so targeted tests make later refactors much safer
+
+### Verification Results
+- Backend tests: passed (`18/18`)
+- Backend startup, validator/index sync, and `/api/health`: passed
+- Frontend tests: passed
+- Frontend production build: passed
+- Admin production build: passed
+
+### Remaining Notes After Phase 2
+- auth is still single-token based and needs refresh-token/logout hardening in Phase 3
+- centralized error handling and response consistency still belong to Phase 4
+- pagination and API versioning still belong to Phase 4
+- upload file validation, logging infrastructure, and broader production operations work still belong to later phases
+
 ## Next Recommended Phase
-Phase 2: Data Integrity Fixes
+Phase 3: Authentication Hardening
 
 Planned focus:
-- add MongoDB transactions around booking and payment flows
-- add transaction-safe cancellation and refund handling
-- make reminder processing more strictly idempotent
-- add slot uniqueness protection at the database layer
-- strengthen model-level data validation
+- introduce short-lived access tokens with refresh-token rotation
+- add logout and token revocation support
+- tighten password-reset and token-lifecycle guarantees
+- prepare auth storage and middleware for production session management
