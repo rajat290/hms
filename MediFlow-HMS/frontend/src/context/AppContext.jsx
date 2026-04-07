@@ -14,6 +14,8 @@ const AppContextProvider = (props) => {
     const [token, setToken] = useState(() => readStoredValue('token'));
     const [refreshToken, setRefreshToken] = useState(() => readStoredValue('refreshToken'));
     const [userData, setUserData] = useState(false);
+    const [doctorsLoading, setDoctorsLoading] = useState(true);
+    const [profileLoading, setProfileLoading] = useState(Boolean(readStoredValue('token')));
     const refreshRequestRef = useRef(null);
 
     const persistSession = (nextAccessToken, nextRefreshToken) => {
@@ -82,6 +84,7 @@ const AppContextProvider = (props) => {
     };
 
     const getDoctosData = async () => {
+        setDoctorsLoading(true);
 
         try {
 
@@ -95,14 +98,19 @@ const AppContextProvider = (props) => {
         } catch (error) {
             console.log(error);
             toast.error(error.message);
+        } finally {
+            setDoctorsLoading(false);
         }
 
     };
 
     const loadUserProfileData = async () => {
         if (!token) {
+            setProfileLoading(false);
             return;
         }
+
+        setProfileLoading(true);
 
         try {
 
@@ -117,6 +125,8 @@ const AppContextProvider = (props) => {
         } catch (error) {
             console.log(error);
             toast.error(error.message);
+        } finally {
+            setProfileLoading(false);
         }
 
     };
@@ -130,6 +140,7 @@ const AppContextProvider = (props) => {
             loadUserProfileData();
         } else {
             setUserData(false);
+            setProfileLoading(false);
         }
     }, [token]);
 
@@ -179,11 +190,15 @@ const AppContextProvider = (props) => {
     }, [backendUrl, refreshToken, token]);
 
     const value = {
-        doctors, getDoctosData,
+        doctors, getDoctosData, getDoctorsData: getDoctosData,
         currencySymbol,
+        currency: currencySymbol,
         backendUrl,
         token, setToken,
         refreshToken, setRefreshToken,
+        doctorsLoading,
+        profileLoading,
+        isAuthenticated: Boolean(token),
         persistSession,
         clearSession,
         refreshUserSession,

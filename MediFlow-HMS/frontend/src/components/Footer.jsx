@@ -1,44 +1,67 @@
-import React from 'react'
-import { assets } from '../assets/assets'
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { assets } from '../assets/assets';
 
-const Footer = () => {
-  return (
-    <div className='md:mx-10'>
-      <div className='flex flex-col sm:grid grid-cols-[3fr_1fr_1fr] gap-14 my-10 mt-40 text-sm'>
+const Footer = () => (
+  <footer className="relative z-10 mt-12 pb-28 pt-10 sm:pb-10">
+    <div className="page-wrap">
+      <div className="glass-panel overflow-hidden px-6 py-8 sm:px-8 lg:px-10">
+        <div className="grid gap-8 lg:grid-cols-[1.2fr,0.8fr,0.8fr,0.9fr]">
+          <div className="space-y-5">
+            <div className="inline-flex rounded-2xl bg-white p-3 shadow-soft">
+              <img src={assets.logo} alt="MediFlow" className="w-32" />
+            </div>
+            <p className="max-w-md text-sm leading-7 text-slate-600">
+              MediFlow turns hospital interactions into a calmer digital experience, from discovery and booking to invoices, reminders, and follow-up care.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <span className="app-chip">Same-day bookings</span>
+              <span className="app-chip">Secure patient portal</span>
+              <span className="app-chip">Automated reminders</span>
+            </div>
+          </div>
 
-        <div>
-          <img className='mb-5 w-40' src={assets.logo} alt="" />
-          <p className='w-full md:w-2/3 text-gray-600 leading-6'>
-            Mediflow is committed to excellence in healthcare. We bring together the best medical professionals to provide you with seamless appointment booking and top-tier medical care.
-          </p>
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.2em] text-secondary">Explore</p>
+            <div className="mt-4 grid gap-3 text-sm text-slate-600">
+              <Link to="/" className="hover:text-primary">Home</Link>
+              <Link to="/doctors" className="hover:text-primary">Doctors</Link>
+              <Link to="/about" className="hover:text-primary">About</Link>
+              <Link to="/contact" className="hover:text-primary">Contact</Link>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-[0.2em] text-secondary">Patient Tools</p>
+            <div className="mt-4 grid gap-3 text-sm text-slate-600">
+              <Link to="/my-appointments" className="hover:text-primary">Appointments</Link>
+              <Link to="/my-billing" className="hover:text-primary">Billing</Link>
+              <Link to="/smart-scheduler" className="hover:text-primary">Smart scheduler</Link>
+              <Link to="/symptom-checker" className="hover:text-primary">Symptom checker</Link>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-sm font-extrabold uppercase tracking-[0.2em] text-secondary">Support</p>
+            <div className="rounded-[24px] bg-white/90 p-5">
+              <p className="text-sm font-semibold text-secondary">24x7 patient desk</p>
+              <a href="tel:+12124567890" className="mt-2 block text-lg font-bold text-primary">+1 212 456 7890</a>
+              <a href="mailto:care@mediflow.com" className="mt-1 block text-sm text-slate-600">care@mediflow.com</a>
+              <p className="mt-4 text-sm leading-6 text-slate-500">Response team for urgent assistance, appointment updates, and billing help.</p>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <p className='text-xl font-semibold mb-5 text-secondary'>COMPANY</p>
-          <ul className='flex flex-col gap-2 text-gray-600'>
-            <li className='hover:text-primary cursor-pointer transition-colors'>Home</li>
-            <li className='hover:text-primary cursor-pointer transition-colors'>About us</li>
-            <li className='hover:text-primary cursor-pointer transition-colors'>Delivery</li>
-            <li className='hover:text-primary cursor-pointer transition-colors'>Privacy policy</li>
-          </ul>
+        <div className="mt-8 flex flex-col gap-3 border-t border-white/80 pt-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>Copyright 2026 MediFlow. Built for modern patient journeys.</p>
+          <div className="flex flex-wrap gap-4">
+            <span>Privacy-first experience</span>
+            <span>Responsive across devices</span>
+          </div>
         </div>
-
-        <div>
-          <p className='text-xl font-semibold mb-5 text-secondary'>GET IN TOUCH</p>
-          <ul className='flex flex-col gap-2 text-gray-600'>
-            <li className='hover:text-primary cursor-pointer transition-colors'>+1-212-456-7890</li>
-            <li className='hover:text-primary cursor-pointer transition-colors'>contact@mediflow.com</li>
-          </ul>
-        </div>
-
-      </div>
-
-      <div>
-        <hr className='border-gray-200' />
-        <p className='py-5 text-sm text-center text-gray-500'>Copyright 2024 @ Mediflow.com - All Right Reserved.</p>
       </div>
     </div>
-  )
-}
+  </footer>
+);
 
-export default Footer
+export default Footer;

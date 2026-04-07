@@ -387,7 +387,7 @@ const updatePayment = async (req, res) => {
                 title: "Payment Received",
                 message: `Payment of ${partialAmount || appointment.amount} received from ${appointment.userId.name} via ${paymentMethod || 'standard method'}.`,
                 type: "payment"
-            }], { session })
+            }], { session, ordered: true })
         })
 
         res.json({ success: true, message: 'Payment Updated' });

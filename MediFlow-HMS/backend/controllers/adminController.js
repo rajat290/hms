@@ -448,7 +448,7 @@ const updatePaymentStatus = async (req, res) => {
                     status: 'completed',
                     notes,
                     processedBy: process.env.ADMIN_EMAIL
-                }], { session });
+                }], { session, ordered: true });
             }
         });
 

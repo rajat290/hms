@@ -6,16 +6,20 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Manrope', 'sans-serif'],
+        display: ['Fraunces', 'serif'],
+      },
       gridTemplateColumns: {
         'auto': 'repeat(auto-fill, minmax(200px, 1fr))'
       },
       colors: {
-        'primary': '#5F6FFF',
-        'secondary': '#2D3748',
-        'accent': '#4FD1C5',
-        'background-soft': '#F7FAFC',
-        'success': '#48BB78',
-        'error': '#E53E3E',
+        'primary': '#0F766E',
+        'secondary': '#10233F',
+        'accent': '#F6B73C',
+        'background-soft': '#EEF5F7',
+        'success': '#1F8A70',
+        'error': '#D75465',
       },
       borderRadius: {
         'xl': '1rem',
@@ -23,12 +27,12 @@ export default {
         '3xl': '2rem',
       },
       boxShadow: {
-        'soft': '0 4px 20px rgba(0, 0, 0, 0.05)',
-        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+        'soft': '0 18px 50px rgba(16, 35, 63, 0.08)',
+        'glass': '0 24px 60px rgba(15, 59, 84, 0.16)',
       },
       backgroundImage: {
-        'gradient-primary': 'linear-gradient(135deg, #5F6FFF 0%, #4A5AE0 100%)',
-        'glass-gradient': 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+        'gradient-primary': 'linear-gradient(135deg, #10233F 0%, #0F766E 52%, #3CB7A0 100%)',
+        'glass-gradient': 'linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.46))',
       }
     },
   },

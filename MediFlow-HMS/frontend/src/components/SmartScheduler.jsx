@@ -1,46 +1,115 @@
-import React, { useState } from 'react'
-import axios from 'axios'
-import { toast } from 'react-toastify'
-import { useContext } from 'react'
-import { AppContext } from '../context/AppContext'
+import React, { useContext, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import PageHero from './ui/PageHero';
+import { AppContext } from '../context/AppContext';
 
 const SmartScheduler = () => {
-  const [doctorId, setDoctorId] = useState('')
-  const [date, setDate] = useState('')
-  const [suggestedTime, setSuggestedTime] = useState('')
-  const { backendUrl } = useContext(AppContext)
+  const [doctorId, setDoctorId] = useState('');
+  const [date, setDate] = useState('');
+  const [suggestedTime, setSuggestedTime] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { backendUrl, doctors = [] } = useContext(AppContext);
 
   const getSuggestion = async () => {
     try {
-      const { data } = await axios.post(backendUrl + '/api/ai/smart-schedule', { doctorId, date })
+      setLoading(true);
+      const { data } = await axios.post(`${backendUrl}/api/ai/smart-schedule`, { doctorId, date });
       if (data.success) {
-        setSuggestedTime(data.suggestedTime)
+        setSuggestedTime(data.suggestedTime);
       } else {
-        toast.error(data.message)
+        toast.error(data.message);
       }
     } catch (error) {
-      toast.error('Smart scheduling failed')
+      toast.error('Smart scheduling failed');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <div className='min-h-[80vh] flex items-center'>
-      <div className='flex flex-col gap-3 m-auto items-start p-8 min-w-[340px] sm:min-w-96 border rounded-xl text-[#5E5E5E] text-sm shadow-lg'>
-        <p className='text-2xl font-semibold'>AI Smart Scheduler</p>
-        <p>Get optimal appointment time</p>
-        <div className='w-full'>
-          <p>Doctor ID</p>
-          <input aria-label='Doctor ID' onChange={(e) => setDoctorId(e.target.value)} value={doctorId} className='border border-[#DADADA] rounded w-full p-2 mt-1' type="text" required />
-        </div>
-        <div className='w-full'>
-          <p>Date</p>
-          <input aria-label='Date' onChange={(e) => setDate(e.target.value)} value={date} className='border border-[#DADADA] rounded w-full p-2 mt-1' type="date" required />
-        </div>
-        <button onClick={getSuggestion} className='bg-primary text-white w-full py-2 my-2 rounded-md text-base'>Get Suggestion</button>
-        {suggestedTime && <p className='text-lg font-medium'>Suggested Time: {suggestedTime}</p>}
-      </div>
-    </div>
-  )
-}
+    <div className="section-space space-y-8">
+      <PageHero
+        eyebrow="AI scheduling assistant"
+        title="AI Smart Scheduler"
+        description="Get optimal appointment time with a more polished workflow that feels native to the rest of the patient experience."
+        stats={[
+          { label: 'Best for', value: 'Busy schedules' },
+          { label: 'Input', value: 'Doctor + date' },
+          { label: 'Outcome', value: 'Suggested slot' },
+        ]}
+      />
 
-export default SmartScheduler
+      <section className="grid gap-6 lg:grid-cols-[0.95fr,1.05fr]">
+        <div className="glass-panel px-6 py-8 sm:px-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Scheduling support</p>
+          <h2 className="mt-3 text-3xl font-bold text-secondary">Get optimal appointment time</h2>
+          <p className="mt-2 text-sm leading-7 text-slate-500">Select a doctor, choose a day, and let the assistant suggest a better consultation window.</p>
+
+          <div className="mt-6 space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-secondary">Doctor ID</label>
+              <input
+                aria-label="Doctor ID"
+                value={doctorId}
+                onChange={(event) => setDoctorId(event.target.value)}
+                className="app-input"
+                type="text"
+                list="doctor-options"
+                required
+              />
+              <datalist id="doctor-options">
+                {doctors.map((doctor) => (
+                  <option key={doctor._id} value={doctor._id}>
+                    {doctor.name}
+                  </option>
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-secondary">Date</label>
+              <input
+                aria-label="Date"
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                className="app-input"
+                type="date"
+                required
+              />
+            </div>
+
+            <button onClick={getSuggestion} className="app-button">
+              {loading ? 'Getting suggestion...' : 'Get Suggestion'}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <article className="app-card p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">How it helps</p>
+            <div className="mt-4 grid gap-3">
+              {[
+                'Reduce trial-and-error while booking.',
+                'Give patients a better sense of availability earlier.',
+                'Keep the AI tools aligned with the product visual language.',
+              ].map((item) => (
+                <div key={item} className="rounded-[22px] bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-600">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="app-card p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Suggested result</p>
+            <p className="mt-4 text-3xl font-bold text-secondary">{suggestedTime ? `Suggested Time: ${suggestedTime}` : 'Suggested Time: --'}</p>
+            <p className="mt-3 text-sm leading-7 text-slate-500">A suggested time appears here after the AI evaluates the date and doctor combination.</p>
+          </article>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default SmartScheduler;

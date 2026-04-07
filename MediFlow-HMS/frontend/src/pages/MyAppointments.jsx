@@ -1,299 +1,334 @@
-import React, { useContext, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { AppContext } from '../context/AppContext'
-import axios from 'axios'
-import { toast } from 'react-toastify'
-import { assets } from '../assets/assets'
-import { jsPDF } from "jspdf"
-import { formatSlotDate } from '@shared/utils/date.js'
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { Link, useNavigate } from 'react-router-dom';
+import { formatSlotDate } from '@shared/utils/date.js';
+import { AppContext } from '../context/AppContext';
+import PatientPortalLayout from '../components/PatientPortalLayout';
+import LoadingState from '../components/ui/LoadingState';
+import EmptyState from '../components/ui/EmptyState';
+import StatusBadge from '../components/ui/StatusBadge';
+import { buildSlotDateKey, getAppointmentStage, getPaymentStage, normalizeDoctorSlots } from '../utils/appointments';
+
+const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 const MyAppointments = () => {
+  const { backendUrl, token, currencySymbol } = useContext(AppContext);
+  const navigate = useNavigate();
 
-    const { backendUrl, token, currency } = useContext(AppContext)
-    const navigate = useNavigate()
+  const [appointments, setAppointments] = useState([]);
+  const [prescriptions, setPrescriptions] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [docSlots, setDocSlots] = useState([]);
+  const [slotIndex, setSlotIndex] = useState(0);
+  const [slotTime, setSlotTime] = useState('');
 
-    const [appointments, setAppointments] = useState([])
-    const [prescriptions, setPrescriptions] = useState({})
-    const [payment, setPayment] = useState('')
-
-    // Reschedule states
-    const [showReschedule, setShowReschedule] = useState(false)
-    const [selectedApp, setSelectedApp] = useState(null)
-    const [docSlots, setDocSlots] = useState([])
-    const [slotIndex, setSlotIndex] = useState(0)
-    const [slotTime, setSlotTime] = useState('')
-    const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
-
-    // Getting User Appointments Data Using API
-    const getUserAppointments = async () => {
-        try {
-
-            const { data } = await axios.get(backendUrl + '/api/user/appointments', { headers: { token } })
-            setAppointments(data.appointments.reverse())
-
-        } catch (error) {
-            console.log(error)
-            toast.error(error.message)
-        }
+  const getUserAppointments = async () => {
+    try {
+      const { data } = await axios.get(`${backendUrl}/api/user/appointments`, { headers: { token } });
+      if (data.success) {
+        setAppointments((data.appointments || []).slice().reverse());
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const getUserPrescriptions = async () => {
-        try {
-            const { data } = await axios.get(backendUrl + '/api/user/prescriptions', { headers: { token } })
-            if (data.success) {
-                const presMap = {};
-                data.prescriptions.forEach(p => {
-                    presMap[p.appointmentId] = p;
-                });
-                setPrescriptions(presMap);
-            }
-        } catch (error) {
-            console.log(error)
-        }
-    }
-
-    const downloadPrescription = (prescription, appointment) => {
-        const doc = new jsPDF();
-        doc.setFontSize(22);
-        doc.text("Prescription", 105, 20, null, null, "center");
-
-        doc.setFontSize(12);
-        doc.text(`Doctor: ${appointment.docData.name}`, 20, 40);
-        doc.text(`Speciality: ${appointment.docData.speciality}`, 20, 50);
-        doc.text(`Date: ${formatSlotDate(appointment.slotDate)}`, 20, 60);
-
-        doc.setLineWidth(0.5);
-        doc.line(20, 70, 190, 70);
-
-        doc.setFontSize(16);
-        doc.text("Medicines", 20, 85);
-
-        doc.setFontSize(12);
-        let yPos = 100;
-        prescription.medicines.forEach((med, index) => {
-            doc.text(`${index + 1}. ${med.name} - ${med.dosage} (${med.duration})`, 20, yPos);
-            if (med.instruction) doc.text(`   Instruction: ${med.instruction}`, 20, yPos + 7);
-            yPos += 15;
+  const getUserPrescriptions = async () => {
+    try {
+      const { data } = await axios.get(`${backendUrl}/api/user/prescriptions`, { headers: { token } });
+      if (data.success) {
+        const nextPrescriptions = {};
+        data.prescriptions.forEach((prescription) => {
+          nextPrescriptions[prescription.appointmentId] = prescription;
         });
+        setPrescriptions(nextPrescriptions);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
-        doc.save(`Prescription_${appointment.slotDate}.pdf`);
+  const cancelAppointment = async (appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/user/cancel-appointment`,
+        { appointmentId },
+        { headers: { token } },
+      );
+
+      if (data.success) {
+        toast.success(data.message);
+        getUserAppointments();
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const openRescheduleModal = async (appointment) => {
+    setSelectedAppointment(appointment);
+    setSlotTime('');
+    setSlotIndex(0);
+    setShowReschedule(true);
+
+    try {
+      const { data } = await axios.get(`${backendUrl}/api/user/doctor-slots/${appointment.docId}`);
+      if (data.success) {
+        const slotsWithDates = normalizeDoctorSlots(data.slots);
+        setDocSlots(slotsWithDates);
+        const firstAvailableIndex = slotsWithDates.findIndex((day) => day.length > 0);
+        if (firstAvailableIndex !== -1) {
+          setSlotIndex(firstAvailableIndex);
+        }
+      }
+    } catch (error) {
+      toast.error('Failed to load available slots.');
+    }
+  };
+
+  const confirmReschedule = async () => {
+    if (!slotTime) {
+      toast.warning('Please select a slot.');
+      return;
     }
 
-    // Function to cancel appointment Using API
-    const cancelAppointment = async (appointmentId) => {
-
-        try {
-
-            const { data } = await axios.post(backendUrl + '/api/user/cancel-appointment', { appointmentId }, { headers: { token } })
-
-            if (data.success) {
-                toast.success(data.message)
-                getUserAppointments()
-            } else {
-                toast.error(data.message)
-            }
-
-        } catch (error) {
-            console.log(error)
-            toast.error(error.message)
-        }
-
+    const selectedDate = docSlots[slotIndex]?.[0]?.datetime;
+    if (!selectedDate) {
+      toast.error('Selected day has no available slots.');
+      return;
     }
 
-    const initPay = (order) => {
-        const options = {
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-            amount: order.amount,
-            currency: order.currency,
-            name: 'Appointment Payment',
-            description: "Appointment Payment",
-            order_id: order.id,
-            receipt: order.receipt,
-            handler: async (response) => {
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/user/reschedule-appointment`,
+        {
+          appointmentId: selectedAppointment._id,
+          newSlotDate: buildSlotDateKey(selectedDate),
+          newSlotTime: slotTime,
+        },
+        { headers: { token } },
+      );
 
-                console.log(response)
+      if (data.success) {
+        toast.success(data.message);
+        setShowReschedule(false);
+        getUserAppointments();
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
 
-                try {
-                    const { data } = await axios.post(backendUrl + "/api/user/verifyRazorpay", response, { headers: { token } });
-                    if (data.success) {
-                        navigate('/my-appointments')
-                        getUserAppointments()
-                    }
-                } catch (error) {
-                    console.log(error)
-                    toast.error(error.message)
-                }
-            }
-        };
-        const rzp = new window.Razorpay(options);
-        rzp.open();
-    };
-
-    // Function to make payment using razorpay
-    const appointmentRazorpay = async (appointmentId) => {
-        try {
-            const { data } = await axios.post(backendUrl + '/api/user/payment-razorpay', { appointmentId }, { headers: { token } })
-            if (data.success) {
-                initPay(data.order)
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            console.log(error)
-            toast.error(error.message)
-        }
+  useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      return;
     }
 
-    // Function to make payment using stripe
-    const appointmentStripe = async (appointmentId) => {
-        try {
-            const { data } = await axios.post(backendUrl + '/api/user/payment-stripe', { appointmentId }, { headers: { token } })
-            if (data.success) {
-                const { session_url } = data
-                window.location.replace(session_url)
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            console.log(error)
-            toast.error(error.message)
-        }
-    }
+    getUserAppointments();
+    getUserPrescriptions();
+  }, [token]);
 
-    // Reschedule logic
-    const openRescheduleModal = async (appointment) => {
-        setSelectedApp(appointment)
-        setSlotTime('')
-        setSlotIndex(0)
-        setShowReschedule(true)
-        try {
-            const { data } = await axios.get(backendUrl + `/api/user/doctor-slots/${appointment.docId}`)
-            if (data.success) {
-                setDocSlots(slotsWithDates)
-                // Automatically select first available day
-                const firstAvailableIndex = slotsWithDates.findIndex(day => day.length > 0)
-                if (firstAvailableIndex !== -1) {
-                    setSlotIndex(firstAvailableIndex)
-                }
-            }
-        } catch (error) {
-            toast.error("Failed to load available slots")
-        }
-    }
+  const stats = useMemo(() => {
+    const upcoming = appointments.filter((appointment) => !appointment.cancelled && !appointment.isCompleted).length;
+    const completed = appointments.filter((appointment) => appointment.isCompleted).length;
+    const paid = appointments.filter((appointment) => appointment.payment || appointment.paymentStatus === 'paid').length;
 
-    const confirmReschedule = async () => {
-        if (!slotTime) return toast.warning("Please select a slot")
+    return [
+      { label: 'Upcoming', value: upcoming || '0' },
+      { label: 'Completed', value: completed || '0' },
+      { label: 'Paid visits', value: paid || '0' },
+    ];
+  }, [appointments]);
 
-        if (!docSlots[slotIndex] || !docSlots[slotIndex].length) {
-            return toast.error("Selected day has no available slots")
-        }
-
-        const date = docSlots[slotIndex][0].datetime
-        let day = date.getDate()
-        let month = date.getMonth() + 1
-        let year = date.getFullYear()
-        const slotDate = day + "_" + month + "_" + year
-
-        try {
-            const { data } = await axios.post(backendUrl + '/api/user/reschedule-appointment', {
-                appointmentId: selectedApp._id,
-                newSlotDate: slotDate,
-                newSlotTime: slotTime
-            }, { headers: { token } })
-
-            if (data.success) {
-                toast.success(data.message)
-                setShowReschedule(false)
-                getUserAppointments()
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            toast.error(error.message)
-        }
-    }
-
-
-
-    useEffect(() => {
-        if (token) {
-            getUserAppointments()
-            getUserPrescriptions()
-        }
-    }, [token])
-
+  if (!token) {
     return (
-        <div>
-            <p className='pb-3 mt-12 text-lg font-medium text-gray-600 border-b'>My appointments</p>
-            <div className=''>
-                {appointments.map((item, index) => (
-                    <div key={index} className='grid grid-cols-[1fr_2fr] gap-4 sm:flex sm:gap-6 py-4 border-b'>
-                        <div>
-                            <img className='w-36 bg-[#EAEFFF]' src={item.docData.image} alt="" />
-                        </div>
-                        <div className='flex-1 text-sm text-[#5E5E5E]'>
-                            <p className='text-[#262626] text-base font-semibold'>{item.docData.name}</p>
-                            <p>{item.docData.speciality}</p>
-                            <p className='text-[#464646] font-medium mt-1'>Address:</p>
-                            <p className=''>{item.docData.address.line1}</p>
-                            <p className=''>{item.docData.address.line2}</p>
-                            <p className=' mt-1'><span className='text-sm text-[#3C3C3C] font-medium'>Date & Time:</span> {formatSlotDate(item.slotDate)} |  {item.slotTime}</p>
-                        </div>
-                        <div></div>
-                        <div className='flex flex-col gap-2 justify-end text-sm text-center'>
-                            {!item.cancelled && item.paymentStatus !== 'paid' && !item.payment && !item.isCompleted && <span className='text-yellow-600 bg-yellow-50 border border-yellow-200 px-2 py-1 rounded'>Unpaid</span>}
-                            {!item.cancelled && (item.paymentStatus === 'paid' || item.payment) && !item.isCompleted && <span className='text-green-600 bg-green-50 border border-green-200 px-2 py-1 rounded'>Paid</span>}
-                            {item.cancelled && <span className='text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded'>Cancelled</span>}
-                            {item.isCompleted && <span className='text-green-600 bg-green-50 border border-green-200 px-2 py-1 rounded'>Completed</span>}
-                            {!item.cancelled && !item.isCompleted && item.isAccepted && (item.payment || item.paymentStatus === 'paid') && <span className='text-green-600 bg-green-50 border border-green-200 px-2 py-1 rounded'>Accepted</span>}
-                            {!item.cancelled && !item.isCompleted && !item.isAccepted && (item.payment || item.paymentStatus === 'paid') && <span className='text-blue-600 bg-blue-50 border border-blue-200 px-2 py-1 rounded'>Pending</span>}
+      <div className="section-space">
+        <EmptyState
+          title="Sign in to view appointments"
+          description="Your patient portal keeps upcoming visits, history, and billing in one place."
+          action={<Link to="/login" className="app-button">Go to login</Link>}
+        />
+      </div>
+    );
+  }
 
-                            <button onClick={() => navigate(`/my-appointments/${item._id}`)} className='sm:min-w-48 py-2 border rounded hover:bg-primary hover:text-white transition-all duration-300'>View Details</button>
-                            {!item.cancelled && !item.isCompleted && (
-                                <button onClick={() => openRescheduleModal(item)} className='sm:min-w-48 py-2 border rounded hover:bg-blue-500 hover:text-white transition-all duration-300'>Reschedule</button>
-                            )}
-                            {!item.cancelled && !item.isCompleted && <button onClick={() => cancelAppointment(item._id)} className='sm:min-w-48 py-2 border rounded hover:bg-red-600 hover:text-white transition-all duration-300'>Cancel appointment</button>}
-                        </div>
+  if (loading) {
+    return <LoadingState title="Loading appointments" message="Gathering your upcoming visits, status updates, and history." fullHeight />;
+  }
+
+  return (
+    <>
+      <PatientPortalLayout
+        title="Appointments"
+        description="Upcoming visits, reschedules, details, and prescription availability now live in a single, clearer portal view."
+        stats={stats}
+        actions={
+          <Link to="/doctors" className="app-button">
+            Book another visit
+          </Link>
+        }
+      >
+        {appointments.length > 0 ? (
+          appointments.map((appointment) => {
+            const appointmentStage = getAppointmentStage(appointment);
+            const paymentStage = getPaymentStage(appointment);
+            const hasPrescription = Boolean(prescriptions[appointment._id]);
+
+            return (
+              <article key={appointment._id} className="app-card overflow-hidden">
+                <div className="grid gap-0 lg:grid-cols-[220px,minmax(0,1fr)]">
+                  <div className="bg-[linear-gradient(180deg,#dff5f3_0%,#eff6ff_100%)] p-4">
+                    <img
+                      src={appointment.docData.image}
+                      alt={appointment.docData.name}
+                      className="h-full max-h-[220px] w-full rounded-[24px] object-cover"
+                    />
+                  </div>
+
+                  <div className="space-y-5 px-6 py-6">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-2xl font-bold text-secondary">{appointment.docData.name}</p>
+                        <p className="mt-1 text-sm font-semibold text-primary">{appointment.docData.speciality}</p>
+                        <p className="mt-3 text-sm leading-7 text-slate-500">
+                          {appointment.docData.address?.line1}
+                          {appointment.docData.address?.line2 ? `, ${appointment.docData.address.line2}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <StatusBadge tone={appointmentStage.tone}>{appointmentStage.label}</StatusBadge>
+                        <StatusBadge tone={paymentStage.tone}>{paymentStage.label}</StatusBadge>
+                        {hasPrescription ? <StatusBadge tone="info">Prescription available</StatusBadge> : null}
+                      </div>
                     </div>
-                ))}
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="rounded-[22px] bg-slate-50 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">When</p>
+                        <p className="mt-2 text-lg font-bold text-secondary">{formatSlotDate(appointment.slotDate)}</p>
+                        <p className="text-sm text-slate-500">{appointment.slotTime}</p>
+                      </div>
+                      <div className="rounded-[22px] bg-slate-50 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Amount</p>
+                        <p className="mt-2 text-lg font-bold text-secondary">
+                          {currencySymbol}
+                          {appointment.amount}
+                        </p>
+                        <p className="text-sm text-slate-500">Consultation fee</p>
+                      </div>
+                      <div className="rounded-[22px] bg-slate-50 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Doctor review</p>
+                        <p className="mt-2 text-lg font-bold text-secondary">{appointment.isAccepted ? 'Accepted' : 'Awaiting confirmation'}</p>
+                        <p className="text-sm text-slate-500">Live appointment state</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <button onClick={() => navigate(`/my-appointments/${appointment._id}`)} className="app-button">
+                        View details
+                      </button>
+                      {!appointment.cancelled && !appointment.isCompleted ? (
+                        <button onClick={() => openRescheduleModal(appointment)} className="app-button-secondary">
+                          Reschedule
+                        </button>
+                      ) : null}
+                      {!appointment.cancelled && !appointment.isCompleted ? (
+                        <button onClick={() => cancelAppointment(appointment._id)} className="app-button-secondary text-rose-600">
+                          Cancel appointment
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            );
+          })
+        ) : (
+          <EmptyState
+            title="No appointments yet"
+            description="Once you book a consultation, your upcoming schedule and history will appear here."
+            action={<Link to="/doctors" className="app-button">Find a doctor</Link>}
+          />
+        )}
+      </PatientPortalLayout>
+
+      {showReschedule ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-secondary/40 px-4 backdrop-blur-sm">
+          <div className="glass-panel w-full max-w-2xl p-6 sm:p-8">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Reschedule appointment</p>
+                <h3 className="mt-2 text-3xl font-bold text-secondary">Choose a better slot</h3>
+                <p className="mt-2 text-sm leading-7 text-slate-500">
+                  Update your appointment with Dr. {selectedAppointment?.docData?.name}.
+                </p>
+              </div>
+              <button onClick={() => setShowReschedule(false)} className="app-button-ghost">
+                Close
+              </button>
             </div>
 
-            {/* Reschedule Modal */}
-            {showReschedule && (
-                <div className='fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4'>
-                    <div className='bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto'>
-                        <h3 className='text-xl font-medium mb-4'>Reschedule Appointment</h3>
-                        <p className='text-sm text-gray-600 mb-6'>Pick a new slot for Dr. {selectedApp.docData.name}</p>
+            <div className="mt-6 space-y-5">
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {docSlots.filter((day) => day.length > 0).map((day, index) => {
+                  const firstSlot = day[0];
+                  const actualIndex = docSlots.findIndex((slotGroup) => slotGroup === day);
+                  return (
+                    <button
+                      key={`${firstSlot.datetime.toISOString()}-${index}`}
+                      onClick={() => {
+                        setSlotIndex(actualIndex);
+                        setSlotTime('');
+                      }}
+                      className={`min-w-[96px] rounded-[24px] px-4 py-4 text-center ${
+                        slotIndex === actualIndex ? 'bg-secondary text-white' : 'border border-slate-200 bg-white text-secondary'
+                      }`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em]">{daysOfWeek[firstSlot.datetime.getDay()]}</p>
+                      <p className="mt-2 text-2xl font-bold">{firstSlot.datetime.getDate()}</p>
+                    </button>
+                  );
+                })}
+              </div>
 
-                        <div className='font-medium text-[#565656]'>
-                            <p>Booking slots</p>
-                            <div className='flex gap-3 items-center w-full overflow-x-scroll mt-4 pb-2'>
-                                {docSlots.length > 0 && docSlots.map((item, index) => (
-                                    <div onClick={() => { setSlotIndex(index); setSlotTime('') }} key={index} className={`text-center py-4 min-w-14 rounded-full cursor-pointer flex-shrink-0 ${slotIndex === index ? 'bg-primary text-white' : 'border border-[#DDDDDD]'}`}>
-                                        <p className='text-xs'>{item[0] && daysOfWeek[item[0].datetime.getDay()]}</p>
-                                        <p>{item[0] && item[0].datetime.getDate()}</p>
-                                    </div>
-                                ))}
-                            </div>
+              <div className="flex flex-wrap gap-3">
+                {(docSlots[slotIndex] || []).map((slot) => (
+                  <button
+                    key={`${slot.time}-${slot.datetime.toISOString()}`}
+                    onClick={() => setSlotTime(slot.time)}
+                    className={`rounded-full px-4 py-3 text-sm font-semibold ${
+                      slot.time === slotTime ? 'bg-primary text-white' : 'border border-slate-200 bg-white text-slate-500'
+                    }`}
+                  >
+                    {slot.time}
+                  </button>
+                ))}
+              </div>
 
-                            <div className='flex items-center gap-3 w-full overflow-x-scroll mt-4 pb-2'>
-                                {docSlots.length > 0 && docSlots[slotIndex].map((item, index) => (
-                                    <p onClick={() => setSlotTime(item.time)} key={index} className={`text-xs font-light flex-shrink-0 px-4 py-2 rounded-full cursor-pointer ${item.time === slotTime ? 'bg-primary text-white' : 'text-[#949494] border border-[#B4B4B4]'}`}>
-                                        {item.time.toLowerCase()}
-                                    </p>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className='flex gap-4 mt-8'>
-                            <button onClick={() => setShowReschedule(false)} className='flex-1 py-2 border rounded text-gray-600'>Cancel</button>
-                            <button onClick={confirmReschedule} className='flex-1 py-2 bg-primary text-white rounded'>Confirm</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button onClick={confirmReschedule} className="app-button">
+                  Confirm reschedule
+                </button>
+                <button onClick={() => setShowReschedule(false)} className="app-button-secondary">
+                  Keep current appointment
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-    )
-}
+      ) : null}
+    </>
+  );
+};
 
-export default MyAppointments
+export default MyAppointments;

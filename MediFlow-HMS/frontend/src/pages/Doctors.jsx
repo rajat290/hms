@@ -1,134 +1,186 @@
-import React, { useContext, useEffect, useState } from 'react'
-import { AppContext } from '../context/AppContext'
-import { useNavigate, useParams } from 'react-router-dom'
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AppContext } from '../context/AppContext';
+import DoctorCard from '../components/ui/DoctorCard';
+import EmptyState from '../components/ui/EmptyState';
+import LoadingState from '../components/ui/LoadingState';
+import PageHero from '../components/ui/PageHero';
+
+const specialities = [
+  'General physician',
+  'Gynecologist',
+  'Dermatologist',
+  'Pediatricians',
+  'Neurologist',
+  'Gastroenterologist',
+];
 
 const Doctors = () => {
-
-  const { speciality } = useParams()
-
-  const [filterDoc, setFilterDoc] = useState([])
-  const [showFilters, setShowFilters] = useState(false)
+  const { speciality } = useParams();
   const navigate = useNavigate();
+  const { doctors, currencySymbol, doctorsLoading } = useContext(AppContext);
 
-  const { doctors, currencySymbol } = useContext(AppContext)
-
-  const [search, setSearch] = useState('')
-  const [filterGender, setFilterGender] = useState('')
-  const [maxFees, setMaxFees] = useState(5000) // Default max to include all
-
-  const applyFilter = () => {
-    let filtered = doctors;
-
-    if (speciality) {
-      filtered = filtered.filter(doc => doc.speciality === speciality)
-    }
-
-    if (search) {
-      filtered = filtered.filter(doc => doc.name.toLowerCase().includes(search.toLowerCase()))
-    }
-
-    if (filterGender) {
-      filtered = filtered.filter(doc => doc.gender === filterGender)
-    }
-
-    filtered = filtered.filter(doc => doc.fees <= maxFees)
-
-    setFilterDoc(filtered)
-  }
+  const [search, setSearch] = useState('');
+  const [gender, setGender] = useState('');
+  const [maxFees, setMaxFees] = useState(5000);
+  const [availability, setAvailability] = useState('all');
 
   useEffect(() => {
-    applyFilter()
-  }, [doctors, speciality, search, filterGender, maxFees])
+    setSearch('');
+    setGender('');
+    setAvailability('all');
+    setMaxFees(5000);
+  }, [speciality]);
+
+  const filteredDoctors = useMemo(() => {
+    return doctors.filter((doctor) => {
+      const matchesSpeciality = speciality ? doctor.speciality === speciality : true;
+      const matchesSearch = search ? doctor.name.toLowerCase().includes(search.toLowerCase()) : true;
+      const matchesGender = gender ? doctor.gender === gender : true;
+      const matchesFees = Number(doctor.fees) <= Number(maxFees);
+      const matchesAvailability =
+        availability === 'all' ? true : availability === 'available' ? doctor.available !== false : doctor.available === false;
+
+      return matchesSpeciality && matchesSearch && matchesGender && matchesFees && matchesAvailability;
+    });
+  }, [availability, doctors, gender, maxFees, search, speciality]);
+
+  if (doctorsLoading) {
+    return <LoadingState title="Building the doctor directory" message="Loading specialists, availability, and consultation details." fullHeight />;
+  }
 
   return (
-    <div>
-      <p className='text-gray-600 mb-6'>Browse through the specialists by category.</p>
-      <div className='flex flex-col sm:flex-row items-start gap-8 mt-5'>
-        <button className={`py-2 px-4 border rounded text-sm transition-all sm:hidden ${showFilters ? 'bg-primary text-white' : ''}`} onClick={() => setShowFilters(prev => !prev)}>Filters</button>
-        <div className={`flex-col gap-3 text-sm text-gray-600 ${showFilters ? 'flex' : 'hidden sm:flex'} min-w-[200px]`}>
-          <div className='flex flex-col gap-2 mb-4'>
-            <p className='font-medium text-gray-800'>Search</p>
-            <input
-              type="text"
-              placeholder='Doctor name...'
-              className='border border-gray-300 rounded p-2 outline-none focus:border-primary'
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+    <div className="section-space space-y-8">
+      <PageHero
+        eyebrow="Doctor directory"
+        title={speciality ? `${speciality} specialists` : 'Find the right doctor without fighting the interface.'}
+        description="The directory now prioritizes readability, cleaner filters, and stronger card hierarchy so browsing actually supports decision-making."
+        stats={[
+          { label: 'Doctors listed', value: doctors.length || '0' },
+          { label: 'Filtered results', value: filteredDoctors.length || '0' },
+          { label: 'Fee ceiling', value: `${currencySymbol}${maxFees}` },
+        ]}
+        aside={
+          <div className="app-card p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Quick filters</p>
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-secondary">Doctor name</label>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="app-input"
+                  placeholder="Search by doctor name"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-secondary">Gender</label>
+                <select value={gender} onChange={(event) => setGender(event.target.value)} className="app-select">
+                  <option value="">All</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-secondary">Availability</label>
+                <select value={availability} onChange={(event) => setAvailability(event.target.value)} className="app-select">
+                  <option value="all">Any status</option>
+                  <option value="available">Open for booking</option>
+                  <option value="unavailable">Unavailable</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-secondary">Max consultation fee</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="5000"
+                  step="50"
+                  value={maxFees}
+                  onChange={(event) => setMaxFees(event.target.value)}
+                  className="w-full accent-primary"
+                />
+                <p className="mt-2 text-sm text-slate-500">
+                  Up to {currencySymbol}
+                  {maxFees}
+                </p>
+              </div>
+            </div>
           </div>
+        }
+      />
 
-          <p className='font-medium text-gray-800'>Speciality</p>
-          {['General physician', 'Gynecologist', 'Dermatologist', 'Pediatricians', 'Neurologist', 'Gastroenterologist'].map((spec) => (
-            <p
-              key={spec}
-              onClick={() => speciality === spec ? navigate('/doctors') : navigate(`/doctors/${spec}`)}
-              className={`pl-4 py-2.5 pr-16 border border-gray-200 rounded-xl cursor-pointer transition-all hover:bg-blue-50 hover:border-primary ${speciality === spec ? "bg-blue-50 border-primary text-black font-semibold" : ""}`}
-            >
-              {spec}
-            </p>
-          ))}
-
-          <div className='flex flex-col gap-2 mt-4'>
-            <p className='font-medium text-gray-800'>Gender</p>
-            <select
-              className='border border-gray-300 rounded p-2 outline-none focus:border-primary'
-              value={filterGender}
-              onChange={(e) => setFilterGender(e.target.value)}
-            >
-              <option value="">All Genders</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
-          </div>
-
-          <div className='flex flex-col gap-2 mt-4'>
-            <p className='font-medium text-gray-800'>Max Fees: {currencySymbol}{maxFees}</p>
-            <input
-              type="range"
-              min="0"
-              max="5000"
-              step="10"
-              className='w-full accent-primary'
-              value={maxFees}
-              onChange={(e) => setMaxFees(e.target.value)}
-            />
+      <section className="grid gap-6 xl:grid-cols-[280px,minmax(0,1fr)]">
+        <aside className="space-y-3 xl:sticky xl:top-28 xl:self-start">
+          <div className="app-card p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Specialties</p>
+            <div className="mt-4 grid gap-2">
+              {specialities.map((item) => {
+                const active = speciality === item;
+                return (
+                  <button
+                    key={item}
+                    onClick={() => navigate(active ? '/doctors' : `/doctors/${item}`)}
+                    className={`rounded-2xl px-4 py-3 text-left text-sm font-semibold ${
+                      active ? 'bg-secondary text-white' : 'bg-slate-50 text-slate-600 hover:bg-white'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <button
-            onClick={() => { setSearch(''); setFilterGender(''); setMaxFees(5000); navigate('/doctors') }}
-            className='mt-4 text-xs text-primary underline'
+            onClick={() => {
+              setSearch('');
+              setGender('');
+              setAvailability('all');
+              setMaxFees(5000);
+              navigate('/doctors');
+            }}
+            className="app-button-secondary w-full justify-center"
           >
-            Reset Filters
+            Reset filters
           </button>
-        </div>
-        <div className='w-full grid grid-cols-auto gap-4 gap-y-6'>
-          {filterDoc.map((item, index) => (
-            <div onClick={() => { navigate(`/appointment/${item._id}`); window.scrollTo(0, 0); }} className='border border-gray-100 rounded-3xl overflow-hidden cursor-pointer bg-white card-hover group shadow-sm'>
-              <div className='relative overflow-hidden'>
-                <img className='bg-blue-50 group-hover:scale-105 transition-transform duration-700' src={item.image} alt="" />
-                <div className='absolute top-3 right-3 glass-effect py-1 px-3 rounded-full text-[10px] font-bold text-primary uppercase'>
-                  {item.experience || '10+ Yrs Exp'}
-                </div>
-              </div>
-              <div className='p-6'>
-                <div className={`flex items-center gap-2 text-[10px] font-bold uppercase ${item.available ? 'text-green-500' : "text-gray-400"} mb-3`}>
-                  <p className={`w-2 h-2 rounded-full ${item.available ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : "bg-gray-300"} ${item.available ? 'animate-pulse' : ''}`}></p>
-                  <p>{item.available ? 'Accepting Patients' : "Fully Booked"}</p>
-                </div>
-                <p className='text-secondary text-xl font-bold group-hover:text-primary transition-colors'>{item.name}</p>
-                <p className='text-gray-500 text-sm mb-1'>{item.speciality}</p>
-                <p className='text-[10px] text-gray-400 mb-4 font-medium italic'>Speaks: {item.languages || 'Hindi, English, Punjabi'}</p>
+        </aside>
 
-                <button className='w-full py-3 bg-gray-50 text-primary text-xs font-bold rounded-xl group-hover:bg-primary group-hover:text-white group-hover:shadow-lg transition-all'>
-                  Book Consultation
-                </button>
-              </div>
+        <div className="space-y-6">
+          {filteredDoctors.length > 0 ? (
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {filteredDoctors.map((doctor) => (
+                <DoctorCard key={doctor._id} doctor={doctor} currencySymbol={currencySymbol} compact />
+              ))}
             </div>
-          ))}
+          ) : (
+            <EmptyState
+              title="No doctors match these filters"
+              description="Try broadening the fee range, clearing the search term, or switching to a different specialty."
+              action={
+                <button
+                  onClick={() => {
+                    setSearch('');
+                    setGender('');
+                    setAvailability('all');
+                    setMaxFees(5000);
+                    navigate('/doctors');
+                  }}
+                  className="app-button"
+                >
+                  Clear filters
+                </button>
+              }
+            />
+          )}
         </div>
-      </div>
+      </section>
     </div>
-  )
-}
+  );
+};
 
-export default Doctors
+export default Doctors;

@@ -1,29 +1,35 @@
-import React from 'react'
-import { assets } from '../assets/assets'
-import { useNavigate } from 'react-router-dom'
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { assets } from '../assets/assets';
 
-const Banner = () => {
-
-    const navigate = useNavigate()
-
-    return (
-        <div className='flex bg-primary rounded-lg  px-6 sm:px-10 md:px-14 lg:px-12 my-20 md:mx-10'>
-
-            {/* ------- Left Side ------- */}
-            <div className='flex-1 py-8 sm:py-10 md:py-16 lg:py-24 lg:pl-5'>
-                <div className='text-xl sm:text-2xl md:text-3xl lg:text-5xl font-semibold text-white'>
-                    <p>Book Appointment</p>
-                    <p className='mt-4'>With 100+ Trusted Doctors</p>
-                </div>
-                <button onClick={() => { navigate('/login'); scrollTo(0, 0) }} className='bg-white text-sm sm:text-base text-[#595959] px-8 py-3 rounded-full mt-6 hover:scale-105 transition-all '>Create account</button>
-            </div>
-
-            {/* ------- Right Side ------- */}
-            <div className='hidden md:block md:w-1/2 lg:w-[370px] relative'>
-                <img className='w-full absolute bottom-0 right-0 max-w-md' src={assets.appointment_img} alt="" />
-            </div>
+const Banner = () => (
+  <section className="section-space">
+    <div className="app-card overflow-hidden">
+      <div className="grid gap-0 lg:grid-cols-[1.1fr,0.9fr]">
+        <div className="space-y-5 px-6 py-8 sm:px-8 sm:py-10">
+          <p className="eyebrow">Ready to start</p>
+          <h2 className="font-display text-3xl text-secondary sm:text-4xl">
+            Create your patient account and keep the full journey in one place.
+          </h2>
+          <p className="max-w-xl text-sm leading-7 text-slate-600 sm:text-base">
+            Book appointments, revisit invoices, track reminders, update your profile, and return without losing your place. The portal now feels like a real product, not a loose collection of forms.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link to="/login" className="app-button">
+              Create account
+            </Link>
+            <Link to="/my-appointments" className="app-button-secondary">
+              Open patient portal
+            </Link>
+          </div>
         </div>
-    )
-}
 
-export default Banner
+        <div className="bg-[linear-gradient(135deg,#10233F_0%,#0F766E_100%)] px-6 pt-8">
+          <img src={assets.appointment_img} alt="Appointment" className="mx-auto max-h-[360px] object-contain" />
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+export default Banner;

@@ -17,7 +17,7 @@ export default defineConfig({
   server:{
     port:5173,
     fs: {
-      allow: [sharedDir],
+      allow: [workspaceRoot, sharedDir],
     },
   }
 })

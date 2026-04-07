@@ -180,7 +180,7 @@ const bookAppointment = async (req, res) => {
                 patientInfo: patientInfo || null
             }
 
-            const [createdAppointment] = await appointmentModel.create([appointmentData], { session })
+            const [createdAppointment] = await appointmentModel.create([appointmentData], { session, ordered: true })
 
             await reserveDoctorSlot({ docId, slotDate, slotTime, session })
 
@@ -197,7 +197,7 @@ const bookAppointment = async (req, res) => {
                     message: `New appointment booked by ${userData.name} with Dr. ${docData.name} on ${slotDate} at ${slotTime}`,
                     type: "appointment"
                 }
-            ], { session })
+            ], { session, ordered: true })
 
             return createdAppointment
         })
@@ -722,7 +722,7 @@ const rescheduleAppointment = async (req, res) => {
                 title: "Appointment Rescheduled",
                 message: `Your appointment with Dr. ${doctorData.name} has been moved to ${newSlotDate} at ${newSlotTime}.`,
                 type: "appointment"
-            }], { session })
+            }], { session, ordered: true })
         })
 
         res.json({ success: true, message: 'Appointment Rescheduled Successfully' });
