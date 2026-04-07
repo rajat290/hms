@@ -1,29 +1,36 @@
-import React from 'react'
+import React from 'react';
 
-const Stats = () => {
-    const stats = [
-        { label: 'Patient Rating', value: '4.8/5 ⭐' },
-        { label: 'Trusted Patients', value: '10,000+' },
-        { label: 'Specialist Doctors', value: '100+' },
-        { label: 'Years of Excellence', value: '15+' }
-    ]
+const stats = [
+  { label: 'Appointments managed', value: '12k+', helper: 'Across bookings, reschedules, and completed visits' },
+  { label: 'Average response time', value: '< 5 min', helper: 'For digital confirmations and scheduling updates' },
+  { label: 'Doctors onboarded', value: '100+', helper: 'Across high-demand specialties' },
+  { label: 'Portal return rate', value: '68%', helper: 'Patients actively using the digital account area' },
+];
 
-    return (
-        <div className='py-20 bg-gradient-primary rounded-[3rem] my-20 flex flex-col items-center text-white relative overflow-hidden'>
-            <div className='absolute top-0 left-0 w-full h-full bg-white/5 opacity-20 pointer-events-none'></div>
+const Stats = () => (
+  <section className="section-space">
+    <div className="rounded-[36px] bg-gradient-primary px-6 py-10 text-white shadow-2xl shadow-primary/20 sm:px-8">
+      <div className="space-y-3">
+        <p className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
+          Operational trust
+        </p>
+        <h2 className="font-display text-3xl sm:text-4xl">Built to feel dependable, not improvised.</h2>
+        <p className="max-w-3xl text-sm leading-7 text-white/80 sm:text-base">
+          The redesign leans into credibility with a stronger layout rhythm, clearer states, and more confident information architecture.
+        </p>
+      </div>
 
-            <h2 className='text-3xl md:text-4xl font-bold mb-12 relative z-10'>Why Patients Trust Us</h2>
+      <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <div key={stat.label} className="rounded-[28px] border border-white/15 bg-white/10 px-5 py-6 backdrop-blur-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">{stat.label}</p>
+            <p className="mt-3 text-4xl font-extrabold">{stat.value}</p>
+            <p className="mt-3 text-sm leading-6 text-white/75">{stat.helper}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+);
 
-            <div className='flex flex-wrap justify-around items-center gap-12 px-6 w-full relative z-10'>
-                {stats.map((stat, index) => (
-                    <div key={index} className='text-center glass-effect bg-white/10 border-white/10 p-8 rounded-3xl min-w-[200px] hover:scale-110 transition-transform'>
-                        <p className='text-4xl md:text-5xl font-extrabold mb-3'>{stat.value}</p>
-                        <p className='text-sm md:text-base font-medium opacity-90 uppercase tracking-widest'>{stat.label}</p>
-                    </div>
-                ))}
-            </div>
-        </div>
-    )
-}
-
-export default Stats
+export default Stats;

@@ -293,7 +293,7 @@ describe('appointmentIntegrity transactional helpers', () => {
           processedBy: 'test-suite',
         }),
       ],
-      { session: 'db-session' }
+      { session: 'db-session', ordered: true }
     );
     expect(result).toBe(appointment);
   });

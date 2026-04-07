@@ -1,498 +1,545 @@
-import React, { useContext, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { AppContext } from '../context/AppContext'
-import { assets } from '../assets/assets'
-import RelatedDoctors from '../components/RelatedDoctors'
-import axios from 'axios'
-import { toast } from 'react-toastify'
-import ReviewSection from '../components/ReviewSection'
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { assets } from '../assets/assets';
+import { AppContext } from '../context/AppContext';
+import LoadingState from '../components/ui/LoadingState';
+import StatusBadge from '../components/ui/StatusBadge';
+import RelatedDoctors from '../components/RelatedDoctors';
+import ReviewSection from '../components/ReviewSection';
+import { buildSlotDateKey, normalizeDoctorSlots } from '../utils/appointments';
+
+const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+const defaultPatientInfo = {
+  name: '',
+  phone: '',
+  email: '',
+  gender: '',
+  dob: '',
+  address: {
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: '',
+  },
+  emergencyContact: {
+    name: '',
+    phone: '',
+  },
+  bloodGroup: '',
+  knownAllergies: '',
+  currentMedications: '',
+  insuranceProvider: '',
+  insuranceId: '',
+};
 
 const Appointment = () => {
+  const { docId } = useParams();
+  const navigate = useNavigate();
+  const { doctors, currencySymbol, backendUrl, token, doctorsLoading } = useContext(AppContext);
 
-    const { docId } = useParams()
-    const { doctors, currencySymbol, backendUrl, token, getDoctosData } = useContext(AppContext)
-    const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+  const [docInfo, setDocInfo] = useState(null);
+  const [docSlots, setDocSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(true);
+  const [slotIndex, setSlotIndex] = useState(0);
+  const [slotTime, setSlotTime] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('online');
+  const [showPatientForm, setShowPatientForm] = useState(false);
+  const [patientInfo, setPatientInfo] = useState(defaultPatientInfo);
+  const patientFormRef = useRef(null);
 
-    const [docInfo, setDocInfo] = useState(false)
-    const [docSlots, setDocSlots] = useState([])
-    const [slotIndex, setSlotIndex] = useState(0)
-    const [slotTime, setSlotTime] = useState('')
-    const [paymentMethod, setPaymentMethod] = useState('online') // 'cash' or 'online'
-    const [showPatientForm, setShowPatientForm] = useState(false)
-    const [patientInfo, setPatientInfo] = useState({
-        name: '',
-        phone: '',
-        email: '',
-        gender: '',
-        dob: '',
-        address: {
-            line1: '',
-            line2: '',
-            city: '',
-            state: '',
-            zipCode: '',
-            country: ''
-        },
-        emergencyContact: {
-            name: '',
-            phone: ''
-        },
-        bloodGroup: '',
-        knownAllergies: '',
-        currentMedications: '',
-        insuranceProvider: '',
-        insuranceId: ''
-    })
+  const availableDayIndexes = useMemo(
+    () => docSlots.map((day, index) => ({ day, index })).filter(({ day }) => day.length > 0),
+    [docSlots],
+  );
 
-    const navigate = useNavigate()
+  const fetchDocInfo = () => {
+    const selectedDoctor = doctors.find((doctor) => doctor._id === docId);
+    setDocInfo(selectedDoctor || null);
+  };
 
-    const fetchDocInfo = async () => {
-        const docInfo = doctors.find((doc) => doc._id === docId)
-        setDocInfo(docInfo)
-    }
-
-    const getAvailableSolts = async () => {
-        try {
-            const { data } = await axios.get(backendUrl + `/api/user/doctor-slots/${docId}`)
-            if (data.success) {
-                const slotsWithDates = data.slots.map(daySlots =>
-                    daySlots.map(slot => ({
-                        ...slot,
-                        datetime: new Date(slot.datetime)
-                    }))
-                )
-                setDocSlots(slotsWithDates)
-                // Automatically select first available day
-                const firstAvailable = slotsWithDates.findIndex(day => day.length > 0)
-                if (firstAvailable !== -1) {
-                    setSlotIndex(firstAvailable)
-                }
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            console.log(error)
-            toast.error(error.message)
+  const getAvailableSlots = async () => {
+    setSlotsLoading(true);
+    try {
+      const { data } = await axios.get(`${backendUrl}/api/user/doctor-slots/${docId}`);
+      if (data.success) {
+        const slotsWithDates = normalizeDoctorSlots(data.slots);
+        setDocSlots(slotsWithDates);
+        const firstAvailable = slotsWithDates.findIndex((day) => day.length > 0);
+        if (firstAvailable !== -1) {
+          setSlotIndex(firstAvailable);
         }
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSlotsLoading(false);
+    }
+  };
+
+  const initPay = (order) => {
+    if (!window.Razorpay) {
+      toast.error('Payment gateway is not available right now.');
+      return;
     }
 
-    const initPay = (order) => {
-        const options = {
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-            amount: order.amount,
-            currency: order.currency,
-            name: 'Appointment Payment',
-            description: "Appointment Payment",
-            order_id: order.id,
-            receipt: order.receipt,
-            handler: async (response) => {
-                console.log(response)
-                try {
-                    const { data } = await axios.post(backendUrl + "/api/user/verifyRazorpay", response, { headers: { token } });
-                    if (data.success) {
-                        toast.success('Payment Successful! Appointment Confirmed.')
-                        navigate('/my-appointments')
-                    }
-                } catch (error) {
-                    console.log(error)
-                    toast.error(error.message)
-                }
-            }
-        };
-        const rzp = new window.Razorpay(options);
-        rzp.open();
+    const options = {
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'Appointment Payment',
+      description: 'Appointment Payment',
+      order_id: order.id,
+      receipt: order.receipt,
+      handler: async (response) => {
+        try {
+          const { data } = await axios.post(`${backendUrl}/api/user/verifyRazorpay`, response, { headers: { token } });
+          if (data.success) {
+            toast.success('Payment successful. Appointment confirmed.');
+            navigate('/my-appointments');
+          }
+        } catch (error) {
+          toast.error(error.message);
+        }
+      },
     };
 
-    const appointmentRazorpay = async (appointmentId) => {
-        try {
-            const { data } = await axios.post(backendUrl + '/api/user/payment-razorpay', { appointmentId }, { headers: { token } })
-            if (data.success) {
-                initPay(data.order)
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            console.log(error)
-            toast.error(error.message)
-        }
+    const razorpay = new window.Razorpay(options);
+    razorpay.open();
+  };
+
+  const appointmentRazorpay = async (appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/user/payment-razorpay`,
+        { appointmentId },
+        { headers: { token } },
+      );
+
+      if (data.success) {
+        initPay(data.order);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const validateForm = () => {
+    if (!patientInfo.name || !patientInfo.phone || !patientInfo.gender || !patientInfo.dob) {
+      return 'Please complete the basic patient details.';
     }
 
-    const validateForm = () => {
-        if (!patientInfo.name || !patientInfo.phone || !patientInfo.gender || !patientInfo.dob) return "Basic info missing"
-        if (!patientInfo.address.line1 || !patientInfo.address.city || !patientInfo.address.state || !patientInfo.address.zipCode) return "Address incomplete"
-        if (!patientInfo.emergencyContact.name || !patientInfo.emergencyContact.phone) return "Emergency contact missing"
-        if (paymentMethod === 'online' && (!patientInfo.insuranceProvider || !patientInfo.insuranceId)) return "Insurance info required for online booking"
-        return null
+    if (!patientInfo.address.line1 || !patientInfo.address.city || !patientInfo.address.state || !patientInfo.address.zipCode) {
+      return 'Please complete the address section.';
     }
 
-    const bookAppointment = async () => {
-        if (!token) {
-            toast.warning('Login to book appointment')
-            return navigate('/login')
-        }
-
-        try {
-            console.log("Fetching profile for booking check...")
-            const { data: profileData } = await axios.get(backendUrl + '/api/user/get-profile', { headers: { token } })
-
-            console.log("Profile Data:", profileData)
-
-            if (profileData.success) {
-                const u = profileData.userData
-
-                // Check if comprehensive info is present
-                const isProfileComplete = u.name && u.phone && u.gender && u.dob &&
-                    u.address?.line1 && u.address?.city &&
-                    u.emergencyContact?.name &&
-                    (paymentMethod !== 'online' || u.insuranceProvider)
-
-                console.log("Is Profile Complete?", isProfileComplete)
-                console.log("User Data for Pre-fill:", u)
-
-                if (!isProfileComplete || paymentMethod === 'online') {
-                    const prefillData = {
-                        ...patientInfo,
-                        name: u.name || '',
-                        phone: u.phone || '',
-                        email: u.email || '',
-                        gender: u.gender || '',
-                        dob: u.dob || '',
-                        address: {
-                            line1: u.address?.line1 || '',
-                            line2: u.address?.line2 || '',
-                            city: u.address?.city || '',
-                            state: u.address?.state || '',
-                            zipCode: u.address?.zipCode || '',
-                            country: u.address?.country || ''
-                        },
-                        emergencyContact: {
-                            name: u.emergencyContact?.name || '',
-                            phone: u.emergencyContact?.phone || ''
-                        },
-                        bloodGroup: u.bloodGroup || '',
-                        knownAllergies: u.knownAllergies || '',
-                        currentMedications: u.currentMedications || '',
-                        insuranceProvider: u.insuranceProvider || '',
-                        insuranceId: u.insuranceId || ''
-                    }
-                    console.log("Showing Patient Form for Review/Complete:", prefillData)
-                    setPatientInfo(prefillData)
-                    setShowPatientForm(true)
-                    return
-                }
-            }
-        } catch (error) {
-            console.log("Profile fetch error:", error)
-        }
-
-        // If all good, confirm
-        await confirmBooking()
+    if (!patientInfo.emergencyContact.name || !patientInfo.emergencyContact.phone) {
+      return 'Please complete the emergency contact section.';
     }
 
-    const confirmBooking = async () => {
-        const error = showPatientForm ? validateForm() : null
-        if (error) {
-            toast.error(error)
-            return
-        }
-        if (!slotTime) {
-            toast.error('Please select an appointment time')
-            return
-        }
-
-        if (!docSlots[slotIndex] || !docSlots[slotIndex].length) {
-            toast.error('No slots available for the selected day')
-            return
-        }
-
-        const date = docSlots[slotIndex][0].datetime
-        let day = date.getDate()
-        let month = date.getMonth() + 1
-        let year = date.getFullYear()
-        const slotDate = day + "_" + month + "_" + year
-
-        try {
-            // 1. Update Profile if form was shown
-            if (showPatientForm) {
-                await axios.post(backendUrl + '/api/user/update-profile', {
-                    ...patientInfo,
-                    address: JSON.stringify(patientInfo.address),
-                    emergencyContact: JSON.stringify(patientInfo.emergencyContact)
-                }, { headers: { token } })
-            }
-
-            // 2. Book Appointment
-            const bookingData = {
-                docId,
-                slotDate,
-                slotTime,
-                paymentMethod: paymentMethod === 'online' ? 'Online' : 'Cash',
-                patientInfo: showPatientForm ? patientInfo : null
-            }
-
-            const { data } = await axios.post(backendUrl + '/api/user/book-appointment', bookingData, { headers: { token } })
-
-            if (data.success) {
-                // BUG FIX: API now returns appointmentId
-                const appointmentId = data.appointmentId
-
-                if (paymentMethod === 'cash') {
-                    toast.success('Appointment booked! Pay cash at the clinic.')
-                    navigate('/my-appointments')
-                } else {
-                    // Online Payment
-                    if (appointmentId) {
-                        appointmentRazorpay(appointmentId)
-                    } else {
-                        toast.error('Booking failed: Missing Appointment ID')
-                    }
-                }
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            console.log(error)
-            toast.error(error.message)
-        }
+    if (paymentMethod === 'online' && (!patientInfo.insuranceProvider || !patientInfo.insuranceId)) {
+      return 'Please complete the insurance section for online booking.';
     }
 
-    useEffect(() => {
-        fetchDocInfo()
-    }, [doctors, docId])
+    return null;
+  };
 
-    useEffect(() => {
-        getAvailableSolts()
-    }, [docId])
+  const syncProfileToForm = (profile) => {
+    setPatientInfo({
+      ...defaultPatientInfo,
+      ...profile,
+      email: profile.email || '',
+      address: {
+        ...defaultPatientInfo.address,
+        ...(profile.address || {}),
+      },
+      emergencyContact: {
+        ...defaultPatientInfo.emergencyContact,
+        ...(profile.emergencyContact || {}),
+      },
+    });
+  };
 
-    useEffect(() => {
-        if (docInfo && docInfo.paymentMethods) {
-            if (docInfo.paymentMethods.online) {
-                setPaymentMethod('online')
-            } else if (docInfo.paymentMethods.cash) {
-                setPaymentMethod('cash')
-            }
+  const confirmBooking = async () => {
+    const validationError = showPatientForm ? validateForm() : null;
+    if (validationError) {
+      toast.error(validationError);
+      patientFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (!slotTime) {
+      toast.error('Please select an appointment time.');
+      return;
+    }
+
+    const selectedDate = docSlots[slotIndex]?.[0]?.datetime;
+    if (!selectedDate) {
+      toast.error('Please select an available day.');
+      return;
+    }
+
+    try {
+      if (showPatientForm) {
+        await axios.post(
+          `${backendUrl}/api/user/update-profile`,
+          {
+            ...patientInfo,
+            address: JSON.stringify(patientInfo.address),
+            emergencyContact: JSON.stringify(patientInfo.emergencyContact),
+          },
+          { headers: { token } },
+        );
+      }
+
+      const bookingData = {
+        docId,
+        slotDate: buildSlotDateKey(selectedDate),
+        slotTime,
+        paymentMethod: paymentMethod === 'online' ? 'Online' : 'Cash',
+        patientInfo: showPatientForm ? patientInfo : null,
+      };
+
+      const { data } = await axios.post(`${backendUrl}/api/user/book-appointment`, bookingData, { headers: { token } });
+
+      if (data.success) {
+        if (paymentMethod === 'cash') {
+          toast.success('Appointment booked. Pay at the clinic.');
+          navigate('/my-appointments');
+        } else if (data.appointmentId) {
+          appointmentRazorpay(data.appointmentId);
+        } else {
+          toast.error('Booking failed because the appointment could not be prepared for payment.');
         }
-    }, [docInfo])
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
 
-    // Styles for form inputs
-    const inputStyle = 'border border-gray-300 rounded w-full p-2 text-sm'
-    const labelStyle = 'text-xs font-medium mb-1 text-gray-600'
+  const bookAppointment = async () => {
+    if (!token) {
+      toast.warning('Please sign in to book an appointment.');
+      navigate('/login');
+      return;
+    }
 
-    return docInfo && (
-        <div className='py-6'>
+    try {
+      const { data } = await axios.get(`${backendUrl}/api/user/get-profile`, { headers: { token } });
 
-            {/* Breadcrumbs */}
-            <div className='flex items-center gap-2 text-gray-400 text-xs mb-8 overflow-x-auto whitespace-nowrap pb-2'>
-                <p onClick={() => navigate('/')} className='cursor-pointer hover:text-primary transition-colors'>Home</p>
-                <span>/</span>
-                <p onClick={() => navigate('/doctors')} className='cursor-pointer hover:text-primary transition-colors'>Doctors</p>
-                <span>/</span>
-                <p onClick={() => navigate(`/doctors/${docInfo.speciality}`)} className='cursor-pointer hover:text-primary transition-colors'>{docInfo.speciality}</p>
-                <span>/</span>
-                <p className='text-primary font-bold'>{docInfo.name}</p>
+      if (data.success) {
+        const profile = data.userData;
+        const isProfileComplete =
+          profile.name &&
+          profile.phone &&
+          profile.gender &&
+          profile.dob &&
+          profile.address?.line1 &&
+          profile.address?.city &&
+          profile.address?.state &&
+          profile.address?.zipCode &&
+          profile.emergencyContact?.name &&
+          profile.emergencyContact?.phone &&
+          (paymentMethod !== 'online' || profile.insuranceProvider);
+
+        syncProfileToForm(profile);
+
+        if (!isProfileComplete || paymentMethod === 'online') {
+          setShowPatientForm(true);
+          return;
+        }
+      }
+    } catch (error) {
+      console.log(error);
+    }
+
+    confirmBooking();
+  };
+
+  useEffect(() => {
+    fetchDocInfo();
+  }, [doctors, docId]);
+
+  useEffect(() => {
+    getAvailableSlots();
+  }, [docId]);
+
+  useEffect(() => {
+    if (!docInfo) {
+      return;
+    }
+
+    const supportsOnline = docInfo.paymentMethods?.online ?? true;
+    const supportsCash = docInfo.paymentMethods?.cash ?? true;
+
+    if (supportsOnline) {
+      setPaymentMethod('online');
+    } else if (supportsCash) {
+      setPaymentMethod('cash');
+    }
+  }, [docInfo]);
+
+  useEffect(() => {
+    if (!showPatientForm || !patientFormRef.current) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      patientFormRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [showPatientForm]);
+
+  if (doctorsLoading || !docInfo || slotsLoading) {
+    return <LoadingState title="Preparing appointment flow" message="Loading doctor details, booking slots, and payment options." fullHeight />;
+  }
+
+  return (
+    <div className="section-space space-y-8">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+        <Link to="/" className="hover:text-primary">Home</Link>
+        <span>/</span>
+        <Link to="/doctors" className="hover:text-primary">Doctors</Link>
+        <span>/</span>
+        <Link to={`/doctors/${docInfo.speciality}`} className="hover:text-primary">{docInfo.speciality}</Link>
+        <span>/</span>
+        <span className="font-semibold text-secondary">{docInfo.name}</span>
+      </div>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr),minmax(0,360px)]">
+        <div className="min-w-0 space-y-6">
+          <article className="glass-panel overflow-hidden">
+            <div className="grid gap-0 lg:grid-cols-[minmax(0,280px),minmax(0,1fr)]">
+              <div className="bg-gradient-primary p-4">
+                <img src={docInfo.image} alt={docInfo.name} className="h-full max-h-[340px] w-full rounded-[28px] object-cover lg:max-h-none" />
+              </div>
+
+              <div className="min-w-0 space-y-6 px-5 py-6 sm:px-8">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h1 className="break-words text-3xl font-bold text-secondary sm:text-4xl">{docInfo.name}</h1>
+                      <img src={assets.verified_icon} alt="Verified" className="w-5" />
+                    </div>
+                    <p className="mt-2 text-sm font-semibold text-primary">
+                      {docInfo.degree || 'MBBS'} / {docInfo.speciality}
+                    </p>
+                  </div>
+                  <StatusBadge tone={docInfo.available !== false ? 'success' : 'neutral'}>
+                    {docInfo.available !== false ? 'Open for booking' : 'Not taking new bookings'}
+                  </StatusBadge>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-[22px] bg-slate-50 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Experience</p>
+                    <p className="mt-2 text-lg font-bold text-secondary">{docInfo.experience || 'Experienced specialist'}</p>
+                  </div>
+                  <div className="rounded-[22px] bg-slate-50 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Consultation fee</p>
+                    <p className="mt-2 text-lg font-bold text-secondary">
+                      {currencySymbol}
+                      {docInfo.fees}
+                    </p>
+                  </div>
+                  <div className="rounded-[22px] bg-slate-50 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Address</p>
+                    <p className="mt-2 break-words text-sm font-semibold text-secondary">
+                      {docInfo.address?.line1}
+                      {docInfo.address?.line2 ? `, ${docInfo.address.line2}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">About this doctor</p>
+                  <p className="mt-3 max-w-3xl break-words text-sm leading-7 text-slate-600">{docInfo.about}</p>
+                </div>
+              </div>
             </div>
+          </article>
 
-            {/* ---------- Doctor Details ----------- */}
-            <div className='flex flex-col sm:flex-row gap-8 py-8'>
-                <div className='w-full sm:max-w-72 bg-gradient-primary rounded-3xl overflow-hidden shadow-lg'>
-                    <img className='w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-500' src={docInfo.image} alt="" />
+          {showPatientForm ? (
+            <article ref={patientFormRef} className="app-card p-5 sm:p-8">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Patient details</p>
+                  <h2 className="mt-2 text-3xl font-bold text-secondary">Complete your booking profile</h2>
+                  <p className="mt-2 text-sm leading-7 text-slate-500">Online payments and first-time bookings need a fuller patient record before confirmation.</p>
+                </div>
+                <button onClick={() => setShowPatientForm(false)} className="app-button-ghost">
+                  Close form
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-6 xl:grid-cols-2">
+                <div className="space-y-5">
+                  <div>
+                    <p className="mb-3 text-sm font-semibold text-secondary">Personal information</p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <input value={patientInfo.name} onChange={(event) => setPatientInfo({ ...patientInfo, name: event.target.value })} className="app-input" placeholder="Full name" />
+                      <input value={patientInfo.phone} onChange={(event) => setPatientInfo({ ...patientInfo, phone: event.target.value })} className="app-input" placeholder="Phone" />
+                      <input value={patientInfo.email} onChange={(event) => setPatientInfo({ ...patientInfo, email: event.target.value })} className="app-input md:col-span-2" placeholder="Email" />
+                      <select value={patientInfo.gender} onChange={(event) => setPatientInfo({ ...patientInfo, gender: event.target.value })} className="app-select">
+                        <option value="">Select gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      <input value={patientInfo.dob} onChange={(event) => setPatientInfo({ ...patientInfo, dob: event.target.value })} className="app-input" type="date" />
+                      <input value={patientInfo.bloodGroup} onChange={(event) => setPatientInfo({ ...patientInfo, bloodGroup: event.target.value })} className="app-input md:col-span-2" placeholder="Blood group" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-3 text-sm font-semibold text-secondary">Address</p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <input value={patientInfo.address.line1} onChange={(event) => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, line1: event.target.value } })} className="app-input md:col-span-2" placeholder="Address line 1" />
+                      <input value={patientInfo.address.line2} onChange={(event) => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, line2: event.target.value } })} className="app-input md:col-span-2" placeholder="Address line 2" />
+                      <input value={patientInfo.address.city} onChange={(event) => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, city: event.target.value } })} className="app-input" placeholder="City" />
+                      <input value={patientInfo.address.state} onChange={(event) => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, state: event.target.value } })} className="app-input" placeholder="State" />
+                      <input value={patientInfo.address.zipCode} onChange={(event) => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, zipCode: event.target.value } })} className="app-input" placeholder="Zip code" />
+                      <input value={patientInfo.address.country} onChange={(event) => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, country: event.target.value } })} className="app-input" placeholder="Country" />
+                    </div>
+                  </div>
                 </div>
 
-                <div className='flex-1 glass-effect p-8 sm:p-10 rounded-3xl relative overflow-hidden'>
-                    {/* Background decoration */}
-                    <div className='absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-10 -mt-10'></div>
-
-                    <div className='relative z-10'>
-                        <div className='flex items-center gap-3 mb-2'>
-                            <h1 className='text-3xl font-bold text-secondary'>{docInfo.name}</h1>
-                            <img className='w-5' src={assets.verified_icon} alt="" />
-                        </div>
-
-                        <div className='flex items-center gap-2 text-sm text-gray-600 mb-6'>
-                            <p className='bg-blue-50 text-primary px-3 py-1 rounded-full font-medium'>{docInfo.degree} - {docInfo.speciality}</p>
-                            <button className='border border-gray-200 px-3 py-1 rounded-full text-xs'>{docInfo.experience} Experience</button>
-                        </div>
-
-                        <div className='mb-8'>
-                            <div className='flex items-center gap-2 text-secondary font-semibold mb-2'>
-                                <p>About</p>
-                                <img className='w-4' src={assets.info_icon} alt="" />
-                            </div>
-                            <p className='text-gray-500 leading-relaxed text-sm max-w-[700px]'>
-                                {docInfo.about}
-                            </p>
-                        </div>
-
-                        <div className='bg-blue-50/50 p-4 rounded-2xl inline-block'>
-                            <p className='text-gray-600 font-semibold'>
-                                Appointment fee: <span className='text-primary text-xl ml-2'>{currencySymbol}{docInfo.fees}</span>
-                            </p>
-                        </div>
+                <div className="space-y-5">
+                  <div>
+                    <p className="mb-3 text-sm font-semibold text-secondary">Emergency contact</p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <input value={patientInfo.emergencyContact.name} onChange={(event) => setPatientInfo({ ...patientInfo, emergencyContact: { ...patientInfo.emergencyContact, name: event.target.value } })} className="app-input" placeholder="Contact name" />
+                      <input value={patientInfo.emergencyContact.phone} onChange={(event) => setPatientInfo({ ...patientInfo, emergencyContact: { ...patientInfo.emergencyContact, phone: event.target.value } })} className="app-input" placeholder="Contact phone" />
                     </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-3 text-sm font-semibold text-secondary">Health context</p>
+                    <textarea value={patientInfo.knownAllergies} onChange={(event) => setPatientInfo({ ...patientInfo, knownAllergies: event.target.value })} className="app-textarea" placeholder="Known allergies" />
+                    <textarea value={patientInfo.currentMedications} onChange={(event) => setPatientInfo({ ...patientInfo, currentMedications: event.target.value })} className="app-textarea mt-4" placeholder="Current medications" />
+                  </div>
+
+                  {paymentMethod === 'online' ? (
+                    <div>
+                      <p className="mb-3 text-sm font-semibold text-secondary">Insurance details</p>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <input value={patientInfo.insuranceProvider} onChange={(event) => setPatientInfo({ ...patientInfo, insuranceProvider: event.target.value })} className="app-input" placeholder="Provider" />
+                        <input value={patientInfo.insuranceId} onChange={(event) => setPatientInfo({ ...patientInfo, insuranceId: event.target.value })} className="app-input" placeholder="Policy number" />
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-            </div>
+              </div>
 
-            {/* Booking slots */}
-            <div className='sm:ml-72 sm:pl-4 mt-8 font-medium text-gray-700'>
-                <p className='text-xl text-secondary mb-6'>Select Booking Slot</p>
-                <div className='flex gap-4 items-center w-full overflow-x-scroll pb-4 no-scrollbar'>
-                    {
-                        docSlots.length && docSlots.map((item, index) => (
-                            item.length > 0 && (
-                                <div
-                                    onClick={() => { setSlotIndex(index); setSlotTime('') }}
-                                    className={`text-center py-6 min-w-[5rem] rounded-2xl cursor-pointer transition-all ${slotIndex === index ? 'bg-primary text-white shadow-lg scale-105' : 'bg-white border border-gray-100 hover:bg-blue-50'}`}
-                                    key={index}
-                                >
-                                    <p className='text-xs uppercase tracking-tighter mb-1'>{daysOfWeek[item[0].datetime.getDay()]}</p>
-                                    <p className='text-2xl font-bold'>{item[0].datetime.getDate()}</p>
-                                </div>
-                            )
-                        ))
-                    }
-                </div>
-
-                <div className='flex items-center gap-3 w-full overflow-x-scroll mt-6 pb-4 no-scrollbar'>
-                    {
-                        docSlots.length && docSlots[slotIndex].map((item, index) => (
-                            <p
-                                onClick={() => setSlotTime(item.time)}
-                                className={`text-sm font-light flex-shrink-0 px-6 py-3 rounded-full cursor-pointer transition-all ${item.time === slotTime ? 'bg-primary text-white shadow-md' : 'text-gray-400 border border-gray-200 hover:bg-gray-50'}`}
-                                key={index}
-                            >
-                                {item.time.toLowerCase()}
-                            </p>
-                        ))
-                    }
-                </div>
-
-                {/* Payment Method Selection */}
-                {docInfo?.paymentMethods && (
-                    <div className='mt-6'>
-                        <p className='font-medium mb-3'>Payment Method:</p>
-                        <div className='flex gap-4'>
-                            {docInfo.paymentMethods.cash && (
-                                <label className='flex items-center gap-2 cursor-pointer'>
-                                    <input type="radio" name="paymentMethod" value="cash" checked={paymentMethod === 'cash'} onChange={(e) => setPaymentMethod(e.target.value)} className='w-4 h-4' />
-                                    <span>Cash (Pay at clinic)</span>
-                                </label>
-                            )}
-                            {docInfo.paymentMethods.online && (
-                                <label className='flex items-center gap-2 cursor-pointer'>
-                                    <input type="radio" name="paymentMethod" value="online" checked={paymentMethod === 'online'} onChange={(e) => setPaymentMethod(e.target.value)} className='w-4 h-4' />
-                                    <span>Online Payment (Pay now)</span>
-                                </label>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Extended Patient Form */}
-                {showPatientForm && (
-                    <div className='mt-6 p-6 border border-gray-300 rounded-lg bg-white shadow-sm'>
-                        <h3 className='text-lg font-medium mb-4 text-primary'>Complete Patient Profile</h3>
-
-                        <div className='space-y-6'>
-                            {/* Personal Info */}
-                            <div>
-                                <h4 className='text-sm font-semibold mb-3 border-b pb-1'>Personal Information</h4>
-                                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-                                    <div><p className={labelStyle}>Full Name *</p><input value={patientInfo.name} onChange={e => setPatientInfo({ ...patientInfo, name: e.target.value })} className={inputStyle} type="text" required /></div>
-                                    <div><p className={labelStyle}>Phone *</p><input value={patientInfo.phone} onChange={e => setPatientInfo({ ...patientInfo, phone: e.target.value })} className={inputStyle} type="tel" required /></div>
-                                    <div>
-                                        <p className={labelStyle}>Gender *</p>
-                                        <select value={patientInfo.gender} onChange={e => setPatientInfo({ ...patientInfo, gender: e.target.value })} className={inputStyle}>
-                                            <option value="">Select</option>
-                                            <option value="Male">Male</option>
-                                            <option value="Female">Female</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                    </div>
-                                    <div><p className={labelStyle}>Date of Birth *</p><input value={patientInfo.dob} onChange={e => setPatientInfo({ ...patientInfo, dob: e.target.value })} className={inputStyle} type="date" required /></div>
-                                </div>
-                            </div>
-
-                            {/* Address */}
-                            <div>
-                                <h4 className='text-sm font-semibold mb-3 border-b pb-1'>Address</h4>
-                                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                                    <div className='md:col-span-2'><p className={labelStyle}>Address Line 1 *</p><input value={patientInfo.address.line1} onChange={e => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, line1: e.target.value } })} className={inputStyle} type="text" required /></div>
-                                    <div className='md:col-span-2'><p className={labelStyle}>Address Line 2</p><input value={patientInfo.address.line2} onChange={e => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, line2: e.target.value } })} className={inputStyle} type="text" /></div>
-                                    <div><p className={labelStyle}>City *</p><input value={patientInfo.address.city} onChange={e => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, city: e.target.value } })} className={inputStyle} type="text" required /></div>
-                                    <div><p className={labelStyle}>State *</p><input value={patientInfo.address.state} onChange={e => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, state: e.target.value } })} className={inputStyle} type="text" required /></div>
-                                    <div><p className={labelStyle}>Zip Code *</p><input value={patientInfo.address.zipCode} onChange={e => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, zipCode: e.target.value } })} className={inputStyle} type="text" required /></div>
-                                    <div><p className={labelStyle}>Country</p><input value={patientInfo.address.country} onChange={e => setPatientInfo({ ...patientInfo, address: { ...patientInfo.address, country: e.target.value } })} className={inputStyle} type="text" /></div>
-                                </div>
-                            </div>
-
-                            {/* Emergency Contact */}
-                            <div>
-                                <h4 className='text-sm font-semibold mb-3 border-b pb-1'>Emergency Contact</h4>
-                                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                                    <div><p className={labelStyle}>Contact Name *</p><input value={patientInfo.emergencyContact.name} onChange={e => setPatientInfo({ ...patientInfo, emergencyContact: { ...patientInfo.emergencyContact, name: e.target.value } })} className={inputStyle} type="text" required /></div>
-                                    <div><p className={labelStyle}>Contact Phone *</p><input value={patientInfo.emergencyContact.phone} onChange={e => setPatientInfo({ ...patientInfo, emergencyContact: { ...patientInfo.emergencyContact, phone: e.target.value } })} className={inputStyle} type="tel" required /></div>
-                                </div>
-                            </div>
-
-                            {/* Medical Info */}
-                            <div>
-                                <h4 className='text-sm font-semibold mb-3 border-b pb-1'>Medical Information</h4>
-                                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                                    <div>
-                                        <p className={labelStyle}>Blood Group</p>
-                                        <select value={patientInfo.bloodGroup} onChange={e => setPatientInfo({ ...patientInfo, bloodGroup: e.target.value })} className={inputStyle}>
-                                            <option value="">Select</option>
-                                            <option value="A+">A+</option>
-                                            <option value="A-">A-</option>
-                                            <option value="B+">B+</option>
-                                            <option value="B-">B-</option>
-                                            <option value="O+">O+</option>
-                                            <option value="O-">O-</option>
-                                            <option value="AB+">AB+</option>
-                                            <option value="AB-">AB-</option>
-                                        </select>
-                                    </div>
-                                    <div><p className={labelStyle}>Known Allergies</p><input value={patientInfo.knownAllergies} onChange={e => setPatientInfo({ ...patientInfo, knownAllergies: e.target.value })} className={inputStyle} type="text" placeholder="e.g. Peanuts, Penicillin" /></div>
-                                    <div className='md:col-span-2'><p className={labelStyle}>Current Medications</p><textarea value={patientInfo.currentMedications} onChange={e => setPatientInfo({ ...patientInfo, currentMedications: e.target.value })} className={inputStyle} rows="2"></textarea></div>
-                                </div>
-                            </div>
-
-                            {/* Insurance */}
-                            {paymentMethod === 'online' && (
-                                <div>
-                                    <h4 className='text-sm font-semibold mb-3 border-b pb-1'>Insurance Information</h4>
-                                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                                        <div><p className={labelStyle}>Provider Name *</p><input value={patientInfo.insuranceProvider} onChange={e => setPatientInfo({ ...patientInfo, insuranceProvider: e.target.value })} className={inputStyle} type="text" required /></div>
-                                        <div><p className={labelStyle}>Policy Number *</p><input value={patientInfo.insuranceId} onChange={e => setPatientInfo({ ...patientInfo, insuranceId: e.target.value })} className={inputStyle} type="text" required /></div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className='flex gap-4 mt-6 justify-end'>
-                            <button onClick={() => setShowPatientForm(false)} className='px-6 py-2 border rounded text-gray-600 hover:bg-gray-50'>Cancel</button>
-                            <button onClick={confirmBooking} className='px-6 py-2 bg-primary text-white rounded hover:bg-blue-600 font-medium'>
-                                {paymentMethod === 'online' ? 'Proceed to Payment' : 'Confirm Appointment'}
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Default Booking Button (Hidden if form is shown) */}
-                {!showPatientForm && (
-                    <div className='mt-6'>
-                        <button onClick={bookAppointment} className='bg-primary text-white text-sm font-medium px-14 py-3 rounded-full hover:scale-105 transition-all duration-300 shadow-md'>
-                            {paymentMethod === 'cash' ? 'Book Appointment' : 'Continue to Patient Details'}
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            <ReviewSection docId={docId} />
-
-            <RelatedDoctors speciality={docInfo.speciality} docId={docId} />
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <button onClick={confirmBooking} className="app-button justify-center">
+                  {paymentMethod === 'online' ? 'Save and pay online' : 'Confirm appointment'}
+                </button>
+                <button onClick={() => setShowPatientForm(false)} className="app-button-secondary justify-center">
+                  Cancel
+                </button>
+              </div>
+            </article>
+          ) : null}
         </div>
-    )
-}
 
-export default Appointment
+        <aside className="min-w-0 space-y-6 xl:sticky xl:top-28 xl:self-start">
+          <article className="app-card p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 1</p>
+            <h2 className="mt-2 text-2xl font-bold text-secondary">Choose a day</h2>
+            <div className="mt-5 flex gap-3 overflow-x-auto pb-2">
+              {availableDayIndexes.map(({ day, index }) => (
+                <button
+                  key={`${day[0].datetime.toISOString()}-${index}`}
+                  onClick={() => {
+                    setSlotIndex(index);
+                    setSlotTime('');
+                  }}
+                  className={`min-w-[84px] rounded-[24px] px-4 py-4 text-center sm:min-w-[92px] ${
+                    slotIndex === index ? 'bg-secondary text-white' : 'border border-slate-200 bg-white text-secondary'
+                  }`}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em]">{daysOfWeek[day[0].datetime.getDay()]}</p>
+                  <p className="mt-2 text-2xl font-bold">{day[0].datetime.getDate()}</p>
+                </button>
+              ))}
+            </div>
+          </article>
+
+          <article className="app-card p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 2</p>
+            <h2 className="mt-2 text-2xl font-bold text-secondary">Choose a time</h2>
+            <div className="mt-5 flex flex-wrap gap-3">
+              {(docSlots[slotIndex] || []).map((slot) => (
+                <button
+                  key={`${slot.time}-${slot.datetime.toISOString()}`}
+                  onClick={() => setSlotTime(slot.time)}
+                  className={`rounded-full px-4 py-3 text-sm font-semibold ${
+                    slot.time === slotTime ? 'bg-primary text-white' : 'border border-slate-200 bg-white text-slate-500'
+                  }`}
+                >
+                  {slot.time}
+                </button>
+              ))}
+            </div>
+          </article>
+
+          <article className="app-card p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 3</p>
+            <h2 className="mt-2 text-2xl font-bold text-secondary">Payment method</h2>
+
+            <div className="mt-5 grid gap-3">
+              {(docInfo.paymentMethods?.cash ?? true) ? (
+                <label className={`rounded-[22px] border px-4 py-4 text-sm font-semibold ${paymentMethod === 'cash' ? 'border-primary bg-primary/10 text-primary' : 'border-slate-200 text-slate-600'}`}>
+                  <input type="radio" name="paymentMethod" value="cash" checked={paymentMethod === 'cash'} onChange={(event) => setPaymentMethod(event.target.value)} className="mr-3" />
+                  Pay at clinic
+                </label>
+              ) : null}
+
+              {(docInfo.paymentMethods?.online ?? true) ? (
+                <label className={`rounded-[22px] border px-4 py-4 text-sm font-semibold ${paymentMethod === 'online' ? 'border-primary bg-primary/10 text-primary' : 'border-slate-200 text-slate-600'}`}>
+                  <input type="radio" name="paymentMethod" value="online" checked={paymentMethod === 'online'} onChange={(event) => setPaymentMethod(event.target.value)} className="mr-3" />
+                  Pay online now
+                </label>
+              ) : null}
+            </div>
+
+            <div className="mt-6 rounded-[22px] bg-slate-50 px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Consultation summary</p>
+              <p className="mt-3 text-2xl font-bold text-secondary">
+                {currencySymbol}
+                {docInfo.fees}
+              </p>
+              <p className="mt-2 text-sm leading-7 text-slate-500">
+                Select a slot, then continue. Online payments will ask for additional patient and insurance details before confirmation.
+              </p>
+            </div>
+
+            <button onClick={bookAppointment} className="app-button mt-6 w-full justify-center">
+              {paymentMethod === 'online' ? 'Continue to patient details' : 'Book appointment'}
+            </button>
+          </article>
+        </aside>
+      </section>
+
+      <ReviewSection docId={docId} />
+      <RelatedDoctors speciality={docInfo.speciality} docId={docId} />
+    </div>
+  );
+};
+
+export default Appointment;

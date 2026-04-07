@@ -302,7 +302,7 @@ const refundAppointmentPayment = async ({
     status: 'completed',
     notes: reason,
     processedBy,
-  }], { session });
+  }], { session, ordered: true });
 
   return appointment;
 };

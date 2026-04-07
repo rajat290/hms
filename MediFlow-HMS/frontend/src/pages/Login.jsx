@@ -1,218 +1,233 @@
-import React, { useContext, useEffect, useState } from 'react'
-import { AppContext } from '../context/AppContext'
-import axios from 'axios'
-import { toast } from 'react-toastify'
-import { useNavigate } from 'react-router-dom'
-import { assets } from '../assets/assets'
+import React, { useContext, useEffect, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
+import AuthShell from '../components/AuthShell';
+import { AppContext } from '../context/AppContext';
 
 const Login = () => {
+  const navigate = useNavigate();
+  const { backendUrl, token, persistSession } = useContext(AppContext);
 
-  const [state, setState] = useState('Sign Up')
+  const [state, setState] = useState('Sign Up');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [is2fa, setIs2fa] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [userId, setUserId] = useState('');
+  const [errors, setErrors] = useState({ email: '', password: '' });
 
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [is2fa, setIs2fa] = useState(false)
-  const [twoFactorCode, setTwoFactorCode] = useState('')
-  const [userId, setUserId] = useState('')
-  const [errors, setErrors] = useState({ email: '', password: '' })
-
-  const navigate = useNavigate()
-  const { backendUrl, token, persistSession } = useContext(AppContext)
-
-  const validateEmail = (email) => {
-    return String(email)
+  const validateEmail = (value) =>
+    String(value)
       .toLowerCase()
-      .match(
-        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-      );
-  };
+      .match(/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/);
 
-  const handleEmailChange = (e) => {
-    const value = e.target.value;
+  const handleEmailChange = (event) => {
+    const value = event.target.value;
     setEmail(value);
-    if (value && !validateEmail(value)) {
-      setErrors(prev => ({ ...prev, email: 'Please enter a valid email address' }));
-    } else {
-      setErrors(prev => ({ ...prev, email: '' }));
-    }
+    setErrors((current) => ({
+      ...current,
+      email: value && !validateEmail(value) ? 'Please enter a valid email address.' : '',
+    }));
   };
 
-  const handlePasswordChange = (e) => {
-    const value = e.target.value;
+  const handlePasswordChange = (event) => {
+    const value = event.target.value;
     setPassword(value);
-    if (state === 'Sign Up' && value.length > 0 && value.length < 8) {
-      setErrors(prev => ({ ...prev, password: 'Password must be at least 8 characters long' }));
-    } else {
-      setErrors(prev => ({ ...prev, password: '' }));
-    }
+    setErrors((current) => ({
+      ...current,
+      password: state === 'Sign Up' && value.length > 0 && value.length < 8 ? 'Password must be at least 8 characters long.' : '',
+    }));
   };
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
-    setLoading(true)
+    setLoading(true);
 
     try {
       if (state === 'Sign Up') {
-
-        const { data } = await axios.post(backendUrl + '/api/user/register', { name, email, password })
+        const { data } = await axios.post(`${backendUrl}/api/user/register`, { name, email, password });
 
         if (data.success) {
-          toast.success('Registration successful! Please check your email to verify your account.')
-          setState('Login') // Switch to login after signup
+          toast.success('Registration successful. Please verify your email to continue.');
+          setState('Login');
+          setPassword('');
         } else {
-          toast.error(data.message)
+          toast.error(data.message);
         }
-
       } else {
-
-        const { data } = await axios.post(backendUrl + '/api/user/login', { email, password })
+        const { data } = await axios.post(`${backendUrl}/api/user/login`, { email, password });
 
         if (data.success) {
           if (data.twoFactorRequired) {
-            setIs2fa(true)
-            setUserId(data.userId)
-            toast.info(data.message)
+            setIs2fa(true);
+            setUserId(data.userId);
+            toast.info(data.message);
           } else {
-            persistSession(data.token, data.refreshToken)
+            persistSession(data.token, data.refreshToken);
+            toast.success('Welcome back.');
           }
         } else {
-          toast.error(data.message)
+          toast.error(data.message);
         }
-
       }
     } catch (error) {
-      toast.error(error.message)
+      toast.error(error.response?.data?.message || error.message || 'Authentication failed.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
+  };
 
-  }
+  const onVerify2fa = async (event) => {
+    event.preventDefault();
+    setLoading(true);
 
-  const onVerify2fa = async (e) => {
-    e.preventDefault();
-    setLoading(true)
     try {
-      const { data } = await axios.post(backendUrl + '/api/user/verify-2fa', { userId, code: twoFactorCode })
+      const { data } = await axios.post(`${backendUrl}/api/user/verify-2fa`, { userId, code: twoFactorCode });
+
       if (data.success) {
-        persistSession(data.token, data.refreshToken)
-        toast.success("Login Successful")
+        persistSession(data.token, data.refreshToken);
+        toast.success('Verification complete.');
       } else {
-        toast.error(data.message)
+        toast.error(data.message);
       }
     } catch (error) {
-      toast.error(error.message)
+      toast.error(error.response?.data?.message || error.message || 'Verification failed.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     if (token) {
-      navigate('/')
+      navigate('/');
     }
-  }, [token])
+  }, [navigate, token]);
 
   return (
-    <div className='min-h-[80vh] flex items-center'>
+    <AuthShell
+      eyebrow={is2fa ? 'Step 2 of 2' : 'Patient authentication'}
+      title={is2fa ? 'Confirm your sign-in securely.' : state === 'Sign Up' ? 'Create a modern patient account.' : 'Sign in to your patient portal.'}
+      description={
+        is2fa
+          ? 'Two-factor verification adds an extra trust layer before opening the patient portal.'
+          : 'The auth experience now feels like part of the product, with stronger hierarchy, calmer messaging, and cleaner form states.'
+      }
+      asideTitle="Why this flow feels stronger now"
+      asidePoints={[
+        { title: 'Clearer states', copy: 'Sign-up, login, and verification are visually separated so users always know where they are.' },
+        { title: 'Better trust cues', copy: 'The layout feels more like a real healthcare product and less like a generic template.' },
+        { title: 'Responsive by default', copy: 'The same experience scales cleanly from a wide desktop to a narrow phone screen.' },
+      ]}
+    >
       {is2fa ? (
-        <form onSubmit={onVerify2fa} className='flex flex-col gap-3 m-auto items-start p-8 min-w-[340px] sm:min-w-96 border rounded-xl text-[#5E5E5E] text-sm shadow-lg'>
-          <p className='text-2xl font-semibold'>Two-Factor Authentication</p>
-          <p>Please enter the 6-digit code sent to your email.</p>
-          <div className='w-full'>
-            <p>Verification Code</p>
-            <input onChange={(e) => setTwoFactorCode(e.target.value)} value={twoFactorCode} className='border border-[#DADADA] rounded w-full p-2 mt-1 text-center text-xl tracking-widest' type="text" maxLength="6" required />
+        <form onSubmit={onVerify2fa} className="space-y-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Two-factor verification</p>
+            <h2 className="mt-3 text-3xl font-bold text-secondary">Enter the 6-digit code</h2>
+            <p className="mt-2 text-sm leading-7 text-slate-500">We emailed a verification code to confirm that this login request is really yours.</p>
           </div>
-          <button disabled={loading} className='bg-primary text-white w-full py-2 my-2 rounded-md text-base flex items-center justify-center gap-2'>
-            {loading && <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>}
-            {loading ? 'Verifying...' : 'Verify & Login'}
-          </button>
-          <p onClick={() => setIs2fa(false)} className='text-primary underline cursor-pointer w-full text-center'>Back to Login</p>
+
+          <input
+            aria-label="Verification Code"
+            type="text"
+            maxLength="6"
+            value={twoFactorCode}
+            onChange={(event) => setTwoFactorCode(event.target.value)}
+            className="app-input text-center text-2xl tracking-[0.4em]"
+            required
+          />
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button disabled={loading} className="app-button justify-center">
+              {loading ? 'Verifying...' : 'Verify and continue'}
+            </button>
+            <button type="button" onClick={() => setIs2fa(false)} className="app-button-secondary justify-center">
+              Back to login
+            </button>
+          </div>
         </form>
       ) : (
-        <form onSubmit={onSubmitHandler} className='min-h-[80vh] flex items-center justify-center p-4'>
-          <div className='flex flex-col gap-6 m-auto items-start p-10 min-w-96 glass-effect border border-gray-100 rounded-3xl text-gray-600 shadow-2xl relative overflow-hidden'>
-
-            {/* Background accent */}
-            <div className='absolute top-0 left-0 w-2 h-full bg-primary'></div>
-
-            <div className='w-full'>
-              <p className='text-3xl font-bold text-secondary'>{state === 'Sign Up' ? 'Create Account' : 'Login'}</p>
-              <p className='text-sm text-gray-500 mt-1'>Please {state === 'Sign Up' ? 'sign up' : 'login'} to book your appointment</p>
-            </div>
-
-            {state === 'Sign Up' && (
-              <div className='w-full'>
-                <p className='text-sm font-medium mb-1'>Full Name</p>
-                <input className='border border-gray-200 rounded-xl w-full p-3 mt-1 bg-gray-50/50 focus:bg-white focus:border-primary outline-none transition-all' type="text" onChange={(e) => setName(e.target.value)} value={name} required aria-label="Full Name" />
-              </div>
-            )}
-
-            <div className='w-full'>
-              <p className='text-sm font-medium mb-1'>Email</p>
-              <input
-                className={`border rounded-xl w-full p-3 mt-1 bg-gray-50/50 focus:bg-white focus:border-primary outline-none transition-all ${errors.email ? 'border-red-400 focus:border-red-500' : 'border-gray-200'}`}
-                type="email"
-                onChange={handleEmailChange}
-                value={email}
-                required
-                aria-label="Email Address"
-              />
-              {errors.email && <p className='text-[10px] text-red-500 mt-1 ml-1 animate-fadeIn'>{errors.email}</p>}
-            </div>
-
-            <div className='w-full'>
-              <p className='text-sm font-medium mb-1'>Password</p>
-              <div className='relative w-full'>
-                <input
-                  className={`border rounded-xl w-full p-3 mt-1 bg-gray-50/50 focus:bg-white focus:border-primary outline-none transition-all pr-12 ${errors.password ? 'border-red-400 focus:border-red-500' : 'border-gray-200'}`}
-                  type={showPassword ? "text" : "password"}
-                  onChange={handlePasswordChange}
-                  value={password}
-                  required
-                  aria-label="Password"
-                />
-                <div
-                  onClick={() => setShowPassword(!showPassword)}
-                  className='absolute right-4 top-1/2 -translate-y-1/2 mt-0.5 cursor-pointer text-gray-400 hover:text-primary transition-colors'
-                  aria-label={showPassword ? "Hide Password" : "Show Password"}
-                >
-                  {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.644C3.423 7.51a7.36 7.36 0 0114.074 0 1.012 1.012 0 010 .644C16.577 16.49 12.72 19.5 12 19.5c-1.272 0-5.123-3.01-6.564-6.844z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
-                </div>
-              </div>
-              {errors.password && <p className='text-[10px] text-red-500 mt-1 ml-1 animate-fadeIn'>{errors.password}</p>}
-            </div>
-
-            <button disabled={loading} type='submit' className='bg-gradient-primary text-white w-full py-4 rounded-xl font-bold text-base hover:shadow-lg hover:scale-[1.02] transition-all duration-300 mt-2 flex items-center justify-center gap-3'>
-              {loading && <div className='w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin'></div>}
-              {loading ? (state === 'Sign Up' ? 'Creating Account...' : 'Logging in...') : (state === 'Sign Up' ? 'Create Account' : 'Login')}
-            </button>
-
-            <div className='w-full text-center flex flex-col gap-2'>
+        <form onSubmit={onSubmitHandler} className="space-y-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{state === 'Sign Up' ? 'New patient account' : 'Existing patient access'}</p>
+            <h2 className="mt-3 text-3xl font-bold text-secondary">{state === 'Sign Up' ? 'Set up your patient profile' : 'Welcome back'}</h2>
+            <p className="mt-2 text-sm leading-7 text-slate-500">
               {state === 'Sign Up'
-                ? <p className='text-sm'>Already have an account? <span onClick={() => setState('Login')} className='text-primary underline cursor-pointer font-semibold'>Login here</span></p>
-                : <>
-                  <p className='text-sm'>Don't have an account? <span onClick={() => setState('Sign Up')} className='text-primary underline cursor-pointer font-semibold'>Click here</span></p>
-                  <p onClick={() => navigate('/reset-password')} className='text-xs text-primary underline cursor-pointer hover:text-secondary transition-colors'>Forgot Password?</p>
-                </>
-              }
+                ? 'Register once to manage appointments, invoices, reminders, and profile details in one place.'
+                : 'Sign in to continue where you left off, whether that is booking, billing, or an upcoming consultation.'}
+            </p>
+          </div>
+
+          {state === 'Sign Up' ? (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-secondary">Full name</label>
+              <input value={name} onChange={(event) => setName(event.target.value)} className="app-input" type="text" required />
             </div>
+          ) : null}
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-secondary">Email address</label>
+            <input value={email} onChange={handleEmailChange} className="app-input" type="email" required />
+            {errors.email ? <p className="mt-2 text-sm text-rose-600">{errors.email}</p> : null}
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-secondary">Password</label>
+            <div className="relative">
+              <input
+                value={password}
+                onChange={handlePasswordChange}
+                className="app-input pr-12"
+                type={showPassword ? 'text' : 'password'}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full px-3 py-2 text-sm font-semibold text-slate-400 hover:text-primary"
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            {errors.password ? <p className="mt-2 text-sm text-rose-600">{errors.password}</p> : null}
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button disabled={loading} className="app-button justify-center">
+              {loading ? (state === 'Sign Up' ? 'Creating account...' : 'Signing in...') : state === 'Sign Up' ? 'Create account' : 'Sign in'}
+            </button>
+            {state === 'Login' ? (
+              <button type="button" onClick={() => navigate('/reset-password')} className="app-button-ghost justify-center">
+                Forgot password?
+              </button>
+            ) : null}
+          </div>
+
+          <div className="rounded-[24px] bg-slate-50 px-4 py-4 text-sm text-slate-500">
+            {state === 'Sign Up' ? (
+              <p>
+                Already have an account?{' '}
+                <button type="button" onClick={() => setState('Login')} className="font-semibold text-primary">
+                  Sign in here
+                </button>
+              </p>
+            ) : (
+              <p>
+                Need a new patient account?{' '}
+                <button type="button" onClick={() => setState('Sign Up')} className="font-semibold text-primary">
+                  Create one here
+                </button>
+              </p>
+            )}
           </div>
         </form>
       )}
-    </div>
-  )
-}
+    </AuthShell>
+  );
+};
 
-export default Login
+export default Login;

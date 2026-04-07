@@ -185,7 +185,7 @@ describe('userController booking and payment flows', () => {
           patientInfo: { symptoms: 'Chest pain' },
         }),
       ],
-      { session: 'db-session' }
+      { session: 'db-session', ordered: true }
     );
     expect(reserveDoctorSlotMock).toHaveBeenCalledWith({
       docId: 'doctor-1',
@@ -198,7 +198,7 @@ describe('userController booking and payment flows', () => {
         expect.objectContaining({ userId: 'user-1', title: 'Appointment Booked' }),
         expect.objectContaining({ recipientType: 'staff', title: 'New Appointment Booked' }),
       ]),
-      { session: 'db-session' }
+      { session: 'db-session', ordered: true }
     );
     expect(res.json).toHaveBeenCalledWith({
       success: true,

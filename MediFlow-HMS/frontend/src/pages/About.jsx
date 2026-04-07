@@ -1,47 +1,63 @@
-import React from 'react'
-import { assets } from '../assets/assets'
+import React from 'react';
+import { assets } from '../assets/assets';
+import PageHero from '../components/ui/PageHero';
+import SectionHeading from '../components/ui/SectionHeading';
 
-const About = () => {
-    return (
-        <div>
-            <div className='text-center text-2xl pt-10 text-gray-500'>
-                <p>ABOUT <span className='text-gray-700 font-medium'>US</span></p>
-            </div>
-            <div className='my-10 flex flex-col md:flex-row gap-12'>
-                <img className='w-full md:max-w-[360px]' src={assets.about_image} alt="" />
-                <div className='flex flex-col justify-center gap-6 md:w-2/4 text-sm text-gray-600'>
-                    <p>Welcome To Mediflow, Your Trusted Partner In Managing Your HealthCare Needs Conveniently And Efficiently.
-                        At Mediflow, We Understand The Challenges Individuals Face When It Comes To Scheduling Doctor Appointments And Managing Their Health Records.
-                    </p>
-                    <p>Mediflow Is Commited To Excellence In Healthcare Technology.
-                        We Continously Strive To Enhance Our Platform, Integrating The Latest Advancements To Improve User Experience And Deliver Superior Service.
-                        Whether You're Booking Your First Appointment Or Managing Ongoing Care, Mediflow Is Here To Support You Every Step Of The Way.
-                    </p>
-                    <b className='text-gray-800'>Our Vision</b>
-                    <p>Our Vision At Mediflow Is To Create A Seamless HealthCare Experience For Every User.
-                        We Aim To Bridge The Gap Between Patients And HealthCare Providers, Making It Easier For You To Access The Care You Need, When You Need It.
-                    </p>
-                </div>
-            </div>
-            <div className='text-xl my-4'>
-                <p>WHY <span className='text-gray-700 font-semibold'>CHOOSE US</span></p>
-            </div>
-            <div className='flex flex-col md:flex-row mb-20'>
-                <div className='border px-10 md:px-16 py-8 sm:py-16 flex flex-col gap-5 text-[15px] hover:bg-primary hover:text-white transition-all duration-300 text-gray-600 cursor-pointer'>
-                    <b>EFFICIENCY:</b>
-                    <p>Streamlined Appointment Scheduling That Fits Into Your Busy Lifestyle.</p>
-                </div>
-                <div className='border px-10 md:px-16 py-8 sm:py-16 flex flex-col gap-5 text-[15px] hover:bg-primary hover:text-white transition-all duration-300 text-gray-600 cursor-pointer'>
-                    <b>CONVENIENCE:</b>
-                    <p>Access To A Network Of Trusted HealthCare Professionals In Your Area.</p>
-                </div>
-                <div className='border px-10 md:px-16 py-8 sm:py-16 flex flex-col gap-5 text-[15px] hover:bg-primary hover:text-white transition-all duration-300 text-gray-600 cursor-pointer'>
-                    <b>PERSONALIZATION:</b>
-                    <p>Tailored Recommenations And Remainders To Help You Stay On Top Of Your Health.</p>
-                </div>
-            </div>
+const values = [
+  {
+    title: 'Make care feel calmer',
+    copy: 'Reduce friction across discovery, booking, reminders, and return visits so patients do not feel lost between screens.',
+  },
+  {
+    title: 'Keep trust visible',
+    copy: 'Reliable hierarchy, real statuses, and clearer patient context make the interface feel more mature and credible.',
+  },
+  {
+    title: 'Support the whole journey',
+    copy: 'This is not just a landing page plus a form. The portal helps patients before, during, and after a consultation.',
+  },
+];
+
+const About = () => (
+  <div className="section-space space-y-8">
+    <PageHero
+      eyebrow="About MediFlow"
+      title="Modern hospital interactions should feel reassuring, not exhausting."
+      description="MediFlow combines doctor discovery, appointment management, payment visibility, and digital patient utilities into a single experience that feels much closer to a real healthcare product."
+      aside={
+        <div className="app-card overflow-hidden">
+          <img src={assets.about_image} alt="About MediFlow" className="h-full max-h-[420px] w-full object-cover" />
         </div>
-    )
-}
+      }
+    />
 
-export default About
+    <section className="grid gap-6 lg:grid-cols-[0.9fr,1.1fr]">
+      <div className="glass-panel px-6 py-8 sm:px-8">
+        <SectionHeading
+          eyebrow="Why this matters"
+          title="Patients remember how the flow felt, not just whether it technically worked."
+          description="That is why the redesign focuses on stronger hierarchy, cleaner state feedback, and consistent information density across public pages and the patient portal."
+        />
+      </div>
+
+      <div className="grid gap-4">
+        {values.map((value) => (
+          <article key={value.title} className="app-card p-6">
+            <h3 className="text-2xl font-bold text-secondary">{value.title}</h3>
+            <p className="mt-3 text-sm leading-7 text-slate-500">{value.copy}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section className="app-card px-6 py-8 sm:px-8">
+      <SectionHeading
+        eyebrow="Product vision"
+        title="Healthcare software should feel clear under pressure."
+        description="The patient-facing frontend has been restructured to feel more like a modern real-world app: cleaner public discovery, a more intentional booking flow, stronger portal navigation, better loading states, and improved responsiveness throughout."
+      />
+    </section>
+  </div>
+);
+
+export default About;

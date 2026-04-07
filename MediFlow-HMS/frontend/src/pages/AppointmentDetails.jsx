@@ -1,298 +1,263 @@
-import React, { useContext, useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { AppContext } from '../context/AppContext'
-import axios from 'axios'
-import { toast } from 'react-toastify'
-import { assets } from '../assets/assets'
-import { jsPDF } from "jspdf"
-import { formatSlotDate } from '@shared/utils/date.js'
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { formatSlotDate } from '@shared/utils/date.js';
+import { AppContext } from '../context/AppContext';
+import PatientPortalLayout from '../components/PatientPortalLayout';
+import EmptyState from '../components/ui/EmptyState';
+import LoadingState from '../components/ui/LoadingState';
+import StatusBadge from '../components/ui/StatusBadge';
+import { downloadInvoicePdf, downloadPrescriptionPdf } from '../utils/documents';
+import { getAppointmentStage, getPaymentStage } from '../utils/appointments';
 
 const AppointmentDetails = () => {
-    const { appointmentId } = useParams()
-    const { backendUrl, token, currency } = useContext(AppContext)
-    const navigate = useNavigate()
+  const { appointmentId } = useParams();
+  const navigate = useNavigate();
+  const { backendUrl, token, currencySymbol } = useContext(AppContext);
 
-    const [appointment, setAppointment] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [prescriptions, setPrescriptions] = useState({})
+  const [appointment, setAppointment] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [prescriptions, setPrescriptions] = useState({});
 
-    const fetchAppointmentDetails = async () => {
-        try {
-            const { data } = await axios.get(backendUrl + '/api/user/appointments', { headers: { token } })
-            if (data.success) {
-                const app = data.appointments.find(a => a._id === appointmentId)
-                if (app) {
-                    setAppointment(app)
-                } else {
-                    toast.error("Appointment not found")
-                    navigate('/my-appointments')
-                }
-            }
-        } catch (error) {
-            console.log(error)
-            toast.error(error.message)
-        } finally {
-            setLoading(false)
+  const fetchAppointmentDetails = async () => {
+    try {
+      const { data } = await axios.get(`${backendUrl}/api/user/appointments`, { headers: { token } });
+      if (data.success) {
+        const selectedAppointment = data.appointments.find((item) => item._id === appointmentId);
+        if (selectedAppointment) {
+          setAppointment(selectedAppointment);
+        } else {
+          toast.error('Appointment not found.');
+          navigate('/my-appointments');
         }
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const getUserPrescriptions = async () => {
+  const getUserPrescriptions = async () => {
+    try {
+      const { data } = await axios.get(`${backendUrl}/api/user/prescriptions`, { headers: { token } });
+      if (data.success) {
+        const prescriptionMap = {};
+        data.prescriptions.forEach((prescription) => {
+          prescriptionMap[prescription.appointmentId] = prescription;
+        });
+        setPrescriptions(prescriptionMap);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const cancelAppointment = async () => {
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/user/cancel-appointment`,
+        { appointmentId },
+        { headers: { token } },
+      );
+
+      if (data.success) {
+        toast.success(data.message);
+        fetchAppointmentDetails();
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const initPay = (order) => {
+    const options = {
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'Appointment Payment',
+      description: 'Appointment Payment',
+      order_id: order.id,
+      receipt: order.receipt,
+      handler: async (response) => {
         try {
-            const { data } = await axios.get(backendUrl + '/api/user/prescriptions', { headers: { token } })
-            if (data.success) {
-                const presMap = {};
-                data.prescriptions.forEach(p => {
-                    presMap[p.appointmentId] = p;
-                });
-                setPrescriptions(presMap);
-            }
+          const { data } = await axios.post(`${backendUrl}/api/user/verifyRazorpay`, response, { headers: { token } });
+          if (data.success) {
+            toast.success('Payment successful.');
+            fetchAppointmentDetails();
+          }
         } catch (error) {
-            console.log(error)
+          toast.error(error.message);
         }
-    }
-
-    // Reuse payment/cancel logic (condensed)
-    const cancelAppointment = async () => {
-        try {
-            const { data } = await axios.post(backendUrl + '/api/user/cancel-appointment', { appointmentId }, { headers: { token } })
-            if (data.success) {
-                toast.success(data.message)
-                fetchAppointmentDetails()
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            toast.error(error.message)
-        }
-    }
-
-    const initPay = (order) => {
-        const options = {
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-            amount: order.amount,
-            currency: order.currency,
-            name: 'Appointment Payment',
-            description: "Appointment Payment",
-            order_id: order.id,
-            receipt: order.receipt,
-            handler: async (response) => {
-                try {
-                    const { data } = await axios.post(backendUrl + "/api/user/verifyRazorpay", response, { headers: { token } });
-                    if (data.success) {
-                        fetchAppointmentDetails()
-                    }
-                } catch (error) {
-                    toast.error(error.message)
-                }
-            }
-        };
-        const rzp = new window.Razorpay(options);
-        rzp.open();
+      },
     };
 
-    const appointmentRazorpay = async () => {
-        try {
-            const { data } = await axios.post(backendUrl + '/api/user/payment-razorpay', { appointmentId }, { headers: { token } })
-            if (data.success) {
-                initPay(data.order)
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            toast.error(error.message)
-        }
+    const razorpay = new window.Razorpay(options);
+    razorpay.open();
+  };
+
+  const appointmentRazorpay = async () => {
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/user/payment-razorpay`,
+        { appointmentId },
+        { headers: { token } },
+      );
+      if (data.success) {
+        initPay(data.order);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  useEffect(() => {
+    if (!token || !appointmentId) {
+      setLoading(false);
+      return;
     }
 
-    const downloadInvoice = () => {
-        const doc = new jsPDF();
+    fetchAppointmentDetails();
+    getUserPrescriptions();
+  }, [appointmentId, token]);
 
-        // Header
-        doc.setFontSize(20);
-        doc.text("INVOICE", 105, 20, null, null, "center");
-
-        doc.setFontSize(10);
-        doc.text(`Invoice ID: INV-${appointment._id.substr(-6).toUpperCase()}`, 140, 30);
-        doc.text(`Date: ${new Date().toLocaleDateString()}`, 140, 35);
-
-        // Doctor/Hospital Details
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text("Billed To:", 20, 50);
-        doc.setFont(undefined, 'normal');
-        doc.text(`Patient Name: ${appointment.userData.name || 'Patient'}`, 20, 58);
-        doc.text(`Phone: ${appointment.userData.phone || 'N/A'}`, 20, 64);
-
-        doc.setFont(undefined, 'bold');
-        doc.text("Service Provider:", 120, 50);
-        doc.setFont(undefined, 'normal');
-        doc.text(`Dr. ${appointment.docData.name}`, 120, 58);
-        doc.text(`${appointment.docData.speciality}`, 120, 64);
-        doc.text(`${appointment.docData.address.line1}`, 120, 70);
-
-        // Table Header
-        doc.setLineWidth(0.5);
-        doc.line(20, 85, 190, 85);
-        doc.setFont(undefined, 'bold');
-        doc.text("Description", 20, 92);
-        doc.text("Amount", 160, 92);
-        doc.line(20, 95, 190, 95);
-
-        // Items
-        doc.setFont(undefined, 'normal');
-        doc.text(`Medical Appointment Consultation`, 20, 105);
-        doc.text(`Date: ${formatSlotDate(appointment.slotDate)} Time: ${appointment.slotTime}`, 20, 111);
-        doc.text(`${currency}${appointment.amount}`, 160, 105);
-
-        // Total
-        doc.line(20, 120, 190, 120);
-        doc.setFont(undefined, 'bold');
-        doc.text("Total Paid:", 120, 128);
-        doc.text(`${currency}${appointment.amount}`, 160, 128);
-
-        // Footer
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text("Thank you for your business.", 105, 150, null, null, "center");
-
-        doc.save(`Invoice_${appointment._id}.pdf`);
+  const stats = useMemo(() => {
+    if (!appointment) {
+      return [];
     }
 
-    const downloadPrescription = () => {
-        const prescription = prescriptions[appointment._id];
-        if (!prescription) return;
+    return [
+      { label: 'Appointment state', value: getAppointmentStage(appointment).label },
+      { label: 'Payment state', value: getPaymentStage(appointment).label },
+      { label: 'Consultation fee', value: `${currencySymbol}${appointment.amount}` },
+    ];
+  }, [appointment, currencySymbol]);
 
-        const doc = new jsPDF();
-        doc.setFontSize(22);
-        doc.text("Prescription", 105, 20, null, null, "center");
-
-        doc.setFontSize(12);
-        doc.text(`Doctor: ${appointment.docData.name}`, 20, 40);
-        doc.text(`Speciality: ${appointment.docData.speciality}`, 20, 50);
-        doc.text(`Date: ${formatSlotDate(appointment.slotDate)}`, 20, 60);
-
-        doc.setLineWidth(0.5);
-        doc.line(20, 70, 190, 70);
-
-        doc.setFontSize(16);
-        doc.text("Medicines", 20, 85);
-
-        doc.setFontSize(12);
-        let yPos = 100;
-        prescription.medicines.forEach((med, index) => {
-            doc.text(`${index + 1}. ${med.name} - ${med.dosage} (${med.duration})`, 20, yPos);
-            if (med.instruction) doc.text(`   Instruction: ${med.instruction}`, 20, yPos + 7);
-            yPos += 15;
-        });
-
-        doc.save(`Prescription_${appointment.slotDate}.pdf`);
-    }
-
-    useEffect(() => {
-        if (token && appointmentId) {
-            fetchAppointmentDetails()
-            getUserPrescriptions()
-        }
-    }, [token, appointmentId])
-
-    if (loading) return <div className="mt-10 pl-40">Loading details...</div>
-    if (!appointment) return null
-
+  if (!token) {
     return (
-        <div className="mt-10">
-            <h2 className='text-2xl font-medium text-gray-700 mb-6'>Appointment Details</h2>
+      <div className="section-space">
+        <EmptyState
+          title="Sign in to view appointment details"
+          description="Your appointment history is stored securely inside the patient portal."
+          action={<Link to="/login" className="app-button">Go to login</Link>}
+        />
+      </div>
+    );
+  }
 
-            <div className='flex flex-col sm:flex-row gap-8 bg-white p-6 rounded-lg shadow-sm border border-gray-100'>
-                {/* Doctor Image */}
-                <div>
-                    <img className='w-full sm:w-64 rounded-lg bg-[#EAEFFF] object-cover' src={appointment.docData.image} alt="" />
-                </div>
+  if (loading) {
+    return <LoadingState title="Loading appointment details" message="Preparing doctor information, payment state, and related documents." fullHeight />;
+  }
 
-                {/* Details */}
-                <div className='flex-1'>
-                    <p className='text-3xl font-semibold text-gray-800'>{appointment.docData.name}</p>
-                    <p className='text-gray-600 mt-1'>{appointment.docData.speciality}</p>
+  if (!appointment) {
+    return null;
+  }
 
-                    <div className='mt-6'>
-                        <h3 className='font-medium text-gray-700'>Address:</h3>
-                        <p className='text-gray-500 text-sm mt-1'>{appointment.docData.address.line1}</p>
-                        <p className='text-gray-500 text-sm'>{appointment.docData.address.line2}</p>
-                    </div>
+  const appointmentStage = getAppointmentStage(appointment);
+  const paymentStage = getPaymentStage(appointment);
+  const prescription = prescriptions[appointment._id];
 
-                    <div className='mt-6'>
-                        <h3 className='font-medium text-gray-700'>Schedule:</h3>
-                        <p className='text-gray-500 text-sm mt-1'>
-                            {formatSlotDate(appointment.slotDate)} at {appointment.slotTime}
-                        </p>
-                    </div>
+  return (
+    <PatientPortalLayout
+      title="Appointment details"
+      description="A cleaner breakdown of doctor information, status, actions, and downloadable documents."
+      stats={stats}
+      actions={
+        <Link to="/my-appointments" className="app-button-secondary">
+          Back to appointments
+        </Link>
+      }
+    >
+      <article className="app-card overflow-hidden">
+        <div className="grid gap-0 lg:grid-cols-[280px,minmax(0,1fr)]">
+          <div className="bg-[linear-gradient(180deg,#dff5f3_0%,#eff6ff_100%)] p-4">
+            <img src={appointment.docData.image} alt={appointment.docData.name} className="h-full w-full rounded-[26px] object-cover" />
+          </div>
 
-                    <div className='mt-6'>
-                        <h3 className='font-medium text-gray-700'>Status:</h3>
-                        <div className='flex gap-2 mt-1 items-center'>
-                            {appointment.cancelled ? (
-                                <span className='text-red-500 font-medium border border-red-500 px-3 py-1 rounded text-sm bg-red-50'>Cancelled</span>
-                            ) : appointment.isCompleted ? (
-                                <span className='text-green-500 font-medium border border-green-500 px-3 py-1 rounded text-sm bg-green-50'>Completed</span>
-                            ) : appointment.isAccepted ? (
-                                <span className='text-green-500 font-medium border border-green-500 px-3 py-1 rounded text-sm bg-green-50'>Accepted</span>
-                            ) : (
-                                <span className='text-blue-500 font-medium border border-blue-500 px-3 py-1 rounded text-sm bg-blue-50'>Pending</span>
-                            )}
-
-                            {!appointment.cancelled && (
-                                <span className={`px-3 py-1 rounded text-sm font-medium border ${appointment.payment || appointment.paymentStatus === 'paid'
-                                    ? 'text-green-600 border-green-200 bg-green-50'
-                                    : 'text-yellow-600 border-yellow-200 bg-yellow-50'
-                                    }`}>
-                                    {appointment.payment || appointment.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Notes Section */}
-                    {appointment.notes && appointment.notes.length > 0 && (
-                        <div className='mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-100'>
-                            <p className='font-semibold text-gray-700 mb-2'>Doctor Notes:</p>
-                            <ul className='list-disc list-inside text-sm text-gray-600 space-y-1'>
-                                {appointment.notes.map((n, i) => <li key={i}>{n}</li>)}
-                            </ul>
-                        </div>
-                    )}
-                </div>
+          <div className="space-y-6 px-6 py-6 sm:px-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-3xl font-bold text-secondary">{appointment.docData.name}</p>
+                <p className="mt-2 text-sm font-semibold text-primary">{appointment.docData.speciality}</p>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-500">
+                  {appointment.docData.address?.line1}
+                  {appointment.docData.address?.line2 ? `, ${appointment.docData.address.line2}` : ''}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge tone={appointmentStage.tone}>{appointmentStage.label}</StatusBadge>
+                <StatusBadge tone={paymentStage.tone}>{paymentStage.label}</StatusBadge>
+              </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className='mt-8 flex flex-wrap gap-4'>
-                {/* Pay Button */}
-                {!appointment.cancelled && !appointment.isCompleted && !appointment.payment && appointment.paymentStatus !== 'paid' && (
-                    <button onClick={appointmentRazorpay} className='px-6 py-3 bg-primary text-white rounded-md hover:bg-opacity-90 transition-all'>
-                        Pay Online ({currency}{appointment.amount})
-                    </button>
-                )}
-
-                {/* Cancel Button */}
-                {!appointment.cancelled && !appointment.isCompleted && (
-                    <button onClick={cancelAppointment} className='px-6 py-3 border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-all'>
-                        Cancel Appointment
-                    </button>
-                )}
-
-                {/* Download Invoice */}
-                {(appointment.payment || appointment.paymentStatus === 'paid') && !appointment.cancelled && (
-                    <button onClick={downloadInvoice} className='px-6 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-all flex items-center gap-2'>
-                        <span>Download Invoice</span>
-                    </button>
-                )}
-
-                {/* Download Prescription */}
-                {prescriptions[appointment._id] && (
-                    <button onClick={downloadPrescription} className='px-6 py-3 border border-blue-500 text-blue-500 rounded-md hover:bg-blue-50 transition-all'>
-                        Download Prescription
-                    </button>
-                )}
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-[22px] bg-slate-50 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Appointment date</p>
+                <p className="mt-2 text-lg font-bold text-secondary">{formatSlotDate(appointment.slotDate)}</p>
+                <p className="text-sm text-slate-500">{appointment.slotTime}</p>
+              </div>
+              <div className="rounded-[22px] bg-slate-50 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Fee</p>
+                <p className="mt-2 text-lg font-bold text-secondary">
+                  {currencySymbol}
+                  {appointment.amount}
+                </p>
+                <p className="text-sm text-slate-500">Consultation amount</p>
+              </div>
+              <div className="rounded-[22px] bg-slate-50 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Doctor review</p>
+                <p className="mt-2 text-lg font-bold text-secondary">{appointment.isAccepted ? 'Accepted' : 'Pending'}</p>
+                <p className="text-sm text-slate-500">Confirmation status</p>
+              </div>
             </div>
+
+            {appointment.notes?.length ? (
+              <div className="rounded-[26px] bg-amber-50 px-5 py-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Doctor notes</p>
+                <ul className="mt-3 grid gap-2 text-sm leading-7 text-amber-900">
+                  {appointment.notes.map((note, index) => (
+                    <li key={`${note}-${index}`} className="rounded-[18px] bg-white/60 px-4 py-3">
+                      {note}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              {!appointment.cancelled && !appointment.isCompleted && !appointment.payment && appointment.paymentStatus !== 'paid' ? (
+                <button onClick={appointmentRazorpay} className="app-button">
+                  Pay online (
+                  {currencySymbol}
+                  {appointment.amount})
+                </button>
+              ) : null}
+              {!appointment.cancelled && !appointment.isCompleted ? (
+                <button onClick={cancelAppointment} className="app-button-secondary text-rose-600">
+                  Cancel appointment
+                </button>
+              ) : null}
+              {appointment.payment || appointment.paymentStatus === 'paid' ? (
+                <button onClick={() => downloadInvoicePdf(appointment, currencySymbol)} className="app-button-secondary">
+                  Download invoice
+                </button>
+              ) : null}
+              {prescription ? (
+                <button onClick={() => downloadPrescriptionPdf(prescription, appointment)} className="app-button-secondary">
+                  Download prescription
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
-    )
-}
+      </article>
+    </PatientPortalLayout>
+  );
+};
 
-export default AppointmentDetails
+export default AppointmentDetails;

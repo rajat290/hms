@@ -1,59 +1,58 @@
-import React from 'react'
-import { assets } from '../assets/assets'
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { assets } from '../assets/assets';
+import PageHero from './ui/PageHero';
 
-const Header = () => {
-    return (
-        <div className='flex flex-col md:flex-row flex-wrap bg-gradient-primary rounded-3xl px-6 md:px-10 lg:px-20 relative overflow-hidden'>
-
-            {/* Background Accent */}
-            <div className='absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl'></div>
-            <div className='absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full -ml-10 -mb-10 blur-2xl'></div>
-
-            {/* --------- Header Left --------- */}
-            <div className='md:w-1/2 flex flex-col items-start justify-center gap-6 py-10 m-auto md:py-[8vw] md:mb-[-30px] relative z-10'>
-                <div className='flex flex-col gap-2'>
-                    <h1 className='text-4xl md:text-5xl lg:text-6xl text-white font-bold leading-tight'>
-                        Book an Appointment <br /> at <span className='text-accent'>Mediflow Hospital</span>
-                    </h1>
-                    <p className='text-white/80 text-lg font-medium tracking-wide uppercase mt-1'>
-                        Trusted Care • Same-Day Appointments • Easy Booking
-                    </p>
-                </div>
-
-                <div className='flex flex-col md:flex-row items-center gap-4 text-white/90 text-base font-light'>
-                    <img className='w-28 border-2 border-white/20 rounded-full p-1' src={assets.group_profiles} alt="" />
-                    <p className='leading-relaxed'>Simply browse through our extensive list of trusted doctors, <br className='hidden sm:block' /> schedule your appointment hassle-free in minutes.</p>
-                </div>
-
-                <div className='flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto'>
-                    <a href='#speciality' className='flex items-center justify-center gap-3 bg-white px-10 py-4 rounded-full text-primary font-bold text-base shadow-lg hover:bg-gray-50 hover:scale-105 transition-all duration-300 w-full sm:w-auto'>
-                        Book Appointment
-                    </a>
-                    <a href='tel:+12124567890' className='flex items-center justify-center gap-3 bg-transparent border-2 border-white/30 px-10 py-4 rounded-full text-white font-bold text-base hover:bg-white/10 transition-all duration-300 w-full sm:w-auto'>
-                        Call Hospital
-                    </a>
-                </div>
-
-                {/* Trust micro-points */}
-                <div className='flex flex-wrap items-center gap-6 text-white/80 text-sm font-medium mt-2'>
-                    <div className='flex items-center gap-2'>
-                        <span className='text-accent'>✔</span> Same-day appointments
-                    </div>
-                    <div className='flex items-center gap-2'>
-                        <span className='text-accent'>✔</span> Verified doctors
-                    </div>
-                    <div className='flex items-center gap-2'>
-                        <span className='text-accent'>✔</span> Secure patient data
-                    </div>
-                </div>
+const Header = () => (
+  <PageHero
+    eyebrow="Patient-first digital care"
+    title="A hospital experience that feels calm, fast, and dependable."
+    description="Find the right specialist, lock in a consultation, manage records, and stay ahead of follow-ups through a polished patient portal that works beautifully on every screen."
+    actions={
+      <>
+        <Link to="/doctors" className="app-button">
+          Book an appointment
+        </Link>
+        <a href="tel:+12124567890" className="app-button-secondary">
+          Call the care desk
+        </a>
+      </>
+    }
+    stats={[
+      { label: 'Average booking time', value: '2 min', helper: 'From search to confirmation' },
+      { label: 'Patient satisfaction', value: '4.9/5', helper: 'Across repeat visitors' },
+      { label: 'Live specialties', value: '18+', helper: 'From primary care to diagnostics' },
+    ]}
+    aside={
+      <div className="float-card app-card overflow-hidden">
+        <div className="relative overflow-hidden bg-gradient-primary px-6 pb-0 pt-6 text-white">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative z-10 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Today in care</p>
+              <p className="mt-2 text-2xl font-bold">Same-day appointments available</p>
             </div>
-
-            {/* --------- Header Right --------- */}
-            <div className='md:w-1/2 relative flex justify-end'>
-                <img className='w-full md:w-[90%] bottom-0 h-auto rounded-b-lg' src={assets.header_img} alt="" />
+            <div className="rounded-2xl bg-white/10 px-4 py-3 text-sm">
+              <p className="font-semibold">24x7 support</p>
+              <p className="text-white/75">Human help when needed</p>
             </div>
+          </div>
+          <img src={assets.header_img} alt="Doctor" className="mt-6 w-full object-contain" />
         </div>
-    )
-}
 
-export default Header
+        <div className="grid gap-3 p-5 sm:grid-cols-2">
+          <div className="rounded-[22px] bg-slate-50 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">What patients use most</p>
+            <p className="mt-2 text-lg font-bold text-secondary">Booking, invoices, reminders, and AI guidance.</p>
+          </div>
+          <div className="rounded-[22px] bg-primary/10 px-4 py-4 text-primary">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em]">Portal highlight</p>
+            <p className="mt-2 text-lg font-bold">Billing and appointment history stay in sync.</p>
+          </div>
+        </div>
+      </div>
+    }
+  />
+);
+
+export default Header;

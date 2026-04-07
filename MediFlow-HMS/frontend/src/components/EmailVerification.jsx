@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
+import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import AuthShell from './AuthShell';
+import LoadingState from './ui/LoadingState';
 import { AppContext } from '../context/AppContext';
-import { useContext } from 'react';
 
 const EmailVerification = () => {
   const { backendUrl } = useContext(AppContext);
@@ -14,75 +15,71 @@ const EmailVerification = () => {
 
   useEffect(() => {
     const token = searchParams.get('token');
-    if (token) {
-      verifyEmail(token);
-    } else {
-      setLoading(false);
-      toast.error('Invalid verification link');
-    }
-  }, [searchParams]);
 
-  const verifyEmail = async (token) => {
-    try {
-      const { data } = await axios.post(backendUrl + '/api/user/verify-email', { token });
-      if (data.success) {
-        setVerified(true);
-        toast.success(data.message);
-        setTimeout(() => {
-          navigate('/login');
-        }, 3000);
-      } else {
-        toast.error(data.message);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Verification failed');
-    } finally {
+    if (!token) {
+      toast.error('Invalid verification link.');
       setLoading(false);
+      return;
     }
-  };
+
+    const verifyEmail = async () => {
+      try {
+        const { data } = await axios.post(`${backendUrl}/api/user/verify-email`, { token });
+
+        if (data.success) {
+          setVerified(true);
+          toast.success(data.message);
+          setTimeout(() => navigate('/login'), 2500);
+        } else {
+          toast.error(data.message);
+        }
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'Verification failed.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyEmail();
+  }, [backendUrl, navigate, searchParams]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <LoadingState title="Verifying your email" message="Please wait while we confirm your registration link." fullHeight />;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <div className="text-center">
-          {verified ? (
-            <>
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-                <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Email Verified!</h2>
-              <p className="text-gray-600 mb-4">Your email has been successfully verified. You will be redirected to the login page shortly.</p>
-            </>
-          ) : (
-            <>
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Verification Failed</h2>
-              <p className="text-gray-600 mb-4">The verification link is invalid or has expired.</p>
-              <button
-                onClick={() => navigate('/login')}
-                className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors"
-              >
-                Back to Login
-              </button>
-            </>
-          )}
+    <AuthShell
+      eyebrow="Email verification"
+      title={verified ? 'Your account is now verified.' : 'This verification link is no longer valid.'}
+      description={
+        verified
+          ? 'You can now sign in and use the patient portal with full access to booking and account features.'
+          : 'The link may have expired or already been used. You can return to sign in or register again if needed.'
+      }
+      asideTitle="What happens next"
+      asidePoints={[
+        { title: 'Verified accounts move faster', copy: 'Patients can sign in, book, and receive reminder and billing updates without extra setup.' },
+        { title: 'Clear recovery paths', copy: 'If verification fails, the UI now guides patients back instead of leaving them stranded.' },
+      ]}
+    >
+      <div className="space-y-5">
+        <div className={`rounded-[28px] px-6 py-6 ${verified ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em]">{verified ? 'Success' : 'Action needed'}</p>
+          <p className="mt-3 text-2xl font-bold">{verified ? 'Email confirmed successfully.' : 'Verification failed.'}</p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button onClick={() => navigate('/login')} className="app-button">
+            Go to login
+          </button>
+          {!verified ? (
+            <button onClick={() => navigate('/login')} className="app-button-secondary">
+              Create a new account
+            </button>
+          ) : null}
         </div>
       </div>
-    </div>
+    </AuthShell>
   );
 };
 
