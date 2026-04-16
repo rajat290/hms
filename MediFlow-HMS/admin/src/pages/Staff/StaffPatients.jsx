@@ -1,122 +1,109 @@
-import React, { useEffect, useContext, useState } from 'react'
-import { assets } from '../../assets/assets.js'
-import { StaffContext } from '../../context/StaffContext'
-import { useNavigate } from 'react-router-dom'
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { StaffContext } from '../../context/StaffContext';
+import EmptyState from '../../components/backoffice/EmptyState';
+import LoadingState from '../../components/backoffice/LoadingState';
+import PageHeader from '../../components/backoffice/PageHeader';
+import StatusBadge from '../../components/backoffice/StatusBadge';
+import SurfaceCard from '../../components/backoffice/SurfaceCard';
 
 const StaffPatients = () => {
+  const navigate = useNavigate();
+  const { sToken, patients, getAllPatients } = useContext(StaffContext);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
-    const { sToken, patients, getAllPatients } = useContext(StaffContext)
-    const navigate = useNavigate()
-    const [loading, setLoading] = useState(true)
-    const [searchTerm, setSearchTerm] = useState("")
+  useEffect(() => {
+    if (sToken) {
+      Promise.resolve(getAllPatients()).finally(() => setLoading(false));
+    }
+  }, [sToken]);
 
-    useEffect(() => {
-        if (sToken) {
-            getAllPatients().then(() => setLoading(false))
+  const filteredPatients = useMemo(
+    () =>
+      patients.filter((patient) => {
+        const term = searchTerm.toLowerCase();
+        return (
+          patient.name.toLowerCase().includes(term) ||
+          patient.email.toLowerCase().includes(term) ||
+          patient.phone.includes(searchTerm)
+        );
+      }),
+    [patients, searchTerm],
+  );
+
+  if (loading) {
+    return <LoadingState label="Loading patient records..." />;
+  }
+
+  return (
+    <div className="space-y-6 animate-soft-in">
+      <PageHeader
+        eyebrow="Staff patients"
+        title="Patient search should feel instant and easy, even for a busy front desk."
+        description="Surface the right record quickly, then let staff jump directly into booking, billing, or profile review without extra navigation noise."
+        actions={
+          <button type="button" className="soft-button-accent" onClick={() => navigate('/staff-add-patient')}>
+            Add patient
+          </button>
         }
-    }, [sToken])
+      />
 
-    const filteredPatients = patients.filter(pat =>
-        pat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pat.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pat.phone.includes(searchTerm)
-    )
+      <SurfaceCard className="space-y-5">
+        <input
+          type="text"
+          placeholder="Search by patient name, phone, or email"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          className="soft-input"
+        />
 
-    return (
-        <div className='m-5 max-w-6xl mx-auto'>
-            <div className='flex justify-between items-center mb-6'>
-                <h1 className='text-2xl font-bold text-gray-800 flex items-center gap-2'>
-                    <img src={assets.people_icon} className='w-8' alt="" /> Patient Records
-                </h1>
-                <button
-                    onClick={() => navigate('/staff-add-patient')}
-                    className='bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium shadow hover:bg-indigo-700 transition-all flex items-center gap-2'
-                >
-                    <img src={assets.add_icon} className='w-4 invert' alt="" /> New Patient
-                </button>
-            </div>
-
-            <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
-                <div className='p-4 border-b bg-gray-50'>
-                    <input
-                        type='text'
-                        placeholder='Search by Name, Phone or Email...'
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        className='w-full md:w-96 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none'
-                    />
-                </div>
-
-                {loading ? (
-                    <div className='p-10 text-center text-gray-500'>Loading patients...</div>
-                ) : filteredPatients.length === 0 ? (
-                    <div className='p-10 text-center text-gray-500'>No patients found matching "{searchTerm}"</div>
-                ) : (
-                    <div className='divide-y divide-gray-100'>
-                        {/* Header */}
-                        <div className='grid grid-cols-[0.5fr_2fr_1.5fr_1.5fr_2fr] gap-4 p-4 bg-gray-50 font-semibold text-gray-600 text-sm hidden sm:grid'>
-                            <p>#</p>
-                            <p>Patient Details</p>
-                            <p>Contact</p>
-                            <p>Location</p>
-                            <p className='text-right'>Actions</p>
-                        </div>
-
-                        {/* Rows */}
-                        {filteredPatients.map((item, index) => (
-                            <div className='grid grid-cols-1 sm:grid-cols-[0.5fr_2fr_1.5fr_1.5fr_2fr] gap-4 p-4 items-center hover:bg-gray-50 transition-colors' key={index}>
-                                <p className='max-sm:hidden text-gray-500 font-medium'>{index + 1}</p>
-                                <div className='flex items-center gap-3'>
-                                    <img className='w-10 h-10 rounded-full object-cover border border-gray-200' src={item.image} alt='' />
-                                    <div>
-                                        <p className='font-bold text-gray-800 flex items-center gap-2'>
-                                            {item.name}
-                                            {item.patientCategory !== 'Standard' && (
-                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${item.patientCategory === 'VIP' ? 'bg-amber-100 text-amber-700' :
-                                                    item.patientCategory === 'High-risk' ? 'bg-red-100 text-red-700' :
-                                                        'bg-blue-100 text-blue-700'
-                                                    }`}>
-                                                    {item.patientCategory}
-                                                </span>
-                                            )}
-                                        </p>
-                                        <p className='text-xs text-gray-500'>{item.dob === 'Not Selected' ? 'Age N/A' : item.dob}</p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className='text-sm text-gray-800 font-medium'>{item.phone}</p>
-                                    <p className='text-xs text-gray-600 truncate max-w-[150px]'>{item.chronicConditions || 'No conditions'}</p>
-                                </div>
-                                <p className='text-sm text-gray-600 truncate'>
-                                    {typeof item.address === 'object' ? (item.address.line1 || 'N/A') : item.address}
-                                </p>
-                                <div className='flex justify-end gap-2'>
-                                    <button
-                                        onClick={() => navigate('/staff-appointments')} // Ideal: Pre-select patient
-                                        className='bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all'
-                                    >
-                                        📅 Book
-                                    </button>
-                                    <button
-                                        onClick={() => navigate('/staff-billing')} // Ideal: Pre-select patient
-                                        className='bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all'
-                                    >
-                                        💳 Bill
-                                    </button>
-                                    <button
-                                        onClick={() => navigate(`/staff-patient-profile/${item._id}`)}
-                                        className='bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all'
-                                    >
-                                        👁️ View
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+        {filteredPatients.length === 0 ? (
+          <EmptyState title="No patient record found" description="Try searching with phone or email if the patient name is not enough." />
+        ) : (
+          <div className="space-y-3">
+            {filteredPatients.map((patient) => (
+              <div key={patient._id} className="grid gap-4 rounded-[26px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[1.2fr_1fr_0.9fr_1.15fr] xl:items-center">
+                <div className="flex items-center gap-3">
+                  <img src={patient.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-900">{patient.name}</p>
+                      {patient.patientCategory !== 'Standard' ? (
+                        <StatusBadge tone={patient.patientCategory === 'VIP' ? 'warning' : patient.patientCategory === 'High-risk' ? 'danger' : 'info'}>
+                          {patient.patientCategory}
+                        </StatusBadge>
+                      ) : null}
                     </div>
-                )}
-            </div>
-        </div>
-    )
-}
+                    <p className="mt-1 text-sm text-slate-500">{patient.phone || 'No phone on record'}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="table-head">Contact</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">{patient.email}</p>
+                </div>
+                <div>
+                  <p className="table-head">Address</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">{typeof patient.address === 'object' ? (patient.address.line1 || 'Not set') : patient.address}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => navigate('/staff-appointments')}>
+                    Book
+                  </button>
+                  <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => navigate('/staff-billing')}>
+                    Bill
+                  </button>
+                  <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => navigate(`/staff-patient-profile/${patient._id}`)}>
+                    View profile
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </SurfaceCard>
+    </div>
+  );
+};
 
-export default StaffPatients
+export default StaffPatients;

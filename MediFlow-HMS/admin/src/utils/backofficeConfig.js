@@ -1,0 +1,116 @@
+import { assets } from '../assets/assets';
+
+export const roleMeta = {
+  admin: {
+    label: 'Admin Console',
+    shortLabel: 'Admin',
+    accent: 'from-teal-500 via-emerald-500 to-cyan-500',
+    description: 'Operations, growth, finance, and governance in one place.',
+  },
+  doctor: {
+    label: 'Doctor Workspace',
+    shortLabel: 'Doctor',
+    accent: 'from-sky-500 via-cyan-500 to-emerald-500',
+    description: 'Your consultations, availability, and patient follow-ups.',
+  },
+  staff: {
+    label: 'Staff Desk',
+    shortLabel: 'Staff',
+    accent: 'from-amber-500 via-orange-500 to-rose-500',
+    description: 'Front-desk flow, queue management, billing, and patient support.',
+  },
+};
+
+export const navigationByRole = {
+  admin: [
+    { to: '/admin-dashboard', label: 'Overview', icon: assets.home_icon },
+    { to: '/all-appointments', label: 'Appointments', icon: assets.appointment_icon },
+    { to: '/doctor-list', label: 'Doctors', icon: assets.doctor_icon },
+    { to: '/all-patients', label: 'Patients', icon: assets.people_icon },
+    { to: '/billing', label: 'Billing', icon: assets.earning_icon },
+    { to: '/analytics', label: 'Analytics', icon: assets.list_icon },
+    { to: '/payment-settings', label: 'Payment Setup', icon: assets.earning_icon },
+    { to: '/add-doctor', label: 'Add Doctor', icon: assets.add_icon },
+    { to: '/add-patient', label: 'Add Patient', icon: assets.add_icon },
+    { to: '/add-staff', label: 'Add Staff', icon: assets.add_icon },
+    { to: '/all-staff', label: 'Staff Team', icon: assets.people_icon },
+    { to: '/settings', label: 'Settings', icon: assets.list_icon },
+  ],
+  doctor: [
+    { to: '/doctor-dashboard', label: 'Overview', icon: assets.home_icon },
+    { to: '/doctor-appointments', label: 'Appointments', icon: assets.appointment_icon },
+    { to: '/doctor-profile', label: 'Profile', icon: assets.people_icon },
+    { to: '/doctor-availability', label: 'Availability', icon: assets.list_icon },
+  ],
+  staff: [
+    { to: '/staff-dashboard', label: 'Overview', icon: assets.home_icon },
+    { to: '/staff-appointments', label: 'Appointments', icon: assets.appointment_icon },
+    { to: '/staff-patients', label: 'Patients', icon: assets.people_icon },
+    { to: '/staff-add-patient', label: 'Register Patient', icon: assets.add_icon },
+    { to: '/staff-billing', label: 'Billing', icon: assets.earning_icon },
+    { to: '/staff-queue', label: 'Queue', icon: assets.list_icon },
+    { to: '/staff-follow-up', label: 'Follow-up', icon: assets.list_icon },
+    { to: '/staff-analytics', label: 'Analytics', icon: assets.earning_icon },
+  ],
+};
+
+const titleByPath = {
+  '/': 'Overview',
+  '/admin-dashboard': 'Overview',
+  '/all-appointments': 'Appointments',
+  '/add-doctor': 'Add Doctor',
+  '/add-patient': 'Add Patient',
+  '/doctor-list': 'Doctors',
+  '/all-patients': 'Patients',
+  '/billing': 'Billing & Payments',
+  '/settings': 'Settings',
+  '/analytics': 'Analytics',
+  '/billing-analytics': 'Billing Analytics',
+  '/payment-settings': 'Payment Settings',
+  '/add-staff': 'Add Staff',
+  '/all-staff': 'Staff Team',
+  '/doctor-dashboard': 'Overview',
+  '/doctor-appointments': 'Appointments',
+  '/doctor-profile': 'Profile',
+  '/doctor-availability': 'Availability',
+  '/staff-dashboard': 'Overview',
+  '/staff-appointments': 'Appointments',
+  '/staff-patients': 'Patients',
+  '/staff-add-patient': 'Register Patient',
+  '/staff-billing': 'Billing',
+  '/staff-follow-up': 'Follow-up',
+  '/staff-queue': 'Queue',
+  '/staff-analytics': 'Analytics',
+};
+
+const descriptionByPath = {
+  '/admin-dashboard': 'Monitor patient flow, collections, and system health at a glance.',
+  '/all-appointments': 'Search, sort, accept, and review every booking from one stream.',
+  '/add-doctor': 'Create a verified doctor profile with schedule and billing basics.',
+  '/add-patient': 'Register a patient record with medical and contact details.',
+  '/doctor-list': 'Manage doctor profiles, availability, and roster hygiene.',
+  '/all-patients': 'Track patient financials, records, and follow-up history.',
+  '/billing': 'Review invoices, payments, refunds, and billing performance.',
+  '/settings': 'Adjust account-wide controls and cancellation rules.',
+  '/analytics': 'Dive into growth, revenue, and operational trends.',
+  '/payment-settings': 'Control cash and online payment options by doctor.',
+  '/add-staff': 'Onboard a front-desk or billing team member.',
+  '/all-staff': 'Review staff roster and account coverage.',
+  '/doctor-dashboard': 'See today’s workload, active patients, and earnings.',
+  '/doctor-appointments': 'Accept, complete, note, and prescribe from a single workflow.',
+  '/doctor-profile': 'Maintain consultation details and public-facing profile info.',
+  '/doctor-availability': 'Shape weekly slots and slot duration for bookings.',
+  '/staff-dashboard': 'Keep patient arrivals, collections, and queue activity moving smoothly.',
+  '/staff-appointments': 'Handle check-ins, cancellations, and payment follow-through.',
+  '/staff-patients': 'Search records quickly and jump to booking or billing actions.',
+  '/staff-add-patient': 'Create a clean patient record at the front desk.',
+  '/staff-billing': 'Turn appointments into invoices and record payment safely.',
+  '/staff-follow-up': 'Stay on top of pending patient callbacks and handoffs.',
+  '/staff-queue': 'Manage who needs attention right now and who is waiting next.',
+  '/staff-analytics': 'Review the front-desk workload, collections, and throughput.',
+};
+
+export const getPageMeta = (pathname, role) => ({
+  title: titleByPath[pathname] || roleMeta[role]?.shortLabel || 'Workspace',
+  description: descriptionByPath[pathname] || roleMeta[role]?.description || '',
+});

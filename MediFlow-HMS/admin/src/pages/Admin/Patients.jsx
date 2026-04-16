@@ -1,116 +1,133 @@
-import React, { useEffect, useContext, useState } from 'react'
-import { AdminContext } from '../../context/AdminContext'
-import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
-import { toast } from 'react-toastify'
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { AdminContext } from '../../context/AdminContext';
+import EmptyState from '../../components/backoffice/EmptyState';
+import LoadingState from '../../components/backoffice/LoadingState';
+import PageHeader from '../../components/backoffice/PageHeader';
+import SurfaceCard from '../../components/backoffice/SurfaceCard';
 
 const Patients = () => {
+  const { aToken, backendUrl } = useContext(AdminContext);
+  const navigate = useNavigate();
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('');
 
-    const { aToken, backendUrl } = useContext(AdminContext)
-    const navigate = useNavigate()
-    const [patients, setPatients] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [searchTerm, setSearchTerm] = useState("")
-    const [sortBy, setSortBy] = useState("")
-    const [paymentFilter, setPaymentFilter] = useState("")
-
+  useEffect(() => {
     const getAllPatients = async () => {
-        try {
-            const { data } = await axios.get(backendUrl + '/api/admin/all-patients', { headers: { aToken } })
-            if (data.success) {
-                setPatients(data.patients)
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            toast.error(error.message)
-            console.log(error)
-        } finally {
-            setLoading(false)
+      try {
+        const { data } = await axios.get(`${backendUrl}/api/admin/all-patients`, { headers: { aToken } });
+        if (data.success) {
+          setPatients(data.patients);
+        } else {
+          toast.error(data.message);
         }
+      } catch (error) {
+        toast.error(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (aToken) {
+      getAllPatients();
     }
+  }, [aToken, backendUrl]);
 
-    useEffect(() => {
-        if (aToken) {
-            getAllPatients()
-        }
-    }, [aToken])
+  const filteredPatients = useMemo(
+    () =>
+      patients
+        .filter((patient) => {
+          const term = searchTerm.toLowerCase();
+          const matchesSearch =
+            patient.name.toLowerCase().includes(term) ||
+            patient.email.toLowerCase().includes(term);
+          const matchesPayment =
+            !paymentFilter ||
+            (paymentFilter === 'paid' ? patient.pendingDues === 0 : patient.pendingDues > 0);
 
-    // Filter and sort logic
-    const filteredPatients = patients
-        .filter(pat =>
-            (pat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-             pat.email.toLowerCase().includes(searchTerm.toLowerCase())) &&
-            (paymentFilter === "" || (paymentFilter === "paid" ? pat.pendingDues === 0 : pat.pendingDues > 0))
-        )
-        .sort((a, b) => {
-            if (sortBy === "name") return a.name.localeCompare(b.name)
-            if (sortBy === "email") return a.email.localeCompare(b.email)
-            if (sortBy === "paid") return a.totalPaid - b.totalPaid
-            if (sortBy === "pending") return a.pendingDues - b.pendingDues
-            return 0
+          return matchesSearch && matchesPayment;
         })
+        .sort((left, right) => {
+          if (sortBy === 'name') return left.name.localeCompare(right.name);
+          if (sortBy === 'email') return left.email.localeCompare(right.email);
+          if (sortBy === 'paid') return left.totalPaid - right.totalPaid;
+          if (sortBy === 'pending') return left.pendingDues - right.pendingDues;
+          return 0;
+        }),
+    [patients, paymentFilter, searchTerm, sortBy],
+  );
 
-    return (
-        <div className='m-5 max-h-[90vh] overflow-y-scroll'>
-            <h1 className='text-lg font-medium'>All Patients</h1>
-            <div className='flex flex-col sm:flex-row gap-4 my-4'>
-                <input
-                    type='text'
-                    placeholder='Search by name or email...'
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className='border px-3 py-2 rounded w-full sm:w-64'
-                />
-                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className='border px-3 py-2 rounded w-full sm:w-auto'>
-                    <option value=''>Sort By</option>
-                    <option value='name'>Name</option>
-                    <option value='email'>Email</option>
-                    <option value='paid'>Total Paid</option>
-                    <option value='pending'>Pending Dues</option>
-                </select>
-                <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)} className='border px-3 py-2 rounded w-full sm:w-auto'>
-                    <option value=''>All Payment Status</option>
-                    <option value='paid'>Paid</option>
-                    <option value='pending'>Pending</option>
-                </select>
-            </div>
-            {loading ? (
-                <p className='text-gray-500 mt-4 text-center'>Loading patients...</p>
-            ) : filteredPatients.length === 0 ? (
-                <p className='text-gray-500 mt-4 text-center'>No patients found.</p>
-            ) : (
-                <>
-                    <div className='w-full grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto] gap-4 py-3 px-6 border-b hidden sm:grid'>
-                        <p>#</p>
-                        <p>Name</p>
-                        <p>Email</p>
-                        <p>Total Paid</p>
-                        <p>Pending Dues</p>
-                        <p>Actions</p>
-                    </div>
-                    {filteredPatients.map((item, index) => (
-                        <div className='flex flex-wrap justify-between max-sm:gap-2 sm:grid sm:grid-cols-[auto_1fr_1fr_1fr_1fr_auto] items-center text-gray-500 py-3 px-6 border-b hover:bg-gray-50' key={index}>
-                            <p className='max-sm:hidden'>{index + 1}</p>
-                            <div className='flex items-center gap-2'>
-                                <img className='w-8 rounded-full' src={item.image} alt='' />
-                                <p>{item.name}</p>
-                            </div>
-                            <p className='max-sm:hidden'>{item.email}</p>
-                            <p>{item.currency}{item.totalPaid}</p>
-                            <p className='text-red-500 font-medium'>{item.currency}{item.pendingDues}</p>
-                            <button
-                                onClick={() => navigate(`/patient-details/${item._id}`)}
-                                className='text-sm text-primary border border-primary px-3 py-1 rounded hover:bg-primary hover:text-white transition-all'
-                            >
-                                View Details
-                            </button>
-                        </div>
-                    ))}
-                </>
-            )}
+  if (loading) {
+    return <LoadingState label="Loading patient records..." />;
+  }
+
+  return (
+    <div className="space-y-6 animate-soft-in">
+      <PageHeader
+        eyebrow="Patient records"
+        title="Financial visibility and patient lookup should feel reassuring, not risky."
+        description="Make it easy for admins to search people quickly, understand balances, and jump into details without second-guessing the data."
+      />
+
+      <SurfaceCard className="space-y-5">
+        <div className="grid gap-3 md:grid-cols-3">
+          <input type="text" placeholder="Search patient name or email" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="soft-input" />
+          <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="soft-select">
+            <option value="">Sort by</option>
+            <option value="name">Name</option>
+            <option value="email">Email</option>
+            <option value="paid">Total paid</option>
+            <option value="pending">Pending dues</option>
+          </select>
+          <select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)} className="soft-select">
+            <option value="">All payment status</option>
+            <option value="paid">Fully paid</option>
+            <option value="pending">Pending dues</option>
+          </select>
         </div>
-    )
-}
 
-export default Patients
+        {filteredPatients.length === 0 ? (
+          <EmptyState title="No patient records found" description="Try a different search term or clear the payment filter." />
+        ) : (
+          <div className="space-y-3">
+            {filteredPatients.map((patient) => (
+              <div key={patient._id} className="grid gap-4 rounded-[26px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[1.3fr_1fr_0.9fr_0.9fr_0.8fr] xl:items-center">
+                <div className="flex items-center gap-3">
+                  <img src={patient.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{patient.name}</p>
+                    <p className="text-sm text-slate-500">{patient.email}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="table-head">Total paid</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">{patient.currency}{patient.totalPaid}</p>
+                </div>
+                <div>
+                  <p className="table-head">Pending dues</p>
+                  <p className="mt-2 text-sm font-semibold text-rose-600">{patient.currency}{patient.pendingDues}</p>
+                </div>
+                <div>
+                  <p className="table-head">Phone</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">{patient.phone || 'Not set'}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => navigate(`/patient-details/${patient._id}`)}>
+                    View details
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </SurfaceCard>
+    </div>
+  );
+};
+
+export default Patients;

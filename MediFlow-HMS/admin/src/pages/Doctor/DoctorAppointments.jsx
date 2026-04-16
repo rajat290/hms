@@ -1,148 +1,251 @@
-import React, { useState } from 'react'
-import { useContext, useEffect } from 'react'
-import { DoctorContext } from '../../context/DoctorContext'
-import { AppContext } from '../../context/AppContext'
-import { assets } from '../../assets/assets'
-import { toast } from 'react-toastify'
-import axios from 'axios'
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { DoctorContext } from '../../context/DoctorContext';
+import { AppContext } from '../../context/AppContext';
+import EmptyState from '../../components/backoffice/EmptyState';
+import LoadingState from '../../components/backoffice/LoadingState';
+import PageHeader from '../../components/backoffice/PageHeader';
+import StatusBadge from '../../components/backoffice/StatusBadge';
+import SurfaceCard from '../../components/backoffice/SurfaceCard';
 
 const DoctorAppointments = () => {
+  const {
+    dToken,
+    appointments,
+    getAppointments,
+    cancelAppointment,
+    completeAppointment,
+    acceptAppointment,
+    backendUrl,
+  } = useContext(DoctorContext);
+  const { slotDateFormat, calculateAge, currency } = useContext(AppContext);
 
-  const { dToken, appointments, getAppointments, cancelAppointment, completeAppointment, acceptAppointment, backendUrl } = useContext(DoctorContext)
-  const { slotDateFormat, calculateAge, currency } = useContext(AppContext)
-
-  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false)
-  const [currentAppointmentId, setCurrentAppointmentId] = useState(null)
-  const [medicines, setMedicines] = useState([])
-  const [currentMed, setCurrentMed] = useState({ name: '', dosage: '', duration: '', instruction: '' })
-
-  const addNote = async (appointmentId) => {
-    const note = prompt("Enter note for this appointment:");
-    if (!note) return;
-    try {
-      const { data } = await axios.post(
-        backendUrl + '/api/doctor/add-notes',
-        { appointmentId, notes: note },
-        { headers: { dToken } }
-      )
-
-      if (data.success) {
-        toast.success("Note added")
-      } else {
-        toast.error(data.message)
-      }
-    } catch (error) {
-      toast.error(error.message)
-    }
-  }
-
-  const handleAddMed = () => {
-    if (!currentMed.name || !currentMed.dosage) return toast.error("Name and Dosage required");
-    setMedicines([...medicines, currentMed]);
-    setCurrentMed({ name: '', dosage: '', duration: '', instruction: '' });
-  }
-
-  const submitPrescription = async () => {
-    try {
-      const { data } = await axios.post(backendUrl + '/api/doctor/generate-prescription', { appointmentId: currentAppointmentId, medicines }, { headers: { dToken } })
-      if (data.success) {
-        toast.success(data.message)
-        setShowPrescriptionModal(false)
-        setMedicines([])
-      } else {
-        toast.error(data.message)
-      }
-    } catch (error) {
-      toast.error(error.message)
-    }
-  }
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [currentAppointmentId, setCurrentAppointmentId] = useState(null);
+  const [medicines, setMedicines] = useState([]);
+  const [currentMed, setCurrentMed] = useState({ name: '', dosage: '', duration: '', instruction: '' });
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (dToken) {
-      getAppointments()
+      getAppointments();
     }
-  }, [dToken])
+  }, [dToken]);
+
+  const filteredAppointments = useMemo(
+    () =>
+      appointments.filter((item) => {
+        const term = searchTerm.toLowerCase();
+        return (
+          item.userData.name.toLowerCase().includes(term) ||
+          item.docData.name.toLowerCase().includes(term) ||
+          slotDateFormat(item.slotDate).toLowerCase().includes(term)
+        );
+      }),
+    [appointments, searchTerm, slotDateFormat],
+  );
+
+  const addNote = async (appointmentId) => {
+    const note = window.prompt('Enter a note for this appointment.');
+    if (!note) return;
+
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/doctor/add-notes`,
+        { appointmentId, notes: note },
+        { headers: { dToken } },
+      );
+
+      if (data.success) {
+        toast.success('Note added');
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleAddMed = () => {
+    if (!currentMed.name || !currentMed.dosage) {
+      toast.error('Medicine name and dosage are required.');
+      return;
+    }
+
+    setMedicines((prev) => [...prev, currentMed]);
+    setCurrentMed({ name: '', dosage: '', duration: '', instruction: '' });
+  };
+
+  const submitPrescription = async () => {
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/doctor/generate-prescription`,
+        { appointmentId: currentAppointmentId, medicines },
+        { headers: { dToken } },
+      );
+
+      if (data.success) {
+        toast.success(data.message);
+        setShowPrescriptionModal(false);
+        setMedicines([]);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  if (!appointments.length && dToken) {
+    return <LoadingState label="Loading your appointments..." />;
+  }
 
   return (
-    <div className='w-full max-w-6xl m-5 '>
+    <>
+      <div className="space-y-6 animate-soft-in">
+        <PageHeader
+          eyebrow="Doctor appointments"
+          title="Everything you need for a consultation should stay in one focused workflow."
+          description="Review patient basics, accept or complete visits, add notes, and draft prescriptions without bouncing between separate screens."
+        />
 
-      <p className='mb-3 text-lg font-medium'>All Appointments</p>
+        <SurfaceCard className="space-y-5">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            className="soft-input"
+            placeholder="Search patient name, date, or appointment context"
+          />
 
-      <div className='bg-white border rounded text-sm max-h-[80vh] overflow-y-scroll'>
-        <div className='max-sm:hidden grid grid-cols-[0.5fr_2fr_1fr_1fr_3fr_1fr_1fr_1fr] gap-1 py-3 px-6 border-b'>
-          <p>#</p>
-          <p>Patient</p>
-          <p>Payment</p>
-          <p>Age</p>
-          <p>Date & Time</p>
-          <p>Fees</p>
-          <p>Action</p>
-          <p>Tools</p>
-        </div>
-        {appointments.map((item, index) => (
-          <div className='flex flex-wrap justify-between max-sm:gap-5 max-sm:text-base sm:grid grid-cols-[0.5fr_2fr_1fr_1fr_3fr_1fr_1fr_1fr] gap-1 items-center text-gray-500 py-3 px-6 border-b hover:bg-gray-50' key={index}>
-            <p className='max-sm:hidden'>{index + 1}</p>
-            <div className='flex items-center gap-2'>
-              <img src={item.userData.image} className='w-8 rounded-full' alt="" /> <p>{item.userData.name}</p>
-            </div>
-            <div>
-              <p className='text-xs inline border border-primary px-2 rounded-full'>
-                {item.paymentStatus || (item.payment ? 'Online' : 'CASH')}
-              </p>
-            </div>
-            <p className='max-sm:hidden'>{calculateAge(item.userData.dob)}</p>
-            <p>{slotDateFormat(item.slotDate)}, {item.slotTime}</p>
-            <p>{currency}{item.amount}</p>
-            {item.cancelled
-              ? <p className='text-red-400 text-xs font-medium'>Cancelled</p>
-              : item.isCompleted
-                ? <p className='text-green-500 text-xs font-medium'>Completed</p>
-                : <div className='flex'>
-                  <img onClick={() => cancelAppointment(item._id)} className='w-10 cursor-pointer' src={assets.cancel_icon} alt="" />
-                  {item.isAccepted ? (
-                    <img onClick={() => completeAppointment(item._id)} className='w-10 cursor-pointer' src={assets.tick_icon} alt="" title="Complete Appointment" />
-                  ) : (
-                    <button onClick={() => acceptAppointment(item._id)} className='text-sm border border-green-500 text-green-500 px-2 py-1 rounded hover:bg-green-500 hover:text-white transition-all'>Accept</button>
-                  )}
-                </div>
-            }
-            <div className='flex flex-col gap-1 text-xs'>
-              <button onClick={() => addNote(item._id)} className='text-blue-500 underline text-left'>Add Note</button>
-              <button onClick={() => { setCurrentAppointmentId(item._id); setShowPrescriptionModal(true); }} className='text-green-500 underline text-left'>Prescribe</button>
-            </div>
-          </div>
-        ))}
-      </div>
+          {filteredAppointments.length === 0 ? (
+            <EmptyState
+              title="No appointments match this search"
+              description="Try a broader search or wait for new patient bookings to arrive."
+            />
+          ) : (
+            <div className="space-y-3">
+              {filteredAppointments.map((item) => (
+                <div key={item._id} className="grid gap-4 rounded-[26px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[1.25fr_0.8fr_0.85fr_1.15fr] xl:items-center">
+                  <div className="flex items-center gap-3">
+                    <img src={item.userData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-900">{item.userData.name}</p>
+                        {item.cancelled ? (
+                          <StatusBadge tone="danger">Cancelled</StatusBadge>
+                        ) : item.isCompleted ? (
+                          <StatusBadge tone="success">Completed</StatusBadge>
+                        ) : item.isAccepted ? (
+                          <StatusBadge tone="info">Accepted</StatusBadge>
+                        ) : (
+                          <StatusBadge tone="warning">Pending review</StatusBadge>
+                        )}
+                      </div>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {calculateAge(item.userData.dob)} years • {slotDateFormat(item.slotDate)} • {item.slotTime}
+                      </p>
+                    </div>
+                  </div>
 
-      {/* Prescription Modal */}
-      {showPrescriptionModal && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
-          <div className='bg-white p-5 rounded-lg w-full max-w-lg'>
-            <h2 className='text-xl font-bold mb-4'>Create Prescription</h2>
-            <div className='flex flex-col gap-2 mb-4'>
-              <input type="text" placeholder="Medicine Name" className='border p-2' value={currentMed.name} onChange={e => setCurrentMed({ ...currentMed, name: e.target.value })} />
-              <input type="text" placeholder="Dosage (e.g. 1-0-1)" className='border p-2' value={currentMed.dosage} onChange={e => setCurrentMed({ ...currentMed, dosage: e.target.value })} />
-              <input type="text" placeholder="Duration (e.g. 5 days)" className='border p-2' value={currentMed.duration} onChange={e => setCurrentMed({ ...currentMed, duration: e.target.value })} />
-              <input type="text" placeholder="Instruction (After meal)" className='border p-2' value={currentMed.instruction} onChange={e => setCurrentMed({ ...currentMed, instruction: e.target.value })} />
-              <button onClick={handleAddMed} className='bg-blue-500 text-white p-2 rounded'>Add Medicine</button>
-            </div>
-            <div className='bg-gray-50 p-2 mb-4 max-h-40 overflow-y-auto'>
-              {medicines.map((med, idx) => (
-                <div key={idx} className='border-b p-1 text-sm'>
-                  <b>{med.name}</b> - {med.dosage} - {med.duration}
+                  <div>
+                    <p className="table-head">Payment</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">{item.paymentStatus || 'unpaid'}</p>
+                    <p className="text-xs text-slate-500">{currency}{item.amount}</p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {!item.cancelled && !item.isCompleted ? (
+                      <>
+                        {!item.isAccepted ? (
+                          <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => acceptAppointment(item._id)}>
+                            Accept
+                          </button>
+                        ) : (
+                          <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => completeAppointment(item._id)}>
+                            Complete
+                          </button>
+                        )}
+                        <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => cancelAppointment(item._id)}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => addNote(item._id)}>
+                      Add note
+                    </button>
+                    <button
+                      type="button"
+                      className="soft-button-secondary px-4 py-2 text-xs"
+                      onClick={() => {
+                        setCurrentAppointmentId(item._id);
+                        setShowPrescriptionModal(true);
+                      }}
+                    >
+                      Prescribe
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
-            <div className='flex justify-end gap-2'>
-              <button onClick={() => setShowPrescriptionModal(false)} className='bg-gray-300 px-4 py-2 rounded'>Cancel</button>
-              <button onClick={submitPrescription} className='bg-primary text-white px-4 py-2 rounded'>Submit Prescription</button>
+          )}
+        </SurfaceCard>
+      </div>
+
+      {showPrescriptionModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[30px] border border-white/70 bg-white/95 p-6 shadow-[0_28px_90px_rgba(15,23,42,0.18)]">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Prescription</p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Draft medication plan</h2>
+              </div>
+              <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => setShowPrescriptionModal(false)}>
+                Close
+              </button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <input className="soft-input" placeholder="Medicine name" value={currentMed.name} onChange={(event) => setCurrentMed({ ...currentMed, name: event.target.value })} />
+              <input className="soft-input" placeholder="Dosage" value={currentMed.dosage} onChange={(event) => setCurrentMed({ ...currentMed, dosage: event.target.value })} />
+              <input className="soft-input" placeholder="Duration" value={currentMed.duration} onChange={(event) => setCurrentMed({ ...currentMed, duration: event.target.value })} />
+              <input className="soft-input" placeholder="Instruction" value={currentMed.instruction} onChange={(event) => setCurrentMed({ ...currentMed, instruction: event.target.value })} />
+            </div>
+
+            <div className="mt-4">
+              <button type="button" className="soft-button-accent px-4 py-3" onClick={handleAddMed}>
+                Add medicine
+              </button>
+            </div>
+
+            <div className="mt-6 max-h-[220px] space-y-3 overflow-y-auto">
+              {medicines.map((medicine, index) => (
+                <div key={`${medicine.name}-${index}`} className="rounded-[22px] border border-slate-100 bg-slate-50/80 p-4">
+                  <p className="text-sm font-semibold text-slate-900">{medicine.name}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {medicine.dosage} • {medicine.duration || 'Duration pending'} • {medicine.instruction || 'No extra instruction'}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" className="soft-button-secondary px-4 py-3" onClick={() => setShowPrescriptionModal(false)}>
+                Cancel
+              </button>
+              <button type="button" className="soft-button-primary px-4 py-3" onClick={submitPrescription}>
+                Submit prescription
+              </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
+    </>
+  );
+};
 
-    </div>
-  )
-}
-
-export default DoctorAppointments
+export default DoctorAppointments;

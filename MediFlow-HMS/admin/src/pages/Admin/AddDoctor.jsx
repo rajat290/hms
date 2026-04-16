@@ -1,208 +1,190 @@
-import React, { useContext, useState } from 'react'
-import { assets } from '../../assets/assets'
-import { toast } from 'react-toastify'
-import axios from 'axios'
-import { AdminContext } from '../../context/AdminContext'
-import { AppContext } from '../../context/AppContext'
+import React, { useContext, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { assets } from '../../assets/assets';
+import { AdminContext } from '../../context/AdminContext';
+import { AppContext } from '../../context/AppContext';
+import PageHeader from '../../components/backoffice/PageHeader';
+import SurfaceCard from '../../components/backoffice/SurfaceCard';
 
 const AddDoctor = () => {
+  const [docImg, setDocImg] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [experience, setExperience] = useState('1 Year');
+  const [fees, setFees] = useState('');
+  const [about, setAbout] = useState('');
+  const [speciality, setSpeciality] = useState('General physician');
+  const [degree, setDegree] = useState('');
+  const [address1, setAddress1] = useState('');
+  const [address2, setAddress2] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-    const [docImg, setDocImg] = useState(false)
-    const [name, setName] = useState('')
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [experience, setExperience] = useState('1 Year')
-    const [fees, setFees] = useState('')
-    const [about, setAbout] = useState('')
-    const [speciality, setSpeciality] = useState('General physician')
-    const [degree, setDegree] = useState('')
-    const [address1, setAddress1] = useState('')
-    const [address2, setAddress2] = useState('')
+  const { backendUrl } = useContext(AppContext);
+  const { aToken } = useContext(AdminContext);
 
-    const [loading, setLoading] = useState(false)
-    const [showPassword, setShowPassword] = useState(false)
+  const resetForm = () => {
+    setDocImg(false);
+    setName('');
+    setEmail('');
+    setPassword('');
+    setExperience('1 Year');
+    setFees('');
+    setAbout('');
+    setSpeciality('General physician');
+    setDegree('');
+    setAddress1('');
+    setAddress2('');
+  };
 
-    const { backendUrl } = useContext(AppContext)
-    const { aToken } = useContext(AdminContext)
+  const onSubmitHandler = async (event) => {
+    event.preventDefault();
+    setLoading(true);
 
-    const onSubmitHandler = async (event) => {
-        event.preventDefault()
-        setLoading(true)
+    try {
+      if (!docImg) {
+        toast.error('Please select a doctor image.');
+        return;
+      }
 
-        try {
+      const formData = new FormData();
+      formData.append('image', docImg);
+      formData.append('name', name);
+      formData.append('email', email);
+      formData.append('password', password);
+      formData.append('experience', experience);
+      formData.append('fees', Number(fees));
+      formData.append('about', about);
+      formData.append('speciality', speciality);
+      formData.append('degree', degree);
+      formData.append('address', JSON.stringify({ line1: address1, line2: address2 }));
 
-            if (!docImg) {
-                setLoading(false)
-                return toast.error('Image Not Selected')
-            }
+      const { data } = await axios.post(`${backendUrl}/api/admin/add-doctor`, formData, {
+        headers: { aToken },
+      });
 
-            const formData = new FormData();
-
-            formData.append('image', docImg)
-            formData.append('name', name)
-            formData.append('email', email)
-            formData.append('password', password)
-            formData.append('experience', experience)
-            formData.append('fees', Number(fees))
-            formData.append('about', about)
-            formData.append('speciality', speciality)
-            formData.append('degree', degree)
-            formData.append('address', JSON.stringify({ line1: address1, line2: address2 }))
-
-            // console log formdata            
-            formData.forEach((value, key) => {
-                console.log(`${key}: ${value}`);
-            });
-
-            const { data } = await axios.post(backendUrl + '/api/admin/add-doctor', formData, { headers: { aToken } })
-            if (data.success) {
-                toast.success(data.message)
-                setDocImg(false)
-                setName('')
-                setPassword('')
-                setEmail('')
-                setAddress1('')
-                setAddress2('')
-                setDegree('')
-                setAbout('')
-                setFees('')
-            } else {
-                toast.error(data.message)
-            }
-
-        } catch (error) {
-            toast.error(error.message)
-            console.log(error)
-        } finally {
-            setLoading(false)
-        }
-
+      if (data.success) {
+        toast.success(data.message);
+        resetForm();
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return (
-        <form onSubmit={onSubmitHandler} className='m-5 w-full'>
+  return (
+    <div className="space-y-6 animate-soft-in">
+      <PageHeader
+        eyebrow="Doctor onboarding"
+        title="Create a doctor profile that feels complete before the first patient ever sees it."
+        description="Keep admin onboarding structured and forgiving so the team can add specialists without missing the basics that matter."
+      />
 
-            <p className='mb-3 text-lg font-medium'>Add Doctor</p>
-
-            <div className='bg-white px-8 py-8 border rounded w-full max-w-4xl max-h-[80vh] overflow-y-scroll'>
-                <div className='flex items-center gap-4 mb-8 text-gray-500'>
-                    <label htmlFor="doc-img">
-                        <img className='w-16 bg-gray-100 rounded-full cursor-pointer' src={docImg ? URL.createObjectURL(docImg) : assets.upload_area} alt="" />
-                    </label>
-                    <input onChange={(e) => setDocImg(e.target.files[0])} type="file" name="" id="doc-img" hidden />
-                    <p>Upload doctor <br /> picture</p>
-                </div>
-
-                <div className='flex flex-col lg:flex-row items-start gap-10 text-gray-600'>
-
-                    <div className='w-full lg:flex-1 flex flex-col gap-4'>
-
-                        <div className='flex-1 flex flex-col gap-1'>
-                            <p>Your name</p>
-                            <input onChange={e => setName(e.target.value)} value={name} className='border rounded px-3 py-2' type="text" placeholder='Name' required aria-label="Doctor Name" />
-                        </div>
-
-                        <div className='flex-1 flex flex-col gap-1'>
-                            <p>Doctor Email</p>
-                            <input onChange={e => setEmail(e.target.value)} value={email} className='border rounded px-3 py-2' type="email" placeholder='Email' required aria-label="Doctor Email" />
-                        </div>
-
-
-                        <div className='flex-1 flex flex-col gap-1'>
-                            <p>Set Password</p>
-                            <div className='relative w-full'>
-                                <input
-                                    onChange={e => setPassword(e.target.value)}
-                                    value={password}
-                                    className='border rounded px-3 py-2 w-full pr-10'
-                                    type={showPassword ? "text" : "password"}
-                                    placeholder='Password'
-                                    required
-                                    aria-label="Set Password"
-                                />
-                                <div
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className='absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-primary transition-colors'
-                                    aria-label={showPassword ? "Hide Password" : "Show Password"}
-                                >
-                                    {showPassword ? (
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                                        </svg>
-                                    ) : (
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.644C3.423 7.51a7.36 7.36 0 0114.074 0 1.012 1.012 0 010 .644C16.577 16.49 12.72 19.5 12 19.5c-1.272 0-5.123-3.01-6.564-6.844z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className='flex-1 flex flex-col gap-1'>
-                            <p>Experience</p>
-                            <select onChange={e => setExperience(e.target.value)} value={experience} className='border rounded px-2 py-2' >
-                                <option value="1 Year">1 Year</option>
-                                <option value="2 Year">2 Years</option>
-                                <option value="3 Year">3 Years</option>
-                                <option value="4 Year">4 Years</option>
-                                <option value="5 Year">5 Years</option>
-                                <option value="6 Year">6 Years</option>
-                                <option value="8 Year">8 Years</option>
-                                <option value="9 Year">9 Years</option>
-                                <option value="10 Year">10 Years</option>
-                            </select>
-                        </div>
-
-                        <div className='flex-1 flex flex-col gap-1'>
-                            <p>Fees</p>
-                            <input onChange={e => setFees(e.target.value)} value={fees} className='border rounded px-3 py-2' type="number" placeholder='Doctor fees' required />
-                        </div>
-
-                    </div>
-
-                    <div className='w-full lg:flex-1 flex flex-col gap-4'>
-
-                        <div className='flex-1 flex flex-col gap-1'>
-                            <p>Speciality</p>
-                            <select onChange={e => setSpeciality(e.target.value)} value={speciality} className='border rounded px-2 py-2'>
-                                <option value="General physician">General physician</option>
-                                <option value="Gynecologist">Gynecologist</option>
-                                <option value="Dermatologist">Dermatologist</option>
-                                <option value="Pediatricians">Pediatricians</option>
-                                <option value="Neurologist">Neurologist</option>
-                                <option value="Gastroenterologist">Gastroenterologist</option>
-                            </select>
-                        </div>
-
-
-                        <div className='flex-1 flex flex-col gap-1'>
-                            <p>Degree</p>
-                            <input onChange={e => setDegree(e.target.value)} value={degree} className='border rounded px-3 py-2' type="text" placeholder='Degree' required />
-                        </div>
-
-                        <div className='flex-1 flex flex-col gap-1'>
-                            <p>Address</p>
-                            <input onChange={e => setAddress1(e.target.value)} value={address1} className='border rounded px-3 py-2' type="text" placeholder='Address 1' required />
-                            <input onChange={e => setAddress2(e.target.value)} value={address2} className='border rounded px-3 py-2' type="text" placeholder='Address 2' required />
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <div>
-                    <p className='mt-4 mb-2'>About Doctor</p>
-                    <textarea onChange={e => setAbout(e.target.value)} value={about} className='w-full px-4 pt-2 border rounded' rows={5} placeholder='write about doctor'></textarea>
-                </div>
-
-                <button type='submit' className='bg-primary px-10 py-3 mt-4 text-white rounded-full'>Add doctor</button>
-
+      <form onSubmit={onSubmitHandler} className="space-y-6">
+        <div className="grid gap-6 xl:grid-cols-[0.72fr_1.28fr]">
+          <SurfaceCard className="space-y-5">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Profile image</p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Identity snapshot</h2>
+              <p className="mt-1 text-sm text-slate-500">Upload a clear photo to make roster and patient views feel trustworthy.</p>
             </div>
 
+            <label htmlFor="doc-img" className="flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-200 bg-slate-50/80 text-center transition hover:border-teal-200 hover:bg-teal-50/50">
+              <img src={docImg ? URL.createObjectURL(docImg) : assets.upload_area} alt="" className="mb-4 h-28 w-28 rounded-[28px] object-cover" />
+              <p className="text-sm font-semibold text-slate-900">Click to upload doctor photo</p>
+              <p className="mt-1 text-sm text-slate-500">PNG or JPG works well for cards, lists, and schedule views.</p>
+            </label>
+            <input id="doc-img" type="file" hidden onChange={(event) => setDocImg(event.target.files[0])} />
+          </SurfaceCard>
 
-        </form>
-    )
-}
+          <SurfaceCard className="space-y-6">
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Doctor name</label>
+                <input className="soft-input" type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="Dr. name" required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Doctor email</label>
+                <input className="soft-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="doctor@hospital.com" required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Password</label>
+                <div className="relative">
+                  <input className="soft-input pr-14" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Set initial password" required />
+                  <button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute inset-y-0 right-3 text-sm font-medium text-slate-400 transition hover:text-slate-700">
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Experience</label>
+                <select className="soft-select" value={experience} onChange={(event) => setExperience(event.target.value)}>
+                  <option value="1 Year">1 Year</option>
+                  <option value="2 Year">2 Years</option>
+                  <option value="3 Year">3 Years</option>
+                  <option value="4 Year">4 Years</option>
+                  <option value="5 Year">5 Years</option>
+                  <option value="6 Year">6 Years</option>
+                  <option value="8 Year">8 Years</option>
+                  <option value="9 Year">9 Years</option>
+                  <option value="10 Year">10 Years</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Speciality</label>
+                <select className="soft-select" value={speciality} onChange={(event) => setSpeciality(event.target.value)}>
+                  <option value="General physician">General physician</option>
+                  <option value="Gynecologist">Gynecologist</option>
+                  <option value="Dermatologist">Dermatologist</option>
+                  <option value="Pediatricians">Pediatricians</option>
+                  <option value="Neurologist">Neurologist</option>
+                  <option value="Gastroenterologist">Gastroenterologist</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Consultation fee</label>
+                <input className="soft-input" type="number" value={fees} onChange={(event) => setFees(event.target.value)} placeholder="0" required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Degree</label>
+                <input className="soft-input" type="text" value={degree} onChange={(event) => setDegree(event.target.value)} placeholder="Degree or qualification" required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Address line 1</label>
+                <input className="soft-input" type="text" value={address1} onChange={(event) => setAddress1(event.target.value)} placeholder="Clinic or hospital line 1" required />
+              </div>
+            </div>
 
-export default AddDoctor
+            <div className="grid gap-5 md:grid-cols-[1fr_1.2fr]">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Address line 2</label>
+                <input className="soft-input" type="text" value={address2} onChange={(event) => setAddress2(event.target.value)} placeholder="Clinic or hospital line 2" required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">About doctor</label>
+                <textarea className="soft-textarea" value={about} onChange={(event) => setAbout(event.target.value)} rows={5} placeholder="Write a helpful summary for patient-facing doctor details." />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-3">
+              <button type="button" className="soft-button-secondary" onClick={resetForm}>
+                Reset
+              </button>
+              <button type="submit" className="soft-button-primary">
+                {loading ? 'Creating doctor...' : 'Add doctor'}
+              </button>
+            </div>
+          </SurfaceCard>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default AddDoctor;

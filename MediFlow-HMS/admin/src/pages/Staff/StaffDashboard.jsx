@@ -1,155 +1,146 @@
-import React, { useContext, useEffect } from "react";
-import { assets } from "../../assets/assets";
-import { StaffContext } from "../../context/StaffContext";
-import { AppContext } from "../../context/AppContext";
-import { useNavigate } from "react-router-dom";
+import React, { useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { assets } from '../../assets/assets';
+import { StaffContext } from '../../context/StaffContext';
+import { AppContext } from '../../context/AppContext';
+import LoadingState from '../../components/backoffice/LoadingState';
+import PageHeader from '../../components/backoffice/PageHeader';
+import StatCard from '../../components/backoffice/StatCard';
+import StatusBadge from '../../components/backoffice/StatusBadge';
+import SurfaceCard from '../../components/backoffice/SurfaceCard';
 
 const StaffDashboard = () => {
-    const { sToken, getDashData, cancelAppointment, dashData } = useContext(StaffContext);
-    const { slotDateFormat, isEmergencyMode } = useContext(AppContext);
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+  const { sToken, getDashData, cancelAppointment, dashData } = useContext(StaffContext);
+  const { slotDateFormat, isEmergencyMode } = useContext(AppContext);
 
-    useEffect(() => {
-        if (sToken) {
-            getDashData();
+  useEffect(() => {
+    if (sToken) {
+      getDashData();
+    }
+  }, [sToken]);
+
+  if (!dashData) {
+    return <LoadingState label="Preparing the staff desk..." />;
+  }
+
+  return (
+    <div className="space-y-6 animate-soft-in">
+      <PageHeader
+        eyebrow="Front desk overview"
+        title="Help the team move faster without forcing them to learn software tricks."
+        description="Today’s volume, collections, and patient intake are visible up front so staff can act confidently with minimal training."
+        actions={
+          <>
+            <button type="button" className="soft-button-secondary" onClick={() => navigate('/staff-patients')}>
+              Find patient
+            </button>
+            <button type="button" className="soft-button-accent" onClick={() => navigate('/staff-add-patient')}>
+              Register patient
+            </button>
+          </>
         }
-    }, [sToken]);
+      />
 
-    return dashData ? (
-        <div className="m-5">
-            {isEmergencyMode && (
-                <div className="bg-red-600 text-white p-4 rounded-xl mb-6 flex items-center justify-between animate-pulse shadow-lg">
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl">🚨</span>
-                        <div>
-                            <p className="font-black uppercase tracking-widest text-sm">Emergency Mode Active</p>
-                            <p className="text-xs text-red-100">All staff on high alert. Prioritize critical care patients.</p>
-                        </div>
-                    </div>
-                    <button className="bg-white text-red-600 px-4 py-1 rounded-lg font-bold text-xs" onClick={() => navigate('/staff-queue')}>Go to Queue</button>
-                </div>
-            )}
-            {/* 1. Key Stats Row */}
-            <div className="flex flex-wrap gap-3 mb-8">
-                <div className="flex-1 bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 min-w-52">
-                    <img className="w-12 p-3 bg-indigo-50 rounded-full" src={assets.appointment_icon} alt="" />
-                    <div>
-                        <p className="text-2xl font-bold text-gray-800">{dashData.appointments}</p>
-                        <p className="text-sm text-gray-500 font-medium">Total Appointments</p>
-                    </div>
-                </div>
-                <div className="flex-1 bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 min-w-52">
-                    <img className="w-12 p-3 bg-green-50 rounded-full" src={assets.patients_icon} alt="" />
-                    <div>
-                        <p className="text-2xl font-bold text-gray-800">{dashData.patients}</p>
-                        <p className="text-sm text-gray-500 font-medium">Register Patients</p>
-                    </div>
-                </div>
-                <div className="flex-1 bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 min-w-52">
-                    <img className="w-12 p-3 bg-blue-50 rounded-full" src={assets.doctor_icon} alt="" />
-                    <div>
-                        <p className="text-2xl font-bold text-gray-800">{dashData.doctors}</p>
-                        <p className="text-sm text-gray-500 font-medium">Available Doctors</p>
-                    </div>
-                </div>
-                <div className="flex-1 bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 min-w-52">
-                    <img className="w-12 p-3 bg-amber-50 rounded-full" src={assets.earning_icon} alt="" />
-                    <div>
-                        <p className="text-2xl font-bold text-gray-800">₹{dashData.totalCollections || 0}</p>
-                        <p className="text-sm text-gray-500 font-medium">Today's Collections</p>
-                    </div>
-                </div>
+      {isEmergencyMode ? (
+        <SurfaceCard className="border-rose-200 bg-rose-50/90">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-rose-700">Emergency mode</p>
+              <h2 className="mt-2 text-2xl font-semibold text-rose-950">Critical patients should be prioritized immediately.</h2>
+              <p className="mt-1 text-sm text-rose-800/80">Use the queue to move urgent arrivals to the top and keep billing secondary until the rush settles.</p>
             </div>
+            <button type="button" className="soft-button-primary" onClick={() => navigate('/staff-queue')}>
+              Open queue
+            </button>
+          </div>
+        </SurfaceCard>
+      ) : null}
 
-            {/* 2. Quick Actions Row */}
-            <h3 className="text-lg font-bold text-gray-800 mb-4 px-1">Quick Actions</h3>
-            <div className="flex flex-wrap gap-4 mb-8">
-                <div
-                    onClick={() => navigate('/staff-add-patient')}
-                    className="flex-1 min-w-48 bg-gradient-to-r from-indigo-500 to-indigo-600 p-5 rounded-lg text-white shadow-md cursor-pointer hover:shadow-lg transition-all transform hover:-translate-y-1"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="bg-white/20 p-2 rounded-full"><img className="w-6 invert" src={assets.add_icon} alt="" /></div>
-                        <p className="font-bold text-lg">New Patient</p>
-                    </div>
-                    <p className="text-indigo-100 text-sm">Register a new patient arrival</p>
-                </div>
+      <div className="grid gap-4 xl:grid-cols-4">
+        <StatCard icon={assets.appointments_icon} label="Appointments" value={dashData.appointments} hint="Total scheduled visits" accent="from-sky-500 to-indigo-500" />
+        <StatCard icon={assets.patients_icon} label="Patients" value={dashData.patients} hint="Registered patient records" accent="from-teal-500 to-emerald-500" />
+        <StatCard icon={assets.doctor_icon} label="Doctors" value={dashData.doctors} hint="Available doctor roster" accent="from-amber-500 to-orange-500" />
+        <StatCard icon={assets.earning_icon} label="Collections" value={`INR ${dashData.totalCollections || 0}`} hint="Today’s captured collections" accent="from-rose-500 to-pink-500" />
+      </div>
 
-                <div
-                    onClick={() => navigate('/staff-appointments')}
-                    className="flex-1 min-w-48 bg-white border border-gray-200 p-5 rounded-lg shadow-sm cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all group"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="bg-green-50 p-2 rounded-full group-hover:bg-green-100"><img className="w-6" src={assets.appointment_icon} alt="" /></div>
-                        <p className="font-bold text-lg text-gray-800">Book Appointment</p>
-                    </div>
-                    <p className="text-gray-500 text-sm">Schedule a consultation</p>
-                </div>
+      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.1fr]">
+        <SurfaceCard className="space-y-5">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Quick actions</p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-900">Jump straight into the common desk tasks</h2>
+          </div>
 
-                <div
-                    onClick={() => navigate('/staff-patients')}
-                    className="flex-1 min-w-48 bg-white border border-gray-200 p-5 rounded-lg shadow-sm cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all group"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="bg-blue-50 p-2 rounded-full group-hover:bg-blue-100"><img className="w-6" src={assets.people_icon} alt="" /></div>
-                        <p className="font-bold text-lg text-gray-800">Search Patient</p>
-                    </div>
-                    <p className="text-gray-500 text-sm">Find records & details</p>
-                </div>
-                <div
-                    onClick={() => navigate('/staff-billing')}
-                    className="flex-1 min-w-48 bg-white border border-gray-200 p-5 rounded-lg shadow-sm cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all group"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="bg-amber-50 p-2 rounded-full group-hover:bg-amber-100"><img className="w-6" src={assets.earning_icon} alt="" /></div>
-                        <p className="font-bold text-lg text-gray-800">Billing</p>
-                    </div>
-                    <p className="text-gray-500 text-sm">Create invoice & payment</p>
-                </div>
+          <div className="grid gap-4">
+            <button type="button" className="rounded-[26px] bg-gradient-to-br from-teal-600 to-cyan-500 p-5 text-left text-white shadow-[0_20px_60px_rgba(13,148,136,0.24)] transition hover:-translate-y-0.5" onClick={() => navigate('/staff-add-patient')}>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-teal-50">Register</p>
+              <p className="mt-2 text-xl font-semibold">Create a new patient profile</p>
+              <p className="mt-2 text-sm text-teal-50/90">Capture contact, identity, and emergency details in one go.</p>
+            </button>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <button type="button" className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => navigate('/staff-appointments')}>
+                <p className="text-sm font-semibold text-slate-900">Appointments</p>
+                <p className="mt-1 text-sm text-slate-500">Check in patients, cancel, and move bookings forward.</p>
+              </button>
+              <button type="button" className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => navigate('/staff-billing')}>
+                <p className="text-sm font-semibold text-slate-900">Billing</p>
+                <p className="mt-1 text-sm text-slate-500">Turn visits into invoices and record payment safely.</p>
+              </button>
+              <button type="button" className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => navigate('/staff-patients')}>
+                <p className="text-sm font-semibold text-slate-900">Patient records</p>
+                <p className="mt-1 text-sm text-slate-500">Search records and jump into service actions fast.</p>
+              </button>
+              <button type="button" className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => navigate('/staff-queue')}>
+                <p className="text-sm font-semibold text-slate-900">Queue</p>
+                <p className="mt-1 text-sm text-slate-500">Keep everyone aligned on who needs attention next.</p>
+              </button>
             </div>
+          </div>
+        </SurfaceCard>
 
-            {/* 3. Today's Agenda */}
-            <h3 className="text-lg font-bold text-gray-800 mb-4 px-1">Recent Activity</h3>
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2.5 px-6 py-4 border-b bg-gray-50/50">
-                    <img src={assets.list_icon} alt="" />
-                    <p className="font-semibold text-gray-700">Latest Bookings</p>
-                </div>
-
-                <div className="divide-y divide-gray-100">
-                    {dashData.latestAppointments.slice(0, 5).map((item, index) => (
-                        <div className="flex items-center px-6 py-4 gap-4 hover:bg-gray-50 transition-colors" key={index}>
-                            <img className="rounded-full w-10 h-10 object-cover border border-gray-200" src={item.docData.image} alt="" />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-gray-900 font-medium truncate">{item.docData.name}</p>
-                                <p className="text-gray-500 text-sm">{slotDateFormat(item.slotDate)} • {item.slotTime}</p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                                {item.cancelled ? (
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-600 border border-red-100">Cancelled</span>
-                                ) : item.isCompleted ? (
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-600 border border-green-100">Completed</span>
-                                ) : (
-                                    <div className="flex items-center gap-2">
-                                        {/* Quick Action: Cancel (simplified for cockpit) */}
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); cancelAppointment(item._id); }}
-                                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
-                                            title="Cancel Appointment"
-                                        >
-                                            <img className="w-5 grayscale group-hover:grayscale-0" src={assets.cancel_icon} alt="" />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                </div>
+        <SurfaceCard className="space-y-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Recent activity</p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Latest bookings</h2>
             </div>
-        </div>
-    ) : (
-        <div className="m-5 text-gray-500">Loading Dashboard...</div>
-    );
+            <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => navigate('/staff-appointments')}>
+              View all
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {dashData.latestAppointments.slice(0, 6).map((item) => (
+              <div key={item._id} className="flex flex-col gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 md:flex-row md:items-center">
+                <img src={item.docData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-slate-900">{item.docData.name}</p>
+                    {item.cancelled ? (
+                      <StatusBadge tone="danger">Cancelled</StatusBadge>
+                    ) : item.isCompleted ? (
+                      <StatusBadge tone="success">Completed</StatusBadge>
+                    ) : (
+                      <StatusBadge tone="info">Active</StatusBadge>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {slotDateFormat(item.slotDate)} • {item.slotTime}
+                  </p>
+                </div>
+                {!item.cancelled && !item.isCompleted ? (
+                  <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => cancelAppointment(item._id)}>
+                    Cancel
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </SurfaceCard>
+      </div>
+    </div>
+  );
 };
 
 export default StaffDashboard;
