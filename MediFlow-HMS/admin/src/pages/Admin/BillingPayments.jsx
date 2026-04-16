@@ -32,13 +32,6 @@ const BillingPayments = () => {
         }
     }
 
-    useEffect(() => {
-        if (aToken) {
-            getAllAppointments()
-            getKPIs()
-        }
-    }, [aToken])
-
     const [dateRange, setDateRange] = useState('all') // all, today, week, month
     const [amountRange, setAmountRange] = useState('all') // all, under50, 50-200, over200
 
@@ -113,7 +106,7 @@ const BillingPayments = () => {
 
             if (successCount === selectedItems.length) {
                 toast.success(`Updated ${successCount} appointments`)
-                getAllAppointments()
+                loadBillingData()
                 setSelectedItems([])
                 setSelectAll(false)
             } else {
@@ -137,7 +130,7 @@ const BillingPayments = () => {
             const data = await response.json()
             if (data.success) {
                 toast.success(data.message)
-                getAllAppointments()
+                loadBillingData()
             } else {
                 toast.error(data.message)
             }
@@ -159,7 +152,7 @@ const BillingPayments = () => {
             const data = await response.json()
             if (data.success) {
                 toast.success(data.message)
-                getAllAppointments()
+                loadBillingData()
             } else {
                 toast.error(data.message)
             }
@@ -208,10 +201,17 @@ const BillingPayments = () => {
         }
     }
 
+    const loadBillingData = async () => {
+        await Promise.all([
+            getAllAppointments(),
+            getKPIs(),
+            getAllInvoices(),
+        ])
+    }
+
     useEffect(() => {
         if (aToken) {
-            getAllAppointments()
-            getAllInvoices()
+            loadBillingData()
         }
     }, [aToken])
 
@@ -236,7 +236,7 @@ const BillingPayments = () => {
             const data = await response.json()
             if (data.success) {
                 toast.success(data.message)
-                getAllAppointments()
+                loadBillingData()
             } else {
                 toast.error(data.message)
             }

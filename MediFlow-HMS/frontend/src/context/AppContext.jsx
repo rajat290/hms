@@ -1,14 +1,17 @@
-import { createContext, useEffect, useRef, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import axios from 'axios';
+import { createClientConfig } from "@shared/config/clientConfig.js";
+import { registerSessionRefreshInterceptor } from "@shared/http/registerSessionRefreshInterceptor.js";
 import { persistStoredSession, readStoredValue } from "@shared/utils/sessionStorage.js";
 
 export const AppContext = createContext();
 
 const AppContextProvider = (props) => {
 
-    const currencySymbol = '\u20B9';
-    const backendUrl = import.meta.env.VITE_BACKEND_URL;
+    const { backendUrl, currency: currencySymbol } = createClientConfig(import.meta.env, {
+        defaultCurrency: '\u20B9',
+    });
 
     const [doctors, setDoctors] = useState([]);
     const [token, setToken] = useState(() => readStoredValue('token'));
@@ -16,7 +19,6 @@ const AppContextProvider = (props) => {
     const [userData, setUserData] = useState(false);
     const [doctorsLoading, setDoctorsLoading] = useState(true);
     const [profileLoading, setProfileLoading] = useState(Boolean(readStoredValue('token')));
-    const refreshRequestRef = useRef(null);
 
     const persistSession = (nextAccessToken, nextRefreshToken) => {
         const { accessToken, refreshToken: storedRefreshToken } = persistStoredSession({
@@ -33,14 +35,6 @@ const AppContextProvider = (props) => {
     const clearSession = () => {
         persistSession('', '');
         setUserData(false);
-    };
-
-    const normalizeAxiosError = (error) => {
-        const message = error?.response?.data?.message || error?.message || 'Request failed';
-        const normalizedError = new Error(message);
-        normalizedError.response = error?.response;
-        normalizedError.config = error?.config;
-        return normalizedError;
     };
 
     const refreshUserSession = async () => {
@@ -145,48 +139,24 @@ const AppContextProvider = (props) => {
     }, [token]);
 
     useEffect(() => {
-        const interceptorId = axios.interceptors.response.use(
-            (response) => response,
-            async (error) => {
-                const originalRequest = error?.config || {};
-                const shouldAttemptRefresh = error?.response?.status === 401
-                    && !originalRequest._sessionRetried
-                    && !originalRequest.skipSessionRefresh
-                    && Boolean(refreshToken || readStoredValue('refreshToken'));
-
-                if (!shouldAttemptRefresh) {
-                    return Promise.reject(normalizeAxiosError(error));
-                }
-
-                originalRequest._sessionRetried = true;
-
-                try {
-                    if (!refreshRequestRef.current) {
-                        refreshRequestRef.current = refreshUserSession();
-                    }
-
-                    const refreshedSession = await refreshRequestRef.current;
-                    originalRequest.headers = {
-                        ...(originalRequest.headers || {}),
-                        token: refreshedSession.token,
-                    };
-
-                    return axios(originalRequest);
-                } catch (refreshError) {
-                    clearSession();
-                    if (window.location.pathname !== '/login') {
-                        window.location.assign('/login');
-                    }
-                    return Promise.reject(normalizeAxiosError(refreshError));
-                } finally {
-                    refreshRequestRef.current = null;
+        return registerSessionRefreshInterceptor({
+            axiosInstance: axios,
+            resolveSession: () => ({
+                token,
+                refreshToken: refreshToken || readStoredValue('refreshToken'),
+            }),
+            refreshSession: () => refreshUserSession(),
+            applyRefreshedSession: ({ headers, refreshedSession }) => ({
+                ...headers,
+                token: refreshedSession.token,
+            }),
+            onSessionExpired: async () => {
+                clearSession();
+                if (window.location.pathname !== '/login') {
+                    window.location.assign('/login');
                 }
             },
-        );
-
-        return () => {
-            axios.interceptors.response.eject(interceptorId);
-        };
+        });
     }, [backendUrl, refreshToken, token]);
 
     const value = {

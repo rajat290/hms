@@ -1,29 +1,25 @@
 import staffModel from "../models/staffModel.js";
-import bcrypt from "bcrypt";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import userModel from "../models/userModel.js";
-import validator from "validator";
-import { v2 as cloudinary } from "cloudinary";
-import crypto from 'crypto';
 import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod } from "../utils/appointmentIntegrity.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
-import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
-import { sendPasswordResetEmail, sendVerificationEmail } from "../services/emailService.js";
+import { createRoleAuthRepository } from "../repositories/roleAuthRepository.js";
+import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail } from "../services/auth/roleAccountService.js";
+import { createPatientOnboarding } from "../services/patients/patientOnboardingService.js";
+
+const staffAccountRepository = createRoleAuthRepository(staffModel);
 
 // API to verify email for staff
 const verifyEmail = async (req, res) => {
     try {
-        const { token } = req.body;
-        const staff = await staffModel.findOne({ verificationToken: token });
-        if (!staff) {
-            return res.json({ success: false, message: 'Invalid token' });
-        }
-        staff.isVerified = true;
-        staff.verificationToken = undefined;
-        await staff.save();
-        res.json({ success: true, message: 'Staff email verified successfully' });
+        const response = await verifyRoleEmail({
+            token: req.body.token,
+            repository: staffAccountRepository,
+            successMessage: 'Staff email verified successfully',
+        });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -34,40 +30,21 @@ const verifyEmail = async (req, res) => {
 const loginStaff = async (req, res) => {
     try {
         const { email, password } = req.body;
-        const staff = await staffModel.findOne({ email });
-
-        if (!staff) {
-            return res.json({ success: false, message: "Invalid credentials" });
-        }
-
-        const isMatch = await bcrypt.compare(password, staff.password);
-
-        if (isMatch) {
-            if (!staff.isVerified) {
-                const verificationToken = crypto.randomBytes(32).toString('hex');
-                staff.verificationToken = verificationToken;
-                await staff.save();
-
-                await sendVerificationEmail({
-                    email,
-                    origin: req.headers.origin,
-                    token: verificationToken,
-                    role: 'staff',
-                    subject: 'Verify Your Staff Account - Mediflow',
-                    heading: 'Email Verification Required',
-                    body: 'Please click the button below to verify your staff account.',
-                });
-                return res.json({ success: false, message: "Email not verified. A new verification link has been sent." })
-            }
-            const session = await issueAuthTokens({
-                subjectId: staff._id,
+        const response = await loginRoleAccount({
+            email,
+            password,
+            origin: req.headers.origin,
+            req,
+            role: 'staff',
+            repository: staffAccountRepository,
+            verificationEmail: {
                 role: 'staff',
-                req,
-            });
-            res.json({ success: true, ...session });
-        } else {
-            res.json({ success: false, message: "Invalid credentials" });
-        }
+                subject: 'Verify Your Staff Account - Mediflow',
+                heading: 'Email Verification Required',
+                body: 'Please click the button below to verify your staff account.',
+            },
+        });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -177,75 +154,20 @@ const getAllPatients = async (req, res) => {
 // API to create patient (Staff)
 const createPatient = async (req, res) => {
     try {
-        const {
-            name, email, phone, dob, gender, medicalRecordNumber, aadharNumber,
-            insuranceProvider, insuranceId, address, emergencyContact
-        } = req.body;
-
-        if (!name || !email || !phone || !dob || !gender) {
-            return res.json({ success: false, message: 'Name, Email, Phone, DOB and Gender are required' });
-        }
-
-        if (!validator.isEmail(email)) {
-            return res.json({ success: false, message: 'Please enter a valid email' });
-        }
-
-        // Check for existing patient (only if unique identifiers are provided)
-        let query = [{ email }, { phone }];
-        if (medicalRecordNumber) query.push({ medicalRecordNumber });
-        if (aadharNumber) query.push({ aadharNumber });
-
-        const existingPatient = await userModel.findOne({ $or: query });
-
-        if (existingPatient) {
-            return res.json({ success: false, message: 'Patient with this details already exists' });
-        }
-
-        const tempPassword = crypto.randomBytes(8).toString('hex');
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(tempPassword, salt);
-
-        let profileImageUrl = '';
-        let aadharImageUrl = '';
-
-        if (req.files?.image?.[0]) {
-            const profileUpload = await cloudinary.uploader.upload(req.files.image[0].path, { resource_type: "image" });
-            profileImageUrl = profileUpload.secure_url;
-        }
-
-        if (req.files?.aadharImage?.[0]) {
-            const aadharUpload = await cloudinary.uploader.upload(req.files.aadharImage[0].path, { resource_type: "image" });
-            aadharImageUrl = aadharUpload.secure_url;
-        }
-
-        const patientData = {
-            name,
-            email,
-            phone,
-            dob,
-            gender,
-            patientCategory: req.body.patientCategory || 'Standard',
-            chronicConditions: req.body.chronicConditions || '',
-            address: typeof address === 'string' ? JSON.parse(address) : address,
-            emergencyContact: typeof emergencyContact === 'string' ? JSON.parse(emergencyContact) : emergencyContact,
-            image: profileImageUrl,
-            aadharImage: aadharImageUrl,
-            password: hashedPassword,
-            date: Date.now()
-        };
-
-        if (medicalRecordNumber) patientData.medicalRecordNumber = medicalRecordNumber;
-        if (aadharNumber) patientData.aadharNumber = aadharNumber;
-        if (insuranceProvider) patientData.insuranceProvider = insuranceProvider;
-        if (insuranceId) patientData.insuranceId = insuranceId;
-
-        const patient = new userModel(patientData);
-        await patient.save();
+        const { credentials } = await createPatientOnboarding({
+            input: req.body,
+            files: req.files,
+            options: {
+                requiredFields: ['name', 'email', 'phone', 'dob', 'gender'],
+                missingFieldsMessage: 'Name, Email, Phone, DOB and Gender are required',
+                duplicateMessage: 'Patient with this details already exists',
+            },
+        });
 
         res.json({
             success: true,
             message: 'Patient created successfully',
-            credentials: { email, password: tempPassword }
+            credentials,
         });
 
     } catch (error) {
@@ -449,25 +371,21 @@ const markNotificationRead = async (req, res) => {
 // API to forgot password for staff
 const forgotPassword = async (req, res) => {
     try {
-        const { email } = req.body;
-        const staff = await staffModel.findOne({ email });
-        if (!staff) {
-            return res.json({ success: false, message: 'Staff member not found' });
-        }
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        staff.resetToken = resetToken;
-        staff.resetTokenExpiry = Date.now() + 3600000; // 1 hour
-        await staff.save();
-
-        await sendPasswordResetEmail({
-            email,
+        const response = await requestRolePasswordReset({
+            email: req.body.email,
             origin: req.headers.origin,
-            token: resetToken,
-            role: 'staff',
-            subject: 'Password Reset - Mediflow Staff Panel',
-            accountLabel: 'Staff account',
+            repository: staffAccountRepository,
+            emailConfig: {
+                role: 'staff',
+                subject: 'Password Reset - Mediflow Staff Panel',
+                accountLabel: 'Staff account',
+            },
+            notFoundMessage: 'Staff member not found',
         });
-        res.json({ success: true, message: 'Reset link sent' });
+        res.json({
+            ...response,
+            message: response.success ? 'Reset link sent' : response.message,
+        });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -477,32 +395,14 @@ const forgotPassword = async (req, res) => {
 // API to reset password for staff
 const resetPassword = async (req, res) => {
     try {
-        const { token, newPassword } = req.body;
-        const staff = await staffModel.findOne({ resetToken: token, resetTokenExpiry: { $gt: Date.now() } });
-        if (!staff) {
-            return res.json({ success: false, message: 'Invalid or expired token' });
-        }
-        const salt = await bcrypt.genSalt(10);
-        staff.password = await bcrypt.hash(newPassword, salt);
-        staff.resetToken = undefined;
-        staff.resetTokenExpiry = undefined;
-        staff.isVerified = true;
-        staff.verificationToken = undefined;
-        await staff.save();
-
-        await revokeAllSessionsForSubject({
-            subjectId: staff._id,
-            role: 'staff',
-            reason: 'Password reset',
-        });
-
-        const session = await issueAuthTokens({
-            subjectId: staff._id,
-            role: 'staff',
+        const response = await resetRolePassword({
+            token: req.body.token,
+            newPassword: req.body.newPassword,
             req,
+            role: 'staff',
+            repository: staffAccountRepository,
         });
-
-        res.json({ success: true, message: 'Password reset successfully', ...session });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -511,10 +411,12 @@ const resetPassword = async (req, res) => {
 
 const refreshSession = async (req, res) => {
     try {
-        const { refreshToken } = req.body;
-        const session = await rotateRefreshSession(refreshToken, 'staff', req);
-
-        res.json({ success: true, ...session });
+        const response = await refreshRoleSession({
+            refreshToken: req.body.refreshToken,
+            role: 'staff',
+            req,
+        });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.status(401).json({ success: false, message: error.message || 'Session refresh failed' });
@@ -523,8 +425,11 @@ const refreshSession = async (req, res) => {
 
 const logoutStaff = async (req, res) => {
     try {
-        await revokeSessionById(req.auth?.sessionId, 'Staff logout');
-        res.json({ success: true, message: 'Logged out successfully' });
+        const response = await logoutRoleSession({
+            sessionId: req.auth?.sessionId,
+            reason: 'Staff logout',
+        });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });

@@ -76,6 +76,29 @@ Staff:
 
 - `npm run build` in [admin](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/admin) passed
 
+## Stability Fixes Added
+
+Back-office shell and workflow fixes layered onto the revamp:
+
+- [App.jsx](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/admin/src/App.jsx)
+- [Login.jsx](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/admin/src/pages/Login.jsx)
+- [Navbar.jsx](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/admin/src/components/Navbar.jsx)
+- [Sidebar.jsx](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/admin/src/components/Sidebar.jsx)
+- [index.css](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/admin/src/index.css)
+- [BillingPayments.jsx](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/admin/src/pages/Admin/BillingPayments.jsx)
+- [NotificationContext.jsx](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/admin/src/context/NotificationContext.jsx)
+- [rateLimiters.js](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/backend/middleware/rateLimiters.js)
+
+What changed:
+
+- role-aware route guards now send each signed-in user back to the correct dashboard instead of rendering the wrong panel
+- login now lands `admin`, `doctor`, and `staff` directly on their own overview screen
+- the desktop shell now uses a proper sidebar-plus-content layout so page content sits beside the sidebar instead of under it
+- shared theme tokens now cover both light and dark mode so text, cards, and controls stay readable in either mode
+- billing screen mount traffic was reduced by removing duplicate initial appointment fetches
+- staff notifications now poll less aggressively and pause when the tab is not visible
+- login throttling now counts failed attempts only, so normal successful sign-ins across roles do not trip the limiter as quickly
+
 ## Notes
 
 - The shared shell is now stable enough that the remaining screens can be migrated incrementally without redesigning navigation again.

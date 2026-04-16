@@ -7,9 +7,53 @@
 :root {
   color-scheme: light;
   --bo-bg: #eef4f1;
+  --bo-bg-elevated: #f8fbfa;
   --bo-ink: #13211d;
   --bo-muted: #61706b;
   --bo-border: rgba(15, 23, 42, 0.08);
+  --bo-border-strong: rgba(148, 163, 184, 0.22);
+  --bo-surface: rgba(255, 255, 255, 0.84);
+  --bo-surface-strong: rgba(255, 255, 255, 0.92);
+  --bo-surface-muted: rgba(248, 250, 252, 0.86);
+  --bo-navbar-bg: rgba(255, 255, 255, 0.72);
+  --bo-sidebar-bg: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+  --bo-sidebar-border: rgba(255, 255, 255, 0.08);
+  --bo-sidebar-muted: #94a3b8;
+  --bo-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
+  --bo-shadow-strong: 0 28px 80px rgba(15, 23, 42, 0.16);
+  --bo-login-bg:
+    radial-gradient(circle at top left, rgba(45, 212, 191, 0.18), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(251, 146, 60, 0.14), transparent 26%),
+    linear-gradient(180deg, #0f172a 0%, #111827 36%, #f3f6f5 36%, #edf4f7 100%);
+  --bo-login-hero: rgba(255, 255, 255, 0.08);
+  --bo-login-hero-border: rgba(255, 255, 255, 0.12);
+  --bo-login-panel: rgba(255, 255, 255, 0.92);
+}
+
+html.dark {
+  color-scheme: dark;
+  --bo-bg: #07111a;
+  --bo-bg-elevated: #0b1320;
+  --bo-ink: #e5eef7;
+  --bo-muted: #9eb0c5;
+  --bo-border: rgba(148, 163, 184, 0.18);
+  --bo-border-strong: rgba(148, 163, 184, 0.2);
+  --bo-surface: rgba(15, 23, 42, 0.84);
+  --bo-surface-strong: rgba(15, 23, 42, 0.92);
+  --bo-surface-muted: rgba(30, 41, 59, 0.78);
+  --bo-navbar-bg: rgba(2, 6, 23, 0.74);
+  --bo-sidebar-bg: linear-gradient(180deg, #020617 0%, #0f172a 100%);
+  --bo-sidebar-border: rgba(148, 163, 184, 0.16);
+  --bo-sidebar-muted: #94a3b8;
+  --bo-shadow: 0 28px 90px rgba(2, 6, 23, 0.42);
+  --bo-shadow-strong: 0 32px 100px rgba(2, 6, 23, 0.52);
+  --bo-login-bg:
+    radial-gradient(circle at top left, rgba(45, 212, 191, 0.16), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(251, 146, 60, 0.1), transparent 20%),
+    linear-gradient(180deg, #020617 0%, #0f172a 45%, #07111a 100%);
+  --bo-login-hero: rgba(15, 23, 42, 0.54);
+  --bo-login-hero-border: rgba(148, 163, 184, 0.16);
+  --bo-login-panel: rgba(15, 23, 42, 0.9);
 }
 
 * {
@@ -27,6 +71,13 @@ body {
     radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 26%),
     linear-gradient(180deg, #f8fbfa 0%, var(--bo-bg) 50%, #edf4f7 100%);
   color: var(--bo-ink);
+}
+
+html.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(45, 212, 191, 0.14), transparent 20%),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 18%),
+    linear-gradient(180deg, #020617 0%, var(--bo-bg-elevated) 36%, var(--bo-bg) 100%);
 }
 
 #root {
@@ -73,6 +124,97 @@ body {
 .backoffice-main {
   position: relative;
   z-index: 1;
+  min-width: 0;
+}
+
+.bo-navbar {
+  border-bottom: 1px solid var(--bo-border-strong);
+  background: var(--bo-navbar-bg);
+  box-shadow: 0 14px 48px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(20px);
+}
+
+.bo-sidebar {
+  border-right: 1px solid var(--bo-sidebar-border);
+  background: var(--bo-sidebar-bg);
+  color: #f8fafc;
+  box-shadow: var(--bo-shadow-strong);
+}
+
+.bo-sidebar-muted {
+  color: var(--bo-sidebar-muted);
+}
+
+.bo-sidebar-link-active {
+  background: rgba(255, 255, 255, 0.94);
+  color: #0f172a;
+}
+
+.bo-sidebar-link-idle {
+  color: #cbd5e1;
+}
+
+.bo-sidebar-link-idle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.bo-sidebar-note {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bo-surface {
+  border: 1px solid var(--bo-border-strong);
+  border-radius: 28px;
+  background: var(--bo-surface);
+  box-shadow: var(--bo-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.bo-stat-card {
+  border: 1px solid var(--bo-border-strong);
+  border-radius: 28px;
+  background: var(--bo-surface-strong);
+  box-shadow: var(--bo-shadow);
+}
+
+.bo-eyebrow {
+  border: 1px solid var(--bo-border-strong);
+  border-radius: 999px;
+  background: var(--bo-surface-strong);
+  color: var(--bo-muted);
+}
+
+.bo-title {
+  color: var(--bo-ink);
+}
+
+.bo-copy {
+  color: var(--bo-muted);
+}
+
+.bo-login-shell {
+  background: var(--bo-login-bg);
+}
+
+.bo-login-hero {
+  border: 1px solid var(--bo-login-hero-border);
+  background: var(--bo-login-hero);
+  color: #fff;
+}
+
+.bo-login-panel {
+  border: 1px solid var(--bo-border-strong);
+  background: var(--bo-login-panel);
+  box-shadow: var(--bo-shadow);
+}
+
+.bo-theme-toggle {
+  border: 1px solid var(--bo-border-strong);
+  border-radius: 999px;
+  background: var(--bo-surface-strong);
+  color: var(--bo-ink);
+  box-shadow: var(--bo-shadow);
 }
 
 .glass-divider {
@@ -109,6 +251,89 @@ body {
 
 .soft-button-accent {
   @apply soft-button bg-teal-600 text-white shadow-lg shadow-teal-600/20 hover:-translate-y-0.5 hover:bg-teal-500;
+}
+
+html.dark .soft-input,
+html.dark .soft-textarea,
+html.dark .soft-select {
+  @apply border-slate-700/80 bg-slate-900/80 text-slate-100 placeholder:text-slate-400 focus:border-teal-400 focus:ring-teal-950/60;
+}
+
+html.dark .soft-button-secondary {
+  @apply border-slate-700 bg-slate-900/70 text-slate-100 hover:border-slate-600 hover:bg-slate-900;
+}
+
+html.dark .soft-button-primary {
+  @apply bg-slate-100 text-slate-950 hover:bg-white;
+}
+
+html.dark .soft-button-accent {
+  @apply bg-teal-500 text-white shadow-teal-950/30 hover:bg-teal-400;
+}
+
+html.dark .text-slate-900,
+html.dark .text-gray-900 {
+  color: #f8fafc;
+}
+
+html.dark .text-slate-800,
+html.dark .text-gray-800 {
+  color: #e2e8f0;
+}
+
+html.dark .text-slate-700,
+html.dark .text-gray-700 {
+  color: #cbd5e1;
+}
+
+html.dark .text-slate-600,
+html.dark .text-gray-600 {
+  color: #b8c4d3;
+}
+
+html.dark .text-slate-500,
+html.dark .text-gray-500 {
+  color: #94a3b8;
+}
+
+html.dark .text-slate-400,
+html.dark .text-gray-400 {
+  color: #7b8da3;
+}
+
+html.dark .bg-white,
+html.dark .bg-white\/6,
+html.dark .bg-white\/8,
+html.dark .bg-white\/10,
+html.dark .bg-white\/70,
+html.dark .bg-white\/80,
+html.dark .bg-white\/84,
+html.dark .bg-white\/85,
+html.dark .bg-white\/88,
+html.dark .bg-white\/90,
+html.dark .bg-white\/92,
+html.dark .bg-white\/96,
+html.dark .bg-gray-50,
+html.dark .bg-gray-100,
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/80,
+html.dark .bg-slate-50\/90 {
+  background-color: rgba(15, 23, 42, 0.88);
+}
+
+html.dark .border-white\/70,
+html.dark .border-white\/60,
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-gray-100,
+html.dark .border-gray-200 {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+html.dark .shadow-sm,
+html.dark .shadow-lg,
+html.dark .shadow-xl {
+  box-shadow: 0 18px 60px rgba(2, 6, 23, 0.28);
 }
 
 .animate-fade-up {

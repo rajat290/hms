@@ -9,7 +9,6 @@ import staffModel from "../models/staffModel.js";
 import bcrypt from "bcrypt";
 import validator from "validator";
 import { v2 as cloudinary } from "cloudinary";
-import crypto from 'crypto';
 import PDFDocument from 'pdfkit';
 import auditLogModel from "../models/auditLogModel.js";
 import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod, normalizePaymentLogMethod, refundAppointmentPayment } from "../utils/appointmentIntegrity.js";
@@ -26,7 +25,7 @@ import {
     getPaginatedPaymentHistory,
     getPaginatedStaffForAdmin,
 } from "../services/admin/adminReadService.js";
-import { logEmailFailure, sendWelcomeCredentialsEmail } from "../services/emailService.js";
+import { createPatientOnboarding } from "../services/patients/patientOnboardingService.js";
 
 // Helper function for audit logging
 const logAdminAction = async (actorEmail, action, targetType, targetId, metadata) => {
@@ -530,76 +529,15 @@ const updateDoctor = async (req, res) => {
 // API to create patient (admin/staff)
 const createPatientAdmin = async (req, res) => {
     try {
-        const {
-            name, email, phone, dob, gender, medicalRecordNumber, aadharNumber,
-            insuranceProvider, insuranceId, address, emergencyContact
-        } = req.body;
-
-        // Validate required fields
-        if (!name || !email || !phone || !dob || !gender || !medicalRecordNumber || !aadharNumber || !address) {
-            return res.json({ success: false, message: 'All required fields must be provided' });
-        }
-
-        // Validate email
-        if (!validator.isEmail(email)) {
-            return res.json({ success: false, message: 'Please enter a valid email' });
-        }
-
-        // Check if patient already exists
-        const existingPatient = await userModel.findOne({
-            $or: [{ email }, { phone }, { medicalRecordNumber }, { aadharNumber }]
+        const { patient, credentials } = await createPatientOnboarding({
+            input: req.body,
+            files: req.files,
+            options: {
+                requiredFields: ['name', 'email', 'phone', 'dob', 'gender', 'medicalRecordNumber', 'aadharNumber', 'address'],
+                missingFieldsMessage: 'All required fields must be provided',
+                duplicateMessage: 'Patient with this email, phone, MRN, or Aadhaar already exists',
+            },
         });
-
-        if (existingPatient) {
-            return res.json({ success: false, message: 'Patient with this email, phone, MRN, or Aadhaar already exists' });
-        }
-
-        // Generate temporary password
-        const tempPassword = crypto.randomBytes(8).toString('hex');
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(tempPassword, salt);
-
-        // Handle image uploads
-        let profileImageUrl = '';
-        let aadharImageUrl = '';
-
-        if (req.files?.image?.[0]) {
-            const profileUpload = await cloudinary.uploader.upload(req.files.image[0].path, { resource_type: "image" });
-            profileImageUrl = profileUpload.secure_url;
-        }
-
-        if (req.files?.aadharImage?.[0]) {
-            const aadharUpload = await cloudinary.uploader.upload(req.files.aadharImage[0].path, { resource_type: "image" });
-            aadharImageUrl = aadharUpload.secure_url;
-        }
-
-        // Create patient data
-        const patientData = {
-            name,
-            email,
-            phone,
-            dob,
-            gender,
-            medicalRecordNumber,
-            aadharNumber,
-            insuranceProvider,
-            insuranceId,
-            address: typeof address === 'string' ? JSON.parse(address) : address,
-            emergencyContact: typeof emergencyContact === 'string' ? JSON.parse(emergencyContact) : emergencyContact,
-            image: profileImageUrl,
-            aadharImage: aadharImageUrl,
-            password: hashedPassword,
-            date: Date.now()
-        };
-
-        const patient = new userModel(patientData);
-        await patient.save();
-
-        try {
-            await sendWelcomeCredentialsEmail({ email, tempPassword });
-        } catch (mailError) {
-            logEmailFailure('patient welcome email', mailError);
-        }
 
         res.json({
             success: true,
@@ -613,8 +551,8 @@ const createPatientAdmin = async (req, res) => {
                 aadharNumber: patient.aadharNumber
             },
             credentials: {
-                email,
-                password: tempPassword
+                email: credentials.email,
+                password: credentials.password
             }
         });
 

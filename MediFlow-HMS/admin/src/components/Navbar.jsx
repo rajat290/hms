@@ -8,7 +8,7 @@ const Navbar = ({ role, onOpenSidebar }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { unreadCount, notifications, markAsRead } = useContext(NotificationContext);
-  const { isEmergencyMode, setIsEmergencyMode, logoutCurrentSession } = useContext(AppContext);
+  const { isDarkMode, setIsDarkMode, isEmergencyMode, setIsEmergencyMode, logoutCurrentSession } = useContext(AppContext);
   const [showNotifications, setShowNotifications] = useState(false);
 
   const pageMeta = useMemo(() => getPageMeta(location.pathname, role), [location.pathname, role]);
@@ -20,7 +20,7 @@ const Navbar = ({ role, onOpenSidebar }) => {
   };
 
   return (
-    <header className="backoffice-main sticky top-0 z-30 border-b border-white/60 bg-white/70 px-4 py-4 shadow-[0_14px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:px-6 lg:px-8">
+    <header className="bo-navbar backoffice-main sticky top-0 z-30 px-4 py-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -58,6 +58,14 @@ const Navbar = ({ role, onOpenSidebar }) => {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setIsDarkMode((prev) => !prev)}
+              className="soft-button-secondary rounded-2xl px-4 py-3 text-xs uppercase tracking-[0.18em]"
+            >
+              {isDarkMode ? 'Light mode' : 'Dark mode'}
+            </button>
+
             {role === 'staff' ? (
               <button
                 type="button"
@@ -89,7 +97,7 @@ const Navbar = ({ role, onOpenSidebar }) => {
                 </button>
 
                 {showNotifications ? (
-                  <div className="absolute right-0 top-14 w-[320px] rounded-[24px] border border-white/70 bg-white/96 p-3 shadow-[0_24px_80px_rgba(15,23,42,0.14)] backdrop-blur">
+                  <div className="bo-surface absolute right-0 top-14 w-[320px] p-3">
                     <div className="mb-3 flex items-center justify-between px-2">
                       <div>
                         <p className="text-sm font-semibold text-slate-900">Staff alerts</p>

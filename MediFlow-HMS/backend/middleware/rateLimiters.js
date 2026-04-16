@@ -1,6 +1,6 @@
 import rateLimit from 'express-rate-limit'
 
-const createLimiter = ({ windowMs, limit, message, skip }) =>
+const createLimiter = ({ windowMs, limit, message, skip, ...options }) =>
     rateLimit({
         windowMs,
         limit,
@@ -8,6 +8,7 @@ const createLimiter = ({ windowMs, limit, message, skip }) =>
         legacyHeaders: false,
         skip,
         message: { success: false, message },
+        ...options,
     })
 
 const apiLimiter = createLimiter({
@@ -21,6 +22,7 @@ const authLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
     limit: 10,
     message: 'Too many login attempts. Please try again later.',
+    skipSuccessfulRequests: true,
 })
 
 const forgotPasswordLimiter = createLimiter({
