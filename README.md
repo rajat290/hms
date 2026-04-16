@@ -13,15 +13,16 @@ A comprehensive full-stack web application for managing hospital operations, app
 |---------|-----------|
 | Home Page | ![Home Page](screenshots/banner.png) |
 | Doctor Listing | ![Doctor Listing](screenshots/frontend/doctors.png) |
-| Doctor Profile | ![Doctor Profile](doctor.png) |
-| Appointment Booking | ![Booking](screenshots/banner.png) |
-| User Dashboard | ![Dashboard](screenshots/frontend/doctors.png) |
-| My Appointments | ![Appointments](doctor.png) |
-| My Billing | ![Billing](screenshots/banner.png) |
+| Doctor Profile | ![Doctor Profile](doctorprofile.png) |
+| Appointment Booking | ![Booking](screenshots/frontend/banner.png) |
+| User Dashboard | ![Profile](screenshots/frontend/User%20Dashboard.png) |
+| User Dashboard | ![Appoinments](screenshots/frontend/Appointments.png) |
+| User Dashboard | ![Billings](screenshots/frontend/Billings.png) |
+| User Dashboard | ![Notification](screenshots/frontend/Notification.png) |
 | AI Chat Widget | ![AI Chat](screenshots/frontend/doctors.png) |
-| Symptom Checker | ![Symptom Checker](doctor.png) |
+| Symptom Checker | ![Symptom Checker](screenshots/frontend/symptomcheker.png) |
 
-**Note:** More screenshots will be added as UI development progresses.
+<!-- **Note:** More screenshots will be added as UI development progresses. -->
 
 ### 👨‍⚕️ Doctor Panel
 | Feature | Screenshot |
@@ -56,9 +57,9 @@ A comprehensive full-stack web application for managing hospital operations, app
 ### 🔐 Authentication Pages
 | Feature | Screenshot |
 |---------|-----------|
-| Login Page | ![Login](screenshots/banner.png) |
-| Registration | ![Registration](doctor.png) |
-| Forgot Password | ![Forgot Password](screenshots/frontend/doctors.png) |
+| Login Page | ![Login](screenshots/login.png) |
+| Registration | ![Registration](screenshots/registration.png) |
+| Forgot Password | ![Forgot Password](screenshots/Forgot%20Password.png) |
 
 ---
 
