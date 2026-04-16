@@ -4,6 +4,8 @@ import { sendReminders } from '../controllers/notificationController.js';
 import { logger } from '../config/logger.js';
 import { logEmailFailure, sendOverdueInvoiceEmail } from '../services/emailService.js';
 
+let scheduledTasks = [];
+
 const checkOverdueInvoices = async () => {
     try {
         logger.info('Running overdue invoice check');
@@ -57,17 +59,34 @@ const checkOverdueInvoices = async () => {
 
 // Initialize Cron Jobs
 const initCronJobs = () => {
+    if (scheduledTasks.length > 0) {
+        return scheduledTasks;
+    }
+
     // Run every day at 9:00 AM for overdue invoices
-    cron.schedule('0 9 * * *', () => {
+    const overdueTask = cron.schedule('0 9 * * *', () => {
         checkOverdueInvoices();
     });
 
     // Run every hour to check for upcoming appointment reminders
-    cron.schedule('0 * * * *', () => {
+    const reminderTask = cron.schedule('0 * * * *', () => {
         sendReminders();
     });
 
+    scheduledTasks = [overdueTask, reminderTask];
     logger.info('Cron jobs initialized: overdue checks (09:00) and appointment reminders (hourly)');
+    return scheduledTasks;
+};
+
+const stopCronJobs = () => {
+    if (scheduledTasks.length === 0) {
+        return;
+    }
+
+    scheduledTasks.forEach((task) => task.stop());
+    scheduledTasks = [];
+    logger.info('Cron jobs stopped');
 };
 
 export default initCronJobs;
+export { stopCronJobs };

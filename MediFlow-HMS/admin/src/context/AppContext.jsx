@@ -1,17 +1,19 @@
 import axios from "axios";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { AdminContext } from "./AdminContext";
 import { DoctorContext } from "./DoctorContext";
 import { StaffContext } from "./StaffContext";
+import { createClientConfig } from "@shared/config/clientConfig.js";
+import { registerSessionRefreshInterceptor } from "@shared/http/registerSessionRefreshInterceptor.js";
 import { calculateAgeFromDob, formatSlotDate } from "@shared/utils/date.js";
 
 export const AppContext = createContext();
 
 const AppContextProvider = (props) => {
 
-    const currency = import.meta.env.VITE_CURRENCY;
-    const backendUrl = import.meta.env.VITE_BACKEND_URL;
-    const refreshRequestRef = useRef(null);
+    const { backendUrl, currency } = createClientConfig(import.meta.env, {
+        defaultCurrency: '₹',
+    });
 
     const { aToken, aRefreshToken, persistAdminSession, clearAdminSession } = useContext(AdminContext);
     const { dToken, dRefreshToken, persistDoctorSession, clearDoctorSession } = useContext(DoctorContext);
@@ -27,14 +29,6 @@ const AppContextProvider = (props) => {
         clearAdminSession();
         clearDoctorSession();
         clearStaffSession();
-    };
-
-    const normalizeAxiosError = (error) => {
-        const message = error?.response?.data?.message || error?.message || 'Request failed';
-        const normalizedError = new Error(message);
-        normalizedError.response = error?.response;
-        normalizedError.config = error?.config;
-        return normalizedError;
     };
 
     const getActiveSessionConfig = () => {
@@ -126,49 +120,21 @@ const AppContextProvider = (props) => {
     };
 
     useEffect(() => {
-        const interceptorId = axios.interceptors.response.use(
-            (response) => response,
-            async (error) => {
-                const originalRequest = error?.config || {};
-                const activeSession = getActiveSessionConfig();
-                const shouldAttemptRefresh = error?.response?.status === 401
-                    && !originalRequest._sessionRetried
-                    && !originalRequest.skipSessionRefresh
-                    && Boolean(activeSession?.refreshToken);
-
-                if (!shouldAttemptRefresh) {
-                    return Promise.reject(normalizeAxiosError(error));
-                }
-
-                originalRequest._sessionRetried = true;
-
-                try {
-                    if (!refreshRequestRef.current) {
-                        refreshRequestRef.current = refreshCurrentSession();
-                    }
-
-                    const refreshedSession = await refreshRequestRef.current;
-                    originalRequest.headers = {
-                        ...(originalRequest.headers || {}),
-                        [refreshedSession.headerName]: refreshedSession.token,
-                    };
-
-                    return axios(originalRequest);
-                } catch (refreshError) {
-                    clearAllSessions();
-                    if (window.location.pathname !== '/') {
-                        window.location.assign('/');
-                    }
-                    return Promise.reject(normalizeAxiosError(refreshError));
-                } finally {
-                    refreshRequestRef.current = null;
+        return registerSessionRefreshInterceptor({
+            axiosInstance: axios,
+            resolveSession: () => getActiveSessionConfig(),
+            refreshSession: () => refreshCurrentSession(),
+            applyRefreshedSession: ({ headers, refreshedSession }) => ({
+                ...headers,
+                [refreshedSession.headerName]: refreshedSession.token,
+            }),
+            onSessionExpired: async () => {
+                clearAllSessions();
+                if (window.location.pathname !== '/') {
+                    window.location.assign('/');
                 }
             },
-        );
-
-        return () => {
-            axios.interceptors.response.eject(interceptorId);
-        };
+        });
     }, [aToken, aRefreshToken, dToken, dRefreshToken, sToken, sRefreshToken]);
 
     const value = {

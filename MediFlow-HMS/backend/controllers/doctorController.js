@@ -1,28 +1,24 @@
-import bcrypt from "bcrypt";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import prescriptionModel from "../models/prescriptionModel.js";
 import reviewModel from "../models/reviewModel.js";
-import crypto from 'crypto';
-import validator from "validator";
 import { cancelAppointmentRecord } from "../utils/appointmentIntegrity.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
-import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
-import { sendPasswordResetEmail, sendVerificationEmail } from "../services/emailService.js";
+import { createRoleAuthRepository } from "../repositories/roleAuthRepository.js";
+import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail } from "../services/auth/roleAccountService.js";
+
+const doctorAccountRepository = createRoleAuthRepository(doctorModel);
 
 // API to verify email for doctor
 const verifyEmail = async (req, res) => {
     try {
-        const { token } = req.body;
-        const doctor = await doctorModel.findOne({ verificationToken: token });
-        if (!doctor) {
-            return res.json({ success: false, message: 'Invalid token' });
-        }
-        doctor.isVerified = true;
-        doctor.verificationToken = undefined;
-        await doctor.save();
-        res.json({ success: true, message: 'Doctor email verified successfully' });
+        const response = await verifyRoleEmail({
+            token: req.body.token,
+            repository: doctorAccountRepository,
+            successMessage: 'Doctor email verified successfully',
+        });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -35,40 +31,21 @@ const loginDoctor = async (req, res) => {
     try {
 
         const { email, password } = req.body
-        const user = await doctorModel.findOne({ email })
-
-        if (!user) {
-            return res.json({ success: false, message: "Invalid credentials" })
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password)
-
-        if (isMatch) {
-            if (!user.isVerified) {
-                const verificationToken = crypto.randomBytes(32).toString('hex');
-                user.verificationToken = verificationToken;
-                await user.save();
-
-                await sendVerificationEmail({
-                    email,
-                    origin: req.headers.origin,
-                    token: verificationToken,
-                    role: 'doctor',
-                    subject: 'Verify Your Doctor Account - Mediflow',
-                    heading: 'Email Verification Required',
-                    body: 'Please click the button below to verify your doctor account.',
-                });
-                return res.json({ success: false, message: "Email not verified. A new verification link has been sent." })
-            }
-            const session = await issueAuthTokens({
-                subjectId: user._id,
+        const response = await loginRoleAccount({
+            email,
+            password,
+            origin: req.headers.origin,
+            req,
+            role: 'doctor',
+            repository: doctorAccountRepository,
+            verificationEmail: {
                 role: 'doctor',
-                req,
-            });
-            res.json({ success: true, ...session })
-        } else {
-            res.json({ success: false, message: "Invalid credentials" })
-        }
+                subject: 'Verify Your Doctor Account - Mediflow',
+                heading: 'Email Verification Required',
+                body: 'Please click the button below to verify your doctor account.',
+            },
+        });
+        res.json(response)
 
 
     } catch (error) {
@@ -462,25 +439,18 @@ const updateAvailability = async (req, res) => {
 // API to forgot password for doctor
 const forgotPassword = async (req, res) => {
     try {
-        const { email } = req.body;
-        const doctor = await doctorModel.findOne({ email });
-        if (!doctor) {
-            return res.json({ success: false, message: 'Doctor not found' });
-        }
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        doctor.resetToken = resetToken;
-        doctor.resetTokenExpiry = Date.now() + 3600000; // 1 hour
-        await doctor.save();
-
-        await sendPasswordResetEmail({
-            email,
+        const response = await requestRolePasswordReset({
+            email: req.body.email,
             origin: req.headers.origin,
-            token: resetToken,
-            role: 'doctor',
-            subject: 'Password Reset - Mediflow Doctor Panel',
-            accountLabel: 'Doctor account',
+            repository: doctorAccountRepository,
+            emailConfig: {
+                role: 'doctor',
+                subject: 'Password Reset - Mediflow Doctor Panel',
+                accountLabel: 'Doctor account',
+            },
+            notFoundMessage: 'Doctor not found',
         });
-        res.json({ success: true, message: 'Reset link sent to your email' });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -490,38 +460,14 @@ const forgotPassword = async (req, res) => {
 // API to reset password for doctor
 const resetPassword = async (req, res) => {
     try {
-        const { token, newPassword } = req.body;
-        const doctor = await doctorModel.findOne({ resetToken: token, resetTokenExpiry: { $gt: Date.now() } });
-        if (!doctor) {
-            return res.json({ success: false, message: 'Invalid or expired token' });
-        }
-
-        if (newPassword.length < 8) {
-            return res.json({ success: false, message: "Please enter a strong password (min 8 chars)" });
-        }
-
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(newPassword, salt);
-        doctor.password = hashedPassword;
-        doctor.resetToken = undefined;
-        doctor.resetTokenExpiry = undefined;
-        doctor.isVerified = true;
-        doctor.verificationToken = undefined;
-        await doctor.save();
-
-        await revokeAllSessionsForSubject({
-            subjectId: doctor._id,
-            role: 'doctor',
-            reason: 'Password reset',
-        });
-
-        const session = await issueAuthTokens({
-            subjectId: doctor._id,
-            role: 'doctor',
+        const response = await resetRolePassword({
+            token: req.body.token,
+            newPassword: req.body.newPassword,
             req,
+            role: 'doctor',
+            repository: doctorAccountRepository,
         });
-
-        res.json({ success: true, message: 'Password reset successfully', ...session });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -530,10 +476,12 @@ const resetPassword = async (req, res) => {
 
 const refreshSession = async (req, res) => {
     try {
-        const { refreshToken } = req.body;
-        const session = await rotateRefreshSession(refreshToken, 'doctor', req);
-
-        res.json({ success: true, ...session });
+        const response = await refreshRoleSession({
+            refreshToken: req.body.refreshToken,
+            role: 'doctor',
+            req,
+        });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.status(401).json({ success: false, message: error.message || 'Session refresh failed' });
@@ -542,8 +490,11 @@ const refreshSession = async (req, res) => {
 
 const logoutDoctor = async (req, res) => {
     try {
-        await revokeSessionById(req.auth?.sessionId, 'Doctor logout');
-        res.json({ success: true, message: 'Logged out successfully' });
+        const response = await logoutRoleSession({
+            sessionId: req.auth?.sessionId,
+            reason: 'Doctor logout',
+        });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });

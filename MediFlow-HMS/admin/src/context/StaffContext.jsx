@@ -1,13 +1,14 @@
 import axios from "axios";
 import { createContext, useState } from "react";
 import { toast } from "react-toastify";
+import { createClientConfig } from "@shared/config/clientConfig.js";
 import { persistStoredSession, readStoredValue } from "@shared/utils/sessionStorage.js";
 
 export const StaffContext = createContext()
 
 const StaffContextProvider = (props) => {
 
-    const backendUrl = import.meta.env.VITE_BACKEND_URL;
+    const { backendUrl } = createClientConfig(import.meta.env);
 
     const [sToken, setSToken] = useState(() => readStoredValue('sToken'))
     const [sRefreshToken, setSRefreshToken] = useState(() => readStoredValue('sRefreshToken'))

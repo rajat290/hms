@@ -6,6 +6,7 @@ import { AdminContext } from '../context/AdminContext';
 import { DoctorContext } from '../context/DoctorContext';
 import { StaffContext } from '../context/StaffContext';
 import { AppContext } from '../context/AppContext';
+import { createClientConfig } from '@shared/config/clientConfig.js';
 import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
 import { roleMeta } from '../utils/backofficeConfig';
@@ -22,7 +23,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({ email: '', password: '' });
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  const { backendUrl } = createClientConfig(import.meta.env);
   const navigate = useNavigate();
   const { isDarkMode, setIsDarkMode } = useContext(AppContext);
 
