@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { DoctorContext } from './context/DoctorContext';
@@ -52,23 +52,51 @@ const App = () => {
     return null;
   }, [aToken, dToken, sToken]);
 
+  const defaultRoute = useMemo(() => {
+    if (aToken) return '/admin-dashboard';
+    if (dToken) return '/doctor-dashboard';
+    if (sToken) return '/staff-dashboard';
+    return '/';
+  }, [aToken, dToken, sToken]);
+
   useEffect(() => {
     document.documentElement.classList.toggle('dark', Boolean(isDarkMode));
     localStorage.setItem('darkMode', Boolean(isDarkMode) ? 'true' : 'false');
   }, [isDarkMode]);
 
   useEffect(() => {
+    if (role !== 'staff') return undefined;
+
     const handleKeyDown = (event) => {
       if (!event.altKey) return;
-      if (event.key === 'n') navigate('/staff-add-patient');
-      if (event.key === 'b') navigate('/staff-billing');
-      if (event.key === 'q') navigate('/staff-queue');
-      if (event.key === 'd') navigate('/staff-dashboard');
+
+      if (event.key === 'n') {
+        event.preventDefault();
+        navigate('/staff-add-patient');
+      }
+
+      if (event.key === 'b') {
+        event.preventDefault();
+        navigate('/staff-billing');
+      }
+
+      if (event.key === 'q') {
+        event.preventDefault();
+        navigate('/staff-queue');
+      }
+
+      if (event.key === 'd') {
+        event.preventDefault();
+        navigate('/staff-dashboard');
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate]);
+  }, [navigate, role]);
+
+  const renderRoleRoute = (allowedRoles, element) =>
+    allowedRoles.includes(role) ? element : <Navigate to={defaultRoute} replace />;
 
   if (!role) {
     return (
@@ -93,45 +121,48 @@ const App = () => {
         autoClose={2600}
         toastStyle={{ borderRadius: 18 }}
       />
-      <Sidebar
-        role={role}
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-      />
-      <div className="backoffice-main min-h-screen lg:pl-[290px]">
-        <Navbar role={role} onOpenSidebar={() => setIsSidebarOpen(true)} />
-        <main className="backoffice-main px-4 py-6 sm:px-6 lg:px-8">
-          <Routes>
-            <Route path="/" element={aToken ? <Dashboard /> : dToken ? <DoctorDashboard /> : <StaffDashboard />} />
-            <Route path="/admin-dashboard" element={<Dashboard />} />
-            <Route path="/all-appointments" element={<AllAppointments />} />
-            <Route path="/add-doctor" element={<AddDoctor />} />
-            <Route path="/doctor-list" element={<DoctorsList />} />
-            <Route path="/add-staff" element={<AddStaff />} />
-            <Route path="/all-staff" element={<AllStaff />} />
-            <Route path="/all-patients" element={<Patients />} />
-            <Route path="/add-patient" element={<AddPatient />} />
-            <Route path="/billing" element={<BillingPayments />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/patient-details/:userId" element={<PatientDetails />} />
-            <Route path="/analytics" element={<AnalyticsHub />} />
-            <Route path="/billing-analytics" element={<AnalyticsHub />} />
-            <Route path="/payment-settings" element={<DoctorPaymentSettings />} />
-            <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
-            <Route path="/doctor-appointments" element={<DoctorAppointments />} />
-            <Route path="/doctor-profile" element={<DoctorProfile />} />
-            <Route path="/doctor-availability" element={<DoctorAvailability />} />
-            <Route path="/staff-dashboard" element={<StaffDashboard />} />
-            <Route path="/staff-appointments" element={<StaffAppointments />} />
-            <Route path="/staff-patients" element={<StaffPatients />} />
-            <Route path="/staff-add-patient" element={<StaffAddPatient />} />
-            <Route path="/staff-billing" element={<StaffBilling />} />
-            <Route path="/staff-follow-up" element={<StaffFollowUp />} />
-            <Route path="/staff-patient-profile/:id" element={<StaffPatientProfile />} />
-            <Route path="/staff-queue" element={<StaffQueue />} />
-            <Route path="/staff-analytics" element={<StaffAnalytics />} />
-          </Routes>
-        </main>
+      <div className="min-h-screen lg:grid lg:grid-cols-[290px_minmax(0,1fr)]">
+        <Sidebar
+          role={role}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+        />
+        <div className="backoffice-main min-w-0">
+          <Navbar role={role} onOpenSidebar={() => setIsSidebarOpen(true)} />
+          <main className="backoffice-main min-w-0 px-4 py-6 sm:px-6 lg:px-8">
+            <Routes>
+              <Route path="/" element={<Navigate to={defaultRoute} replace />} />
+              <Route path="/admin-dashboard" element={renderRoleRoute(['admin'], <Dashboard />)} />
+              <Route path="/all-appointments" element={renderRoleRoute(['admin'], <AllAppointments />)} />
+              <Route path="/add-doctor" element={renderRoleRoute(['admin'], <AddDoctor />)} />
+              <Route path="/doctor-list" element={renderRoleRoute(['admin'], <DoctorsList />)} />
+              <Route path="/add-staff" element={renderRoleRoute(['admin'], <AddStaff />)} />
+              <Route path="/all-staff" element={renderRoleRoute(['admin'], <AllStaff />)} />
+              <Route path="/all-patients" element={renderRoleRoute(['admin'], <Patients />)} />
+              <Route path="/add-patient" element={renderRoleRoute(['admin'], <AddPatient />)} />
+              <Route path="/billing" element={renderRoleRoute(['admin'], <BillingPayments />)} />
+              <Route path="/settings" element={renderRoleRoute(['admin'], <Settings />)} />
+              <Route path="/patient-details/:userId" element={renderRoleRoute(['admin'], <PatientDetails />)} />
+              <Route path="/analytics" element={renderRoleRoute(['admin'], <AnalyticsHub />)} />
+              <Route path="/billing-analytics" element={renderRoleRoute(['admin'], <AnalyticsHub />)} />
+              <Route path="/payment-settings" element={renderRoleRoute(['admin'], <DoctorPaymentSettings />)} />
+              <Route path="/doctor-dashboard" element={renderRoleRoute(['doctor'], <DoctorDashboard />)} />
+              <Route path="/doctor-appointments" element={renderRoleRoute(['doctor'], <DoctorAppointments />)} />
+              <Route path="/doctor-profile" element={renderRoleRoute(['doctor'], <DoctorProfile />)} />
+              <Route path="/doctor-availability" element={renderRoleRoute(['doctor'], <DoctorAvailability />)} />
+              <Route path="/staff-dashboard" element={renderRoleRoute(['staff'], <StaffDashboard />)} />
+              <Route path="/staff-appointments" element={renderRoleRoute(['staff'], <StaffAppointments />)} />
+              <Route path="/staff-patients" element={renderRoleRoute(['staff'], <StaffPatients />)} />
+              <Route path="/staff-add-patient" element={renderRoleRoute(['staff'], <StaffAddPatient />)} />
+              <Route path="/staff-billing" element={renderRoleRoute(['staff'], <StaffBilling />)} />
+              <Route path="/staff-follow-up" element={renderRoleRoute(['staff'], <StaffFollowUp />)} />
+              <Route path="/staff-patient-profile/:id" element={renderRoleRoute(['staff'], <StaffPatientProfile />)} />
+              <Route path="/staff-queue" element={renderRoleRoute(['staff'], <StaffQueue />)} />
+              <Route path="/staff-analytics" element={renderRoleRoute(['staff'], <StaffAnalytics />)} />
+              <Route path="*" element={<Navigate to={defaultRoute} replace />} />
+            </Routes>
+          </main>
+        </div>
       </div>
     </div>
   );

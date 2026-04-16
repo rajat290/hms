@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminContext } from '../context/AdminContext';
 import { DoctorContext } from '../context/DoctorContext';
 import { StaffContext } from '../context/StaffContext';
+import { AppContext } from '../context/AppContext';
 import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
 import { roleMeta } from '../utils/backofficeConfig';
@@ -23,6 +24,7 @@ const Login = () => {
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
   const navigate = useNavigate();
+  const { isDarkMode, setIsDarkMode } = useContext(AppContext);
 
   const { persistDoctorSession, clearDoctorSession } = useContext(DoctorContext);
   const { persistAdminSession, clearAdminSession } = useContext(AdminContext);
@@ -88,6 +90,7 @@ const Login = () => {
           clearDoctorSession();
           clearStaffSession();
           persistAdminSession(data.token, data.refreshToken);
+          navigate('/admin-dashboard', { replace: true });
         } else {
           toast.error(data.message);
         }
@@ -97,6 +100,7 @@ const Login = () => {
           clearAdminSession();
           clearStaffSession();
           persistDoctorSession(data.token, data.refreshToken);
+          navigate('/doctor-dashboard', { replace: true });
         } else {
           toast.error(data.message);
         }
@@ -106,13 +110,13 @@ const Login = () => {
           clearAdminSession();
           clearDoctorSession();
           persistStaffSession(data.token, data.refreshToken);
-          navigate('/staff-dashboard');
+          navigate('/staff-dashboard', { replace: true });
         } else {
           toast.error(data.message);
         }
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error?.response?.data?.message || error.message);
     } finally {
       setLoading(false);
     }
@@ -122,9 +126,16 @@ const Login = () => {
   if (view === 'reset') return <ResetPassword setView={setView} />;
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(251,146,60,0.14),transparent_26%),linear-gradient(180deg,#0f172a_0%,#111827_36%,#f3f6f5_36%,#edf4f7_100%)] px-4 py-10 sm:px-6 lg:px-10">
+    <div className="bo-login-shell relative min-h-screen overflow-hidden px-4 py-10 sm:px-6 lg:px-10">
+      <button
+        type="button"
+        onClick={() => setIsDarkMode((prev) => !prev)}
+        className="bo-theme-toggle absolute right-4 top-4 z-10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] sm:right-6 sm:top-6"
+      >
+        {isDarkMode ? 'Light mode' : 'Dark mode'}
+      </button>
       <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="flex flex-col justify-between rounded-[34px] border border-white/10 bg-white/6 p-7 text-white shadow-[0_28px_90px_rgba(15,23,42,0.24)] backdrop-blur-xl sm:p-10">
+        <section className="bo-login-hero flex flex-col justify-between rounded-[34px] p-7 shadow-[0_28px_90px_rgba(15,23,42,0.24)] backdrop-blur-xl sm:p-10">
           <div className="space-y-6">
             <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-teal-100">
               MediFlow Workspace
@@ -171,7 +182,7 @@ const Login = () => {
         <section className="animate-fade-up flex items-center">
           <form
             onSubmit={onSubmitHandler}
-            className="w-full rounded-[34px] border border-white/70 bg-white/92 p-7 shadow-[0_30px_100px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-10"
+            className="bo-login-panel w-full rounded-[34px] p-7 backdrop-blur-xl sm:p-10"
           >
             <div className="mb-8 space-y-3">
               <span className={`inline-flex rounded-full bg-gradient-to-r px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-white ${roleDetails.accent}`}>

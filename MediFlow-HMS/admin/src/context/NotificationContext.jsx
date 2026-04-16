@@ -39,12 +39,23 @@ const NotificationContextProvider = (props) => {
     };
 
     useEffect(() => {
-        if (sToken) {
-            getNotifications();
-            // In a real app, we'd setup socket.io here
-            const interval = setInterval(getNotifications, 30000); // Poll every 30s
-            return () => clearInterval(interval);
-        }
+        if (!sToken) return undefined;
+
+        const pollNotifications = () => {
+            if (document.visibilityState === 'visible') {
+                getNotifications();
+            }
+        };
+
+        pollNotifications();
+
+        const interval = setInterval(pollNotifications, 60000);
+        document.addEventListener('visibilitychange', pollNotifications);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', pollNotifications);
+        };
     }, [sToken]);
 
     const value = {
