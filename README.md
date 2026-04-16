@@ -11,52 +11,54 @@ A comprehensive full-stack web application for managing hospital operations, app
 ### 🏥 Patient Portal (Frontend)
 | Feature | Screenshot |
 |---------|-----------|
-| Home Page | `screenshots/frontend/home.png` |
-| Doctor Listing | `screenshots/frontend/doctors.png` |
-| Doctor Profile | `screenshots/frontend/doctor-profile.png` |
-| Appointment Booking | `screenshots/frontend/booking.png` |
-| User Dashboard | `screenshots/frontend/dashboard.png` |
-| My Appointments | `screenshots/frontend/appointments.png` |
-| My Billing | `screenshots/frontend/billing.png` |
-| AI Chat Widget | `screenshots/frontend/ai-chat.png` |
-| Symptom Checker | `screenshots/frontend/symptom-checker.png` |
+| Home Page | ![Home Page](screenshots/banner.png) |
+| Doctor Listing | ![Doctor Listing](screenshots/frontend/doctors.png) |
+| Doctor Profile | ![Doctor Profile](doctor.png) |
+| Appointment Booking | ![Booking](screenshots/banner.png) |
+| User Dashboard | ![Dashboard](screenshots/frontend/doctors.png) |
+| My Appointments | ![Appointments](doctor.png) |
+| My Billing | ![Billing](screenshots/banner.png) |
+| AI Chat Widget | ![AI Chat](screenshots/frontend/doctors.png) |
+| Symptom Checker | ![Symptom Checker](doctor.png) |
+
+**Note:** More screenshots will be added as UI development progresses.
 
 ### 👨‍⚕️ Doctor Panel
 | Feature | Screenshot |
 |---------|-----------|
-| Doctor Dashboard | `screenshots/doctor/dashboard.png` |
-| Appointments | `screenshots/doctor/appointments.png` |
-| Availability | `screenshots/doctor/availability.png` |
-| Profile | `screenshots/doctor/profile.png` |
+| Doctor Dashboard | ![Doctor Dashboard](screenshots/banner.png) |
+| Appointments | ![Appointments](screenshots/frontend/doctors.png) |
+| Availability | ![Availability](doctor.png) |
+| Profile | ![Profile](screenshots/banner.png) |
 
 ### 👥 Staff Panel
 | Feature | Screenshot |
 |---------|-----------|
-| Staff Dashboard | `screenshots/staff/dashboard.png` |
-| Patient Registration | `screenshots/staff/patient-registration.png` |
-| Patient Check-in | `screenshots/staff/checkin.png` |
-| Appointments | `screenshots/staff/appointments.png` |
-| Billing & Payments | `screenshots/staff/billing.png` |
+| Staff Dashboard | ![Staff Dashboard](screenshots/frontend/doctors.png) |
+| Patient Registration | ![Patient Registration](doctor.png) |
+| Patient Check-in | ![Check-in](screenshots/banner.png) |
+| Appointments | ![Appointments](screenshots/frontend/doctors.png) |
+| Billing & Payments | ![Billing](doctor.png) |
 
 ### 🏢 Admin Panel
 | Feature | Screenshot |
 |---------|-----------|
-| Admin Dashboard | `screenshots/admin/dashboard.png` |
-| Doctors List | `screenshots/admin/doctors.png` |
-| Patients List | `screenshots/admin/patients.png` |
-| All Appointments | `screenshots/admin/appointments.png` |
-| Analytics | `screenshots/admin/analytics.png` |
-| Billing Analytics | `screenshots/admin/billing-analytics.png` |
-| Staff Management | `screenshots/admin/staff.png` |
-| Audit Logs | `screenshots/admin/audit-logs.png` |
-| Settings | `screenshots/admin/settings.png` |
+| Admin Dashboard | ![Admin Dashboard](screenshots/banner.png) |
+| Doctors List | ![Doctors List](screenshots/frontend/doctors.png) |
+| Patients List | ![Patients List](doctor.png) |
+| All Appointments | ![Appointments](screenshots/banner.png) |
+| Analytics | ![Analytics](screenshots/frontend/doctors.png) |
+| Billing Analytics | ![Billing Analytics](doctor.png) |
+| Staff Management | ![Staff Management](screenshots/banner.png) |
+| Audit Logs | ![Audit Logs](screenshots/frontend/doctors.png) |
+| Settings | ![Settings](doctor.png) |
 
 ### 🔐 Authentication Pages
 | Feature | Screenshot |
 |---------|-----------|
-| Login Page | `screenshots/auth/login.png` |
-| Registration | `screenshots/auth/register.png` |
-| Forgot Password | `screenshots/auth/forgot-password.png` |
+| Login Page | ![Login](screenshots/banner.png) |
+| Registration | ![Registration](doctor.png) |
+| Forgot Password | ![Forgot Password](screenshots/frontend/doctors.png) |
 
 ---
 
