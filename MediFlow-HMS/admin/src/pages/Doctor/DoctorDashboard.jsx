@@ -1,80 +1,154 @@
-import React from 'react'
-import { useContext } from 'react'
-import { useEffect } from 'react'
-import { DoctorContext } from '../../context/DoctorContext'
-import { assets } from '../../assets/assets'
-import { AppContext } from '../../context/AppContext'
+import React, { useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { assets } from '../../assets/assets';
+import { DoctorContext } from '../../context/DoctorContext';
+import { AppContext } from '../../context/AppContext';
+import LoadingState from '../../components/backoffice/LoadingState';
+import PageHeader from '../../components/backoffice/PageHeader';
+import StatCard from '../../components/backoffice/StatCard';
+import StatusBadge from '../../components/backoffice/StatusBadge';
+import SurfaceCard from '../../components/backoffice/SurfaceCard';
 
 const DoctorDashboard = () => {
-
-  const { dToken, dashData, getDashData, cancelAppointment, completeAppointment } = useContext(DoctorContext)
-  const { slotDateFormat, currency } = useContext(AppContext)
-
+  const navigate = useNavigate();
+  const { dToken, dashData, getDashData, cancelAppointment, completeAppointment } = useContext(DoctorContext);
+  const { slotDateFormat, currency } = useContext(AppContext);
 
   useEffect(() => {
-
     if (dToken) {
-      getDashData()
+      getDashData();
     }
+  }, [dToken]);
 
-  }, [dToken])
+  if (!dashData) {
+    return <LoadingState label="Preparing the doctor workspace..." />;
+  }
 
-  return dashData && (
-    <div className='m-5'>
+  return (
+    <div className="space-y-6 animate-soft-in">
+      <PageHeader
+        eyebrow="Doctor overview"
+        title="A calmer daily workspace for consults, follow-ups, and outcomes."
+        description="See your active load, complete appointments quickly, and keep patient actions visible without hunting through clutter."
+        actions={
+          <>
+            <button type="button" className="soft-button-secondary" onClick={() => navigate('/doctor-availability')}>
+              Edit availability
+            </button>
+            <button type="button" className="soft-button-accent" onClick={() => navigate('/doctor-appointments')}>
+              Open appointments
+            </button>
+          </>
+        }
+      />
 
-      <div className='flex flex-wrap gap-3'>
-        <div className='flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all'>
-          <img className='w-14' src={assets.earning_icon} alt="" />
-          <div>
-            <p className='text-xl font-semibold text-gray-600'>{currency} {dashData.earnings}</p>
-            <p className='text-gray-400'>Earnings</p>
-          </div>
-        </div>
-        <div className='flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all'>
-          <img className='w-14' src={assets.appointments_icon} alt="" />
-          <div>
-            <p className='text-xl font-semibold text-gray-600'>{dashData.appointments}</p>
-            <p className='text-gray-400'>Appointments</p>
-          </div>
-        </div>
-        <div className='flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all'>
-          <img className='w-14' src={assets.patients_icon} alt="" />
-          <div>
-            <p className='text-xl font-semibold text-gray-600'>{dashData.patients}</p>
-            <p className='text-gray-400'>Patients</p></div>
-        </div>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <StatCard
+          icon={assets.earning_icon}
+          label="Earnings"
+          value={`${currency}${dashData.earnings}`}
+          hint="Captured through completed or paid visits"
+          accent="from-teal-500 to-cyan-500"
+        />
+        <StatCard
+          icon={assets.appointments_icon}
+          label="Appointments"
+          value={dashData.appointments}
+          hint="Total assigned bookings"
+          accent="from-sky-500 to-indigo-500"
+        />
+        <StatCard
+          icon={assets.patients_icon}
+          label="Patients"
+          value={dashData.patients}
+          hint="Unique patients treated"
+          accent="from-amber-500 to-orange-500"
+        />
       </div>
 
-      <div className='bg-white'>
-        <div className='flex items-center gap-2.5 px-4 py-4 mt-10 rounded-t border'>
-          <img src={assets.list_icon} alt="" />
-          <p className='font-semibold'>Latest Bookings</p>
-        </div>
-
-        <div className='pt-4 border border-t-0'>
-          {dashData.latestAppointments.slice(0, 5).map((item, index) => (
-            <div className='flex items-center px-6 py-3 gap-3 hover:bg-gray-100' key={index}>
-              <img className='rounded-full w-10' src={item.userData.image} alt="" />
-              <div className='flex-1 text-sm'>
-                <p className='text-gray-800 font-medium'>{item.userData.name}</p>
-                <p className='text-gray-600 '>Booking on {slotDateFormat(item.slotDate)}</p>
-              </div>
-              {item.cancelled
-                ? <p className='text-red-400 text-xs font-medium'>Cancelled</p>
-                : item.isCompleted
-                  ? <p className='text-green-500 text-xs font-medium'>Completed</p>
-                  : <div className='flex'>
-                    <img onClick={() => cancelAppointment(item._id)} className='w-10 cursor-pointer' src={assets.cancel_icon} alt="" />
-                    <img onClick={() => completeAppointment(item._id)} className='w-10 cursor-pointer' src={assets.tick_icon} alt="" />
-                  </div>
-              }
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.95fr]">
+        <SurfaceCard className="space-y-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Action queue</p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Recent patient bookings</h2>
             </div>
-          ))}
-        </div>
+            <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => navigate('/doctor-appointments')}>
+              View all
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {dashData.latestAppointments.slice(0, 6).map((item) => (
+              <div key={item._id} className="flex flex-col gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 md:flex-row md:items-center">
+                <img src={item.userData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-slate-900">{item.userData.name}</p>
+                    {item.cancelled ? (
+                      <StatusBadge tone="danger">Cancelled</StatusBadge>
+                    ) : item.isCompleted ? (
+                      <StatusBadge tone="success">Completed</StatusBadge>
+                    ) : item.isAccepted ? (
+                      <StatusBadge tone="info">Accepted</StatusBadge>
+                    ) : (
+                      <StatusBadge tone="warning">Awaiting review</StatusBadge>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {slotDateFormat(item.slotDate)} • {item.slotTime}
+                  </p>
+                </div>
+                {!item.cancelled && !item.isCompleted ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => cancelAppointment(item._id)}>
+                      Cancel
+                    </button>
+                    <button type="button" className="soft-button-accent px-4 py-2" onClick={() => completeAppointment(item._id)}>
+                      Complete
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </SurfaceCard>
+
+        <SurfaceCard className="space-y-5">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Today’s guidance</p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-900">Stay ahead of the session</h2>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-[24px] bg-slate-950 p-5 text-white">
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Good practice</p>
+              <p className="mt-3 text-lg font-semibold">Finish consultation notes while the context is still fresh.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">That keeps prescriptions, follow-up actions, and patient communication much cleaner.</p>
+            </div>
+
+            <div className="rounded-[24px] border border-sky-100 bg-sky-50 p-5">
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-700">Profile hygiene</p>
+              <p className="mt-3 text-sm leading-6 text-sky-900">
+                Review your profile and availability before the next booking cycle so patients always see accurate consultation details.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <button type="button" className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => navigate('/doctor-profile')}>
+                <p className="text-sm font-semibold text-slate-900">Update profile</p>
+                <p className="mt-1 text-sm text-slate-500">Fees, address, about, and consultation details.</p>
+              </button>
+              <button type="button" className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => navigate('/doctor-availability')}>
+                <p className="text-sm font-semibold text-slate-900">Set availability</p>
+                <p className="mt-1 text-sm text-slate-500">Keep slots aligned with your real-world schedule.</p>
+              </button>
+            </div>
+          </div>
+        </SurfaceCard>
       </div>
-
     </div>
-  )
-}
+  );
+};
 
-export default DoctorDashboard
+export default DoctorDashboard;

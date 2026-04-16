@@ -1,96 +1,141 @@
-import React, { useContext } from 'react'
-import { assets } from '../assets/assets'
-import { DoctorContext } from '../context/DoctorContext'
-import { AdminContext } from '../context/AdminContext'
-import { StaffContext } from '../context/StaffContext'
-import { useNavigate } from 'react-router-dom'
+import React, { useContext, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { NotificationContext } from '../context/NotificationContext';
+import { AppContext } from '../context/AppContext';
+import { getPageMeta, roleMeta } from '../utils/backofficeConfig';
 
-import { NotificationContext } from '../context/NotificationContext'
-import { AppContext } from '../context/AppContext'
+const Navbar = ({ role, onOpenSidebar }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { unreadCount, notifications, markAsRead } = useContext(NotificationContext);
+  const { isEmergencyMode, setIsEmergencyMode, logoutCurrentSession } = useContext(AppContext);
+  const [showNotifications, setShowNotifications] = useState(false);
 
-const Navbar = () => {
+  const pageMeta = useMemo(() => getPageMeta(location.pathname, role), [location.pathname, role]);
+  const roleDetails = roleMeta[role] || roleMeta.admin;
 
-  const { dToken } = useContext(DoctorContext)
-  const { aToken } = useContext(AdminContext)
-  const { sToken } = useContext(StaffContext)
-  const { unreadCount, notifications, markAsRead } = useContext(NotificationContext)
-  const [showNotifications, setShowNotifications] = React.useState(false)
-
-  const { isEmergencyMode, setIsEmergencyMode, isDarkMode, setIsDarkMode, logoutCurrentSession } = useContext(AppContext)
-
-  const navigate = useNavigate()
-
-  const logout = async () => {
-    await logoutCurrentSession()
-    navigate('/')
-  }
+  const handleLogout = async () => {
+    await logoutCurrentSession();
+    navigate('/');
+  };
 
   return (
-    <div className='flex justify-between items-center px-4 sm:px-10 py-3 border-b bg-white'>
-      <div className='flex items-center gap-2 text-xs'>
-        <img onClick={() => navigate('/')} className='w-36 sm:w-40 cursor-pointer' src={assets.admin_logo} alt="Mediflow Admin Logo" aria-label="Home" />
-        <p className='border px-2.5 py-0.5 rounded-full border-gray-500 text-gray-600' aria-label={`Logged in as ${aToken ? 'Admin' : dToken ? 'Doctor' : 'Staff'}`}>{aToken ? 'Admin' : dToken ? 'Doctor' : 'Staff'}</p>
-      </div>
-
-      <div className='flex items-center gap-4'>
-        {sToken && (
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className='p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-all'
-            title="Toggle Dark Mode"
-          >
-            {isDarkMode ? '☀️' : '🌙'}
-          </button>
-        )}
-        {sToken && (
-          <button
-            onClick={() => setIsEmergencyMode(!isEmergencyMode)}
-            className={`px-4 py-1.5 rounded-full text-xs font-black transition-all ${isEmergencyMode ? 'bg-red-600 text-white animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600'}`}
-            aria-label={isEmergencyMode ? 'Emergency Mode Active' : 'Normal Operations Mode'}
-          >
-            {isEmergencyMode ? '🚨 EMERGENCY ACTIVE' : '⚠ NORMAL OPS'}
-          </button>
-        )}
-        {aToken && (
-          <p className='border px-2.5 py-0.5 rounded-full border-gray-500 text-gray-600' aria-label="Admin Status">Admin Access</p>
-        )}
-        {sToken && (
-          <div className='relative cursor-pointer' onClick={() => setShowNotifications(!showNotifications)} aria-label="Notifications">
-            <img className='w-7' src={assets.appointment_icon} alt="Notifications" />
-            {unreadCount > 0 && (
-              <span className='absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold' aria-label={`${unreadCount} unread notifications`}>
-                {unreadCount}
-              </span>
-            )}
-
-            {showNotifications && (
-              <div className='absolute right-0 mt-3 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden'>
-                <div className='p-3 border-b bg-gray-50 flex justify-between items-center'>
-                  <p className='font-bold text-gray-700'>Notifications</p>
-                </div>
-                <div className='max-h-96 overflow-y-auto'>
-                  {notifications.length === 0 ? (
-                    <p className='p-4 text-center text-gray-500 text-sm'>No notifications</p>
-                  ) : notifications.map((item, index) => (
-                    <div
-                      key={index}
-                      onClick={() => markAsRead(item._id)}
-                      className={`p-3 border-b hover:bg-gray-50 transition-colors ${!item.read ? 'bg-indigo-50/30' : ''}`}
-                    >
-                      <p className='text-sm font-bold text-gray-800'>{item.title}</p>
-                      <p className='text-xs text-gray-600 mt-1'>{item.message}</p>
-                      <p className='text-[10px] text-gray-400 mt-1'>{new Date(item.date).toLocaleString()}</p>
-                    </div>
-                  ))}
-                </div>
+    <header className="backoffice-main sticky top-0 z-30 border-b border-white/60 bg-white/70 px-4 py-4 shadow-[0_14px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onOpenSidebar}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white/90 text-slate-700 shadow-sm lg:hidden"
+              aria-label="Open navigation"
+            >
+              <span className="text-lg">=</span>
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex rounded-full bg-gradient-to-r px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-white shadow ${roleDetails.accent}`}>
+                  {roleDetails.shortLabel}
+                </span>
+                <span className="rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-xs font-medium text-slate-500">
+                  {new Date().toLocaleDateString('en-IN', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </span>
               </div>
-            )}
+              <div className="mt-2">
+                <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+                  {pageMeta.title}
+                </h1>
+                {pageMeta.description ? (
+                  <p className="text-sm text-slate-500">{pageMeta.description}</p>
+                ) : null}
+              </div>
+            </div>
           </div>
-        )}
-        <button onClick={() => logout()} className='bg-primary text-white text-sm px-10 py-2 rounded-full'>Logout</button>
-      </div>
-    </div>
-  )
-}
 
-export default Navbar
+          <div className="flex items-center gap-2 sm:gap-3">
+            {role === 'staff' ? (
+              <button
+                type="button"
+                onClick={() => setIsEmergencyMode(!isEmergencyMode)}
+                className={`hidden rounded-2xl px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] shadow-sm transition sm:inline-flex ${
+                  isEmergencyMode
+                    ? 'bg-rose-600 text-white shadow-rose-600/30'
+                    : 'border border-slate-200 bg-white/85 text-slate-600 hover:border-rose-200 hover:text-rose-600'
+                }`}
+              >
+                {isEmergencyMode ? 'Emergency Active' : 'Normal Mode'}
+              </button>
+            ) : null}
+
+            {role === 'staff' ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowNotifications((prev) => !prev)}
+                  className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white/90 text-slate-700 shadow-sm"
+                  aria-label="View notifications"
+                >
+                  <span className="text-lg">!</span>
+                  {unreadCount > 0 ? (
+                    <span className="absolute -right-1 -top-1 inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white">
+                      {unreadCount}
+                    </span>
+                  ) : null}
+                </button>
+
+                {showNotifications ? (
+                  <div className="absolute right-0 top-14 w-[320px] rounded-[24px] border border-white/70 bg-white/96 p-3 shadow-[0_24px_80px_rgba(15,23,42,0.14)] backdrop-blur">
+                    <div className="mb-3 flex items-center justify-between px-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Staff alerts</p>
+                        <p className="text-xs text-slate-500">Latest desk and queue activity.</p>
+                      </div>
+                    </div>
+                    <div className="max-h-[320px] space-y-2 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+                          No new notifications right now.
+                        </div>
+                      ) : (
+                        notifications.map((item) => (
+                          <button
+                            type="button"
+                            key={item._id}
+                            onClick={() => markAsRead(item._id)}
+                            className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                              item.read
+                                ? 'border-slate-100 bg-slate-50/80'
+                                : 'border-teal-100 bg-teal-50/80'
+                            }`}
+                          >
+                            <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">{item.message}</p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="soft-button-primary rounded-2xl px-4 py-3 text-sm"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default Navbar;

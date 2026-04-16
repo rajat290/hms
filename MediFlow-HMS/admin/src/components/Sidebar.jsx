@@ -1,117 +1,91 @@
-import React, { useContext } from 'react'
-import { assets } from '../assets/assets'
-import { NavLink } from 'react-router-dom'
-import { DoctorContext } from '../context/DoctorContext'
-import { AdminContext } from '../context/AdminContext'
-import { StaffContext } from '../context/StaffContext'
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { assets } from '../assets/assets';
+import { navigationByRole, roleMeta } from '../utils/backofficeConfig';
 
-const Sidebar = () => {
-
-  const { dToken } = useContext(DoctorContext)
-  const { aToken } = useContext(AdminContext)
-  const { sToken } = useContext(StaffContext)
+const Sidebar = ({ role, isOpen, onClose }) => {
+  const items = navigationByRole[role] || [];
+  const roleDetails = roleMeta[role] || roleMeta.admin;
 
   return (
-    <div className='min-h-screen bg-white border-r'>
-      {aToken && <ul className='text-[#515151] mt-5'>
+    <>
+      <div
+        className={`fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm transition lg:hidden ${isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
+        onClick={onClose}
+      />
 
-        <NavLink to={'/admin-dashboard'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Admin Dashboard">
-          <img className='min-w-5' src={assets.home_icon} alt='Dashboard Icon' />
-          <p className='hidden md:block'>Dashboard</p>
-        </NavLink>
-        <NavLink to={'/all-appointments'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="All Appointments">
-          <img className='min-w-5' src={assets.appointment_icon} alt='Appointments Icon' />
-          <p className='hidden md:block'>Appointments</p>
-        </NavLink>
-        <NavLink to={'/add-doctor'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Add New Doctor">
-          <img className='min-w-5' src={assets.add_icon} alt='Add Icon' />
-          <p className='hidden md:block'>Add Doctor</p>
-        </NavLink>
-        <NavLink to={'/add-patient'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Add New Patient">
-          <img className='min-w-5' src={assets.add_icon} alt='Add Icon' />
-          <p className='hidden md:block'>Add Patient</p>
-        </NavLink>
-        <NavLink to={'/doctor-list'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Doctors List">
-          <img className='min-w-5' src={assets.people_icon} alt='Doctors Icon' />
-          <p className='hidden md:block'>Doctors List</p>
-        </NavLink>
-        <NavLink to={'/add-staff'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Add New Staff">
-          <img className='min-w-5' src={assets.add_icon} alt='Add Icon' />
-          <p className='hidden md:block'>Add Staff</p>
-        </NavLink>
-        <NavLink to={'/all-staff'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Staff List">
-          <img className='min-w-5' src={assets.people_icon} alt='Staff Icon' />
-          <p className='hidden md:block'>Staff List</p>
-        </NavLink>
-        <NavLink to={'/all-patients'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Patients List">
-          <img className='min-w-5' src={assets.people_icon} alt='Patients Icon' />
-          <p className='hidden md:block'>Patients</p>
-        </NavLink>
-        <NavLink to={'/billing'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Billing and Payments">
-          <img className='min-w-5' src={assets.appointment_icon} alt='Billing Icon' />
-          <p className='hidden md:block'>Billing/Payments</p>
-        </NavLink>
-        <NavLink to={'/settings'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Settings">
-          <img className='min-w-5' src={assets.info_icon} alt='Settings Icon' />
-          <p className='hidden md:block'>Settings</p>
-        </NavLink>
-        <NavLink to={'/payment-settings'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Payment Settings">
-          <img className='min-w-5' src={assets.earning_icon} alt='Payments Icon' />
-          <p className='hidden md:block'>Payment Settings</p>
-        </NavLink>
-      </ul>}
+      <aside
+        className={`backoffice-main fixed inset-y-0 left-0 z-50 flex w-[290px] flex-col border-r border-white/10 bg-slate-950 text-white shadow-[0_28px_80px_rgba(15,23,42,0.26)] transition-transform duration-300 lg:z-20 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        <div className="border-b border-white/10 px-5 pb-6 pt-5">
+          <div className="mb-4 flex items-center justify-between lg:hidden">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm text-white"
+              aria-label="Close navigation"
+            >
+              X
+            </button>
+          </div>
 
-      {sToken && <ul className='text-[#515151] mt-5'>
-        <NavLink to={'/staff-dashboard'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Staff Dashboard">
-          <img className='min-w-5' src={assets.home_icon} alt='Dashboard Icon' />
-          <p className='hidden md:block'>Dashboard</p>
-        </NavLink>
-        <NavLink to={'/staff-appointments'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Staff Appointments">
-          <img className='min-w-5' src={assets.appointment_icon} alt='Appointments Icon' />
-          <p className='hidden md:block'>Appointments</p>
-        </NavLink>
-        <NavLink to={'/staff-patients'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Patients Management">
-          <img className='min-w-5' src={assets.people_icon} alt='Patients Icon' />
-          <p className='hidden md:block'>Patients</p>
-        </NavLink>
-        <NavLink to={'/staff-queue'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Queue Management">
-          <img className='min-w-5' src={assets.list_icon} alt='Queue Icon' />
-          <p className='hidden md:block'>Queue Management</p>
-        </NavLink>
-        <NavLink to={'/staff-billing'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Staff Billing Cockpit">
-          <img className='min-w-5' src={assets.earning_icon} alt='Billing Icon' />
-          <p className='hidden md:block'>Billing</p>
-        </NavLink>
-        <NavLink to={'/staff-analytics'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Staff Analytics Hub">
-          <img className='min-w-5' src={assets.earning_icon} alt='Analytics Icon' />
-          <p className='hidden md:block'>Analytics</p>
-        </NavLink>
-        <NavLink to={'/staff-follow-up'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Patient Follow-ups">
-          <img className='min-w-5' src={assets.info_icon} alt='Follow-up Icon' />
-          <p className='hidden md:block'>Follow-up</p>
-        </NavLink>
-      </ul>}
+          <div className="flex items-center gap-3">
+            <div className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${roleDetails.accent} shadow-lg`}>
+              <img src={assets.admin_logo} alt="" className="h-7 w-7 brightness-0 invert" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold tracking-wide text-white">{roleDetails.label}</p>
+              <p className="text-xs leading-5 text-slate-400">{roleDetails.description}</p>
+            </div>
+          </div>
+        </div>
 
-      {dToken && <ul className='text-[#515151] mt-5'>
-        <NavLink to={'/doctor-dashboard'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Doctor Dashboard">
-          <img className='min-w-5' src={assets.home_icon} alt='Dashboard Icon' />
-          <p className='hidden md:block'>Dashboard</p>
-        </NavLink>
-        <NavLink to={'/doctor-appointments'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Doctor Appointments">
-          <img className='min-w-5' src={assets.appointment_icon} alt='Appointments Icon' />
-          <p className='hidden md:block'>Appointments</p>
-        </NavLink>
-        <NavLink to={'/doctor-profile'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Doctor Profile">
-          <img className='min-w-5' src={assets.people_icon} alt='Profile Icon' />
-          <p className='hidden md:block'>Profile</p>
-        </NavLink>
-        <NavLink to={'/doctor-availability'} className={({ isActive }) => `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-72 cursor-pointer ${isActive ? 'bg-[#F2F3FF] border-r-4 border-primary' : ''}`} aria-label="Doctor Availability Settings">
-          <img className='min-w-5' src={assets.appointment_icon} alt='Availability Icon' />
-          <p className='hidden md:block'>Availability</p>
-        </NavLink>
-      </ul>}
-    </div >
-  )
-}
+        <div className="flex-1 overflow-y-auto px-4 py-5">
+          <div className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Workspace
+          </div>
+          <nav className="space-y-1.5">
+            {items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition ${
+                    isActive
+                      ? 'bg-white text-slate-950 shadow-lg'
+                      : 'text-slate-300 hover:bg-white/8 hover:text-white'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${isActive ? 'bg-slate-950/6' : 'bg-white/6 group-hover:bg-white/10'}`}>
+                      <img
+                        src={item.icon}
+                        alt=""
+                        className={`h-5 w-5 ${isActive ? 'opacity-80 brightness-0' : 'opacity-80 brightness-0 invert'}`}
+                      />
+                    </span>
+                    <span>{item.label}</span>
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
 
-export default Sidebar
+        <div className="border-t border-white/10 px-5 py-5">
+          <div className="rounded-[24px] bg-white/6 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Usability First</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Keep the everyday workflow simple, visible, and safe for non-technical teams.
+            </p>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+};
+
+export default Sidebar;

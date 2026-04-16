@@ -1,188 +1,273 @@
-import axios from 'axios'
-import React, { useContext, useEffect, useState } from 'react'
-import { DoctorContext } from '../context/DoctorContext'
-import { AdminContext } from '../context/AdminContext'
-import { StaffContext } from '../context/StaffContext'
-import { toast } from 'react-toastify'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import ForgotPassword from './ForgotPassword'
-import ResetPassword from './ResetPassword'
+import axios from 'axios';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { AdminContext } from '../context/AdminContext';
+import { DoctorContext } from '../context/DoctorContext';
+import { StaffContext } from '../context/StaffContext';
+import ForgotPassword from './ForgotPassword';
+import ResetPassword from './ResetPassword';
+import { roleMeta } from '../utils/backofficeConfig';
+
+const roles = ['Admin', 'Doctor', 'Staff'];
 
 const Login = () => {
+  const [view, setView] = useState('login');
+  const [state, setState] = useState('Admin');
+  const [searchParams] = useSearchParams();
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({ email: '', password: '' });
 
-  const [view, setView] = useState('login') // 'login', 'forgot', 'reset'
-  const [state, setState] = useState('Admin')
-  const [searchParams] = useSearchParams()
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  const navigate = useNavigate();
+
+  const { persistDoctorSession, clearDoctorSession } = useContext(DoctorContext);
+  const { persistAdminSession, clearAdminSession } = useContext(AdminContext);
+  const { persistStaffSession, clearStaffSession } = useContext(StaffContext);
+
+  const roleKey = state.toLowerCase();
+  const roleDetails = roleMeta[roleKey];
 
   useEffect(() => {
-    const token = searchParams.get('token')
+    const token = searchParams.get('token');
     if (token) {
-      setView('reset')
+      setView('reset');
     }
 
-    const role = searchParams.get('role')
+    const role = searchParams.get('role');
     if (role) {
-      const roleState = role.charAt(0).toUpperCase() + role.slice(1)
-      if (['Admin', 'Doctor', 'Staff'].includes(roleState)) {
-        setState(roleState)
+      const roleState = role.charAt(0).toUpperCase() + role.slice(1);
+      if (roles.includes(roleState)) {
+        setState(roleState);
       }
     }
-  }, [searchParams])
+  }, [searchParams]);
 
-  const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [errors, setErrors] = useState({ email: '', password: '' })
+  const roleQuote = useMemo(() => ({
+    Admin: 'Keep operations visible, safe, and easy to act on.',
+    Doctor: 'Stay focused on care, not on fighting the software.',
+    Staff: 'Move the front desk faster with fewer clicks and less confusion.',
+  }[state]), [state]);
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL
-
-  const { persistDoctorSession, clearDoctorSession } = useContext(DoctorContext)
-  const { persistAdminSession, clearAdminSession } = useContext(AdminContext)
-  const { persistStaffSession, clearStaffSession } = useContext(StaffContext)
-
-  const navigate = useNavigate()
-
-  const validateEmail = (email) => {
-    return String(email)
+  const validateEmail = (value) =>
+    String(value)
       .toLowerCase()
       .match(
-        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
       );
-  };
 
-  const handleEmailChange = (e) => {
-    const value = e.target.value;
+  const handleEmailChange = (event) => {
+    const value = event.target.value;
     setEmail(value);
-    if (value && !validateEmail(value)) {
-      setErrors(prev => ({ ...prev, email: 'Invalid email address' }));
-    } else {
-      setErrors(prev => ({ ...prev, email: '' }));
-    }
+    setErrors((prev) => ({
+      ...prev,
+      email: value && !validateEmail(value) ? 'Use a valid email address.' : '',
+    }));
   };
 
-  const handlePasswordChange = (e) => {
-    const value = e.target.value;
+  const handlePasswordChange = (event) => {
+    const value = event.target.value;
     setPassword(value);
-    if (value.length > 0 && value.length < 4) {
-      setErrors(prev => ({ ...prev, password: 'Minimum 4 characters required' }));
-    } else {
-      setErrors(prev => ({ ...prev, password: '' }));
-    }
+    setErrors((prev) => ({
+      ...prev,
+      password: value.length > 0 && value.length < 4 ? 'Minimum 4 characters required.' : '',
+    }));
   };
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
-    setLoading(true)
+    setLoading(true);
 
     try {
       if (state === 'Admin') {
-        const { data } = await axios.post(backendUrl + '/api/admin/login', { email, password })
+        const { data } = await axios.post(`${backendUrl}/api/admin/login`, { email, password });
         if (data.success) {
-          clearDoctorSession()
-          clearStaffSession()
-          persistAdminSession(data.token, data.refreshToken)
+          clearDoctorSession();
+          clearStaffSession();
+          persistAdminSession(data.token, data.refreshToken);
         } else {
-          toast.error(data.message)
+          toast.error(data.message);
         }
       } else if (state === 'Doctor') {
-        const { data } = await axios.post(backendUrl + '/api/doctor/login', { email, password })
+        const { data } = await axios.post(`${backendUrl}/api/doctor/login`, { email, password });
         if (data.success) {
-          clearAdminSession()
-          clearStaffSession()
-          persistDoctorSession(data.token, data.refreshToken)
+          clearAdminSession();
+          clearStaffSession();
+          persistDoctorSession(data.token, data.refreshToken);
         } else {
-          toast.error(data.message)
+          toast.error(data.message);
         }
       } else {
-        const { data } = await axios.post(backendUrl + '/api/staff/login', { email, password })
+        const { data } = await axios.post(`${backendUrl}/api/staff/login`, { email, password });
         if (data.success) {
-          clearAdminSession()
-          clearDoctorSession()
-          persistStaffSession(data.token, data.refreshToken)
-          navigate('/staff-dashboard')
+          clearAdminSession();
+          clearDoctorSession();
+          persistStaffSession(data.token, data.refreshToken);
+          navigate('/staff-dashboard');
         } else {
-          toast.error(data.message)
+          toast.error(data.message);
         }
       }
     } catch (error) {
-      toast.error(error.message)
+      toast.error(error.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  if (view === 'forgot') return <ForgotPassword setView={setView} />
-  if (view === 'reset') return <ResetPassword setView={setView} />
+  if (view === 'forgot') return <ForgotPassword setView={setView} />;
+  if (view === 'reset') return <ResetPassword setView={setView} />;
 
   return (
-    <form onSubmit={onSubmitHandler} className='min-h-[80vh] flex items-center'>
-      <div className='flex flex-col gap-3 m-auto items-start p-8 min-w-[340px] sm:min-w-96 border rounded-xl text-[#5E5E5E] text-sm shadow-lg'>
-        <p className='text-2xl font-semibold m-auto'><span className='text-primary'>{state}</span> Login</p>
-        <div className='w-full '>
-          <p>Email</p>
-          <input
-            onChange={handleEmailChange}
-            value={email}
-            className={`border rounded w-full p-2 mt-1 outline-none transition-all ${errors.email ? 'border-red-400 focus:border-red-500' : 'border-[#DADADA]'}`}
-            type="email"
-            required
-            aria-label="Email Address"
-          />
-          {errors.email && <p className='text-[10px] text-red-500 mt-1'>{errors.email}</p>}
-        </div>
-        <div className='w-full '>
-          <p>Password</p>
-          <div className='relative w-full'>
-            <input
-              onChange={handlePasswordChange}
-              value={password}
-              className={`border rounded w-full p-2 mt-1 pr-10 outline-none transition-all ${errors.password ? 'border-red-400 focus:border-red-500' : 'border-[#DADADA]'}`}
-              type={showPassword ? "text" : "password"}
-              required
-              aria-label="Password"
-            />
-            <div
-              onClick={() => setShowPassword(!showPassword)}
-              className='absolute right-3 top-1/2 -translate-y-1/2 mt-0.5 cursor-pointer text-gray-400 hover:text-primary transition-colors'
-              aria-label={showPassword ? "Hide Password" : "Show Password"}
-            >
-              {showPassword ? (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.644C3.423 7.51a7.36 7.36 0 0114.074 0 1.012 1.012 0 010 .644C16.577 16.49 12.72 19.5 12 19.5c-1.272 0-5.123-3.01-6.564-6.844z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              )}
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(251,146,60,0.14),transparent_26%),linear-gradient(180deg,#0f172a_0%,#111827_36%,#f3f6f5_36%,#edf4f7_100%)] px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="flex flex-col justify-between rounded-[34px] border border-white/10 bg-white/6 p-7 text-white shadow-[0_28px_90px_rgba(15,23,42,0.24)] backdrop-blur-xl sm:p-10">
+          <div className="space-y-6">
+            <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-teal-100">
+              MediFlow Workspace
+            </span>
+            <div className="space-y-4">
+              <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
+                Modern back-office software built for real hospital teams.
+              </h1>
+              <p className="max-w-2xl text-sm leading-7 text-slate-200 sm:text-base">
+                One clean workspace for front desk, doctors, and administrators. Faster decisions, clearer records, and less training friction for non-technical users.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              {roles.map((role) => {
+                const active = role === state;
+                const accent = roleMeta[role.toLowerCase()].accent;
+
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => setState(role)}
+                    className={`rounded-[28px] border p-5 text-left transition ${active ? 'border-white/35 bg-white/14 shadow-xl' : 'border-white/10 bg-white/6 hover:border-white/25 hover:bg-white/10'}`}
+                  >
+                    <span className={`mb-4 inline-flex rounded-full bg-gradient-to-r px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white ${accent}`}>
+                      {role}
+                    </span>
+                    <p className="text-lg font-semibold text-white">{roleMeta[role.toLowerCase()].label}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">{roleMeta[role.toLowerCase()].description}</p>
+                  </button>
+                );
+              })}
             </div>
           </div>
-          {errors.password && <p className='text-[10px] text-red-500 mt-1'>{errors.password}</p>}
-        </div>
-        <button disabled={loading} className='bg-primary text-white w-full py-2 rounded-md text-base flex items-center justify-center gap-2'>
-          {loading && <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>}
-          {loading ? 'Logging in...' : 'Login'}
-        </button>
-        {
-          state === 'Admin'
-            ? <>
-              <p>Doctor Login? <span onClick={() => setState('Doctor')} className='text-primary underline cursor-pointer'>Click here</span> <br /> Staff Login? <span onClick={() => setState('Staff')} className='text-primary underline cursor-pointer'>Click here</span></p>
-            </>
-            : state === 'Doctor'
-              ? <>
-                <p>Admin Login? <span onClick={() => setState('Admin')} className='text-primary underline cursor-pointer'>Click here</span> <br /> Staff Login? <span onClick={() => setState('Staff')} className='text-primary underline cursor-pointer'>Click here</span></p>
-                <p onClick={() => setView('forgot')} className='text-primary underline cursor-pointer mt-1'>Forgot Password?</p>
-              </>
-              : <>
-                <p>Admin Login? <span onClick={() => setState('Admin')} className='text-primary underline cursor-pointer'>Click here</span> <br /> Doctor Login? <span onClick={() => setState('Doctor')} className='text-primary underline cursor-pointer'>Click here</span></p>
-                <p onClick={() => setView('forgot')} className='text-primary underline cursor-pointer mt-1'>Forgot Password?</p>
-              </>
-        }
-      </div>
-    </form>
-  )
-}
 
-export default Login
+          <div className="mt-10 rounded-[30px] border border-white/10 bg-white/8 p-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-teal-100">Role focus</p>
+            <p className="mt-3 text-2xl font-semibold tracking-tight">{state}</p>
+            <p className="mt-2 max-w-xl text-sm leading-7 text-slate-200">{roleQuote}</p>
+          </div>
+        </section>
+
+        <section className="animate-fade-up flex items-center">
+          <form
+            onSubmit={onSubmitHandler}
+            className="w-full rounded-[34px] border border-white/70 bg-white/92 p-7 shadow-[0_30px_100px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-10"
+          >
+            <div className="mb-8 space-y-3">
+              <span className={`inline-flex rounded-full bg-gradient-to-r px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-white ${roleDetails.accent}`}>
+                {state}
+              </span>
+              <div>
+                <h2 className="text-3xl font-semibold tracking-tight text-slate-950">Welcome back</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Sign in to continue to your {state.toLowerCase()} workspace.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Email address</label>
+                <input
+                  onChange={handleEmailChange}
+                  value={email}
+                  className="soft-input"
+                  type="email"
+                  placeholder="name@hospital.com"
+                  required
+                  aria-label="Email address"
+                />
+                {errors.email ? <p className="text-xs font-medium text-rose-500">{errors.email}</p> : null}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Password</label>
+                <div className="relative">
+                  <input
+                    onChange={handlePasswordChange}
+                    value={password}
+                    className="soft-input pr-12"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    required
+                    aria-label="Password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-3 inline-flex items-center text-sm font-medium text-slate-400 transition hover:text-slate-700"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                {errors.password ? <p className="text-xs font-medium text-rose-500">{errors.password}</p> : null}
+              </div>
+
+              <button
+                disabled={loading}
+                className="soft-button-primary w-full rounded-2xl py-3.5 text-base disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Signing in...
+                  </span>
+                ) : (
+                  `Continue as ${state}`
+                )}
+              </button>
+            </div>
+
+            <div className="mt-8 space-y-4 border-t border-slate-100 pt-6">
+              <div className="flex flex-wrap gap-2">
+                {roles.filter((role) => role !== state).map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => setState(role)}
+                    className="soft-button-secondary rounded-full px-4 py-2 text-xs"
+                  >
+                    Switch to {role}
+                  </button>
+                ))}
+              </div>
+
+              {state !== 'Admin' ? (
+                <button
+                  type="button"
+                  onClick={() => setView('forgot')}
+                  className="text-sm font-semibold text-teal-700 transition hover:text-teal-600"
+                >
+                  Forgot password?
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
