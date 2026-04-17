@@ -90,6 +90,24 @@ const PatientDetails = () => {
               <p className="table-head">Address</p>
               <p className="mt-1 text-sm font-semibold text-slate-900">{patient.address?.line1 || 'N/A'}</p>
             </div>
+            <div>
+              <p className="table-head">MRN</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{patient.medicalRecordNumber || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="table-head">Aadhaar reference</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{patient.aadharMasked || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="table-head">Account status</p>
+              <p className="mt-1 text-sm font-semibold capitalize text-slate-900">{(patient.accountStatus || 'active').replace(/_/g, ' ')}</p>
+            </div>
+            <div>
+              <p className="table-head">Privacy consent</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {patient.privacyConsent?.acceptedAt ? `Version ${patient.privacyConsent.version || 'unknown'}` : 'Not recorded'}
+              </p>
+            </div>
           </div>
         </SurfaceCard>
 

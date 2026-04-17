@@ -7,6 +7,8 @@ import { persistStoredSession, readStoredValue } from "@shared/utils/sessionStor
 
 export const DoctorContext = createContext()
 
+const SESSION_PLACEHOLDER = '__cookie_session__';
+
 const DoctorContextProvider = (props) => {
 
     const { backendUrl } = createClientConfig(import.meta.env)
@@ -17,12 +19,13 @@ const DoctorContextProvider = (props) => {
     const [dashData, setDashData] = useState(false)
     const [profileData, setProfileData] = useState(false)
 
-    const persistDoctorSession = (nextAccessToken, nextRefreshToken) => {
+    const persistDoctorSession = (nextAccessToken = SESSION_PLACEHOLDER, nextRefreshToken = SESSION_PLACEHOLDER) => {
+        const hasSession = Boolean(nextAccessToken || nextRefreshToken);
         const { accessToken, refreshToken } = persistStoredSession({
             accessKey: 'dToken',
             refreshKey: 'dRefreshToken',
-            accessToken: nextAccessToken,
-            refreshToken: nextRefreshToken,
+            accessToken: hasSession ? SESSION_PLACEHOLDER : '',
+            refreshToken: hasSession ? SESSION_PLACEHOLDER : '',
         })
 
         setDToken(accessToken)

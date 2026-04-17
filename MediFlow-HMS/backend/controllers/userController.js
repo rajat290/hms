@@ -3,6 +3,7 @@ import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import settingsModel from "../models/settingsModel.js";
 import prescriptionModel from "../models/prescriptionModel.js";
+import privacyRequestModel from "../models/privacyRequestModel.js";
 import { v2 as cloudinary } from 'cloudinary'
 import stripe from "stripe";
 import razorpay from 'razorpay';
@@ -13,6 +14,24 @@ import { cancelAppointmentRecord, finalizeAppointmentPayment, isAppointmentSlotC
 import { deriveVisitStatusFromLegacyFlags, resetAppointmentForReschedule, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
+import {
+    buildAppointmentDoctorSnapshot,
+    buildAppointmentUserSnapshot,
+    sanitizeAppointmentForClient,
+    sanitizeUserForClient,
+} from "../utils/clientSanitizers.js";
+import {
+    clearSessionCookies,
+    getRefreshTokenFromRequest,
+    setSessionCookies,
+} from "../utils/sessionCookies.js";
+import {
+    buildPrivacyConsentRecord,
+    buildPrivacyExportPayload,
+    getDeletionReviewWindowDays,
+    getPrivacyPolicyVersion,
+    isPrivacyConsentCurrent,
+} from "../utils/privacy.js";
 import { runInTransaction } from "../utils/transaction.js";
 import {
     enableUserTwoFactor,
@@ -31,6 +50,28 @@ const razorpayInstance = new razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET,
 })
+
+const getOrCreateSettings = async () => {
+    let settings = await settingsModel.findOne({})
+
+    if (!settings) {
+        settings = await settingsModel.create({})
+    }
+
+    return settings
+}
+
+const serializePrivacyRequest = (request) => {
+    if (!request) {
+        return request
+    }
+
+    if (typeof request.toObject === 'function') {
+        return request.toObject({ virtuals: false })
+    }
+
+    return JSON.parse(JSON.stringify(request))
+}
 
 // API to register user
 const registerUser = async (req, res) => {
@@ -64,6 +105,10 @@ const loginUser = async (req, res) => {
             req,
         });
 
+        if (response.success && response.token && response.refreshToken) {
+            setSessionCookies(res, 'user', response);
+        }
+
         res.json(response)
     } catch (error) {
         console.log(error)
@@ -76,9 +121,9 @@ const getProfile = async (req, res) => {
 
     try {
         const { userId } = req.body
-        const userData = await userModel.findById(userId).select('-password')
+        const userData = await userModel.findById(userId).select('+aadharNumber')
 
-        res.json({ success: true, userData })
+        res.json({ success: true, userData: sanitizeUserForClient(userData, { viewer: 'self' }) })
 
     } catch (error) {
         console.log(error)
@@ -166,14 +211,11 @@ const bookAppointment = async (req, res) => {
                 throw new Error('User not found')
             }
 
-            const doctorSnapshot = docData.toObject()
-            delete doctorSnapshot.slots_booked
-
             const appointmentData = {
                 userId,
                 docId,
-                userData: userData.toObject(),
-                docData: doctorSnapshot,
+                userData: buildAppointmentUserSnapshot(userData),
+                docData: buildAppointmentDoctorSnapshot(docData),
                 amount: docData.fees,
                 slotTime,
                 slotDate,
@@ -308,7 +350,7 @@ const listAppointment = async (req, res) => {
         sendPaginatedResponse(res, {
             message: 'Appointments fetched successfully',
             itemKey: 'appointments',
-            items: appointments,
+            items: appointments.map((appointment) => sanitizeAppointmentForClient(appointment)),
             page,
             limit,
             totalItems,
@@ -615,6 +657,11 @@ const resetPassword = async (req, res) => {
             token,
             newPassword,
         });
+
+        if (response.success && response.token && response.refreshToken) {
+            setSessionCookies(res, 'user', response);
+        }
+
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -643,6 +690,11 @@ const verify2FA = async (req, res) => {
             code,
             req,
         });
+
+        if (response.success && response.token && response.refreshToken) {
+            setSessionCookies(res, 'user', response);
+        }
+
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -652,8 +704,9 @@ const verify2FA = async (req, res) => {
 
 const refreshSession = async (req, res) => {
     try {
-        const { refreshToken } = req.body;
+        const refreshToken = getRefreshTokenFromRequest(req, 'user');
         const session = await rotateRefreshSession(refreshToken, 'user', req);
+        setSessionCookies(res, 'user', session);
 
         res.json({ success: true, ...session });
     } catch (error) {
@@ -665,6 +718,7 @@ const refreshSession = async (req, res) => {
 const logoutUser = async (req, res) => {
     try {
         await revokeSessionById(req.auth?.sessionId, 'User logout');
+        clearSessionCookies(res, 'user');
         res.json({ success: true, message: 'Logged out successfully' });
     } catch (error) {
         console.log(error);
@@ -797,6 +851,191 @@ const markNotificationsRead = async (req, res) => {
     }
 }
 
+const getPrivacySummary = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const [user, settings, requests] = await Promise.all([
+            userModel.findById(userId),
+            getOrCreateSettings(),
+            privacyRequestModel.find({ userId }).sort({ requestedAt: -1 }).limit(20),
+        ]);
+
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+
+        const consent = user.privacyConsent?.acceptedAt
+            ? {
+                ...user.privacyConsent,
+                isCurrent: isPrivacyConsentCurrent({ consent: user.privacyConsent, settings }),
+            }
+            : null;
+
+        res.json({
+            success: true,
+            policyVersion: getPrivacyPolicyVersion(settings),
+            deletionReviewWindowDays: getDeletionReviewWindowDays(settings),
+            accountStatus: user.accountStatus || 'active',
+            consent,
+            requests: requests.map((request) => serializePrivacyRequest(request)),
+        });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const recordPrivacyConsent = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const [user, settings] = await Promise.all([
+            userModel.findById(userId),
+            getOrCreateSettings(),
+        ]);
+
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+
+        user.privacyConsent = buildPrivacyConsentRecord({
+            version: getPrivacyPolicyVersion(settings),
+            source: 'patient_portal',
+        });
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'Privacy consent recorded successfully',
+            consent: {
+                ...user.privacyConsent,
+                isCurrent: true,
+            },
+        });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const downloadPrivacyExport = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const [user, settings, appointments, prescriptions, requests] = await Promise.all([
+            userModel.findById(userId).select('+aadharNumber'),
+            getOrCreateSettings(),
+            appointmentModel.find({ userId }).sort({ date: -1 }),
+            prescriptionModel.find({ userId }).sort({ date: -1 }),
+            privacyRequestModel.find({ userId }).sort({ requestedAt: -1 }),
+        ]);
+
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+
+        const serializedRequests = requests.map((request) => serializePrivacyRequest(request));
+        const exportPayload = buildPrivacyExportPayload({
+            user,
+            appointments,
+            prescriptions,
+            privacyRequests: serializedRequests,
+            settings,
+        });
+
+        await privacyRequestModel.create({
+            userId,
+            type: 'data_export',
+            status: 'completed',
+            requestedBy: 'self',
+            requestedAt: new Date(),
+            completedAt: new Date(),
+            responseMessage: 'User downloaded a privacy export package.',
+            metadata: {
+                appointmentCount: appointments.length,
+                prescriptionCount: prescriptions.length,
+            },
+        });
+
+        const filename = `mediflow-privacy-export-${new Date().toISOString().slice(0, 10)}.json`;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.status(200).send(JSON.stringify(exportPayload, null, 2));
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const listPrivacyRequests = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const requests = await privacyRequestModel.find({ userId }).sort({ requestedAt: -1 }).limit(20);
+
+        res.json({
+            success: true,
+            requests: requests.map((request) => serializePrivacyRequest(request)),
+        });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const createPrivacyRequest = async (req, res) => {
+    try {
+        const { userId, type, reason = '' } = req.body;
+        const [user, settings, existingRequest] = await Promise.all([
+            userModel.findById(userId),
+            getOrCreateSettings(),
+            privacyRequestModel.findOne({
+                userId,
+                type: 'account_deletion',
+                status: { $in: ['pending', 'in_review', 'approved'] },
+            }),
+        ]);
+
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+
+        if (user.accountStatus === 'anonymized') {
+            return res.json({ success: false, message: 'This account has already been anonymized' });
+        }
+
+        if (type !== 'account_deletion') {
+            return res.json({ success: false, message: 'Unsupported privacy request type' });
+        }
+
+        if (existingRequest) {
+            return res.json({ success: false, message: 'A deletion request is already active for this account' });
+        }
+
+        user.accountStatus = 'deletion_requested';
+        user.deletionRequestedAt = new Date();
+        await user.save();
+
+        const request = await privacyRequestModel.create({
+            userId,
+            type,
+            status: 'pending',
+            requestedBy: 'self',
+            reason,
+            metadata: {
+                policyVersion: getPrivacyPolicyVersion(settings),
+                reviewWindowDays: getDeletionReviewWindowDays(settings),
+            },
+        });
+
+        res.json({
+            success: true,
+            message: 'Deletion request submitted for review',
+            request: serializePrivacyRequest(request),
+        });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
 
 // API to get available slots for a doctor
 const getDoctorSlots = async (req, res) => {
@@ -852,5 +1091,10 @@ export {
     getDoctorSlots,
     rescheduleAppointment,
     getNotifications,
-    markNotificationsRead
+    markNotificationsRead,
+    getPrivacySummary,
+    recordPrivacyConsent,
+    downloadPrivacyExport,
+    createPrivacyRequest,
+    listPrivacyRequests,
 }

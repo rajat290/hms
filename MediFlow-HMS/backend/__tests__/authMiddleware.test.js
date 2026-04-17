@@ -83,6 +83,24 @@ describe('role auth middleware', () => {
     });
   });
 
+  it('accepts httpOnly-style cookie tokens before falling back to headers', async () => {
+    verifyAccessTokenSessionMock.mockResolvedValue({
+      sessionId: 'session-cookie-1',
+      subjectId: 'user-cookie-1',
+      role: 'user',
+    });
+
+    const result = await runMiddleware(authUser, {
+      headers: {
+        cookie: 'mediflow_user_access=cookie-access-token',
+      },
+    });
+
+    expect(verifyAccessTokenSessionMock).toHaveBeenCalledWith('cookie-access-token', 'user');
+    expect(result.nextCalled).toBe(true);
+    expect(result.req.body.userId).toBe('user-cookie-1');
+  });
+
   it('maps token-expiry errors to the session-expired message', async () => {
     const expiredError = new Error('jwt expired');
     expiredError.name = 'TokenExpiredError';

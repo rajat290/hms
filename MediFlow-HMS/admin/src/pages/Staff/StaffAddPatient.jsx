@@ -1,158 +1,214 @@
-import React, { useContext, useState } from 'react'
-import axios from 'axios'
-import { toast } from 'react-toastify'
-import { assets } from '../../assets/assets.js'
-import { StaffContext } from '../../context/StaffContext'
-import { AppContext } from '../../context/AppContext'
+import React, { useContext, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { StaffContext } from '../../context/StaffContext';
+import { AppContext } from '../../context/AppContext';
 
 const StaffAddPatient = () => {
-    const { sToken } = useContext(StaffContext)
-    const { backendUrl } = useContext(AppContext)
+  const { sToken } = useContext(StaffContext);
+  const { backendUrl } = useContext(AppContext);
 
-    const [form, setForm] = useState({
-        name: '', email: '', phone: '', dob: '', gender: 'Not Selected',
-        address1: '', address2: '',
-        patientCategory: 'Standard', chronicConditions: ''
-    })
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    dob: '',
+    gender: 'Not Selected',
+    medicalRecordNumber: '',
+    aadharNumber: '',
+    insuranceProvider: '',
+    insuranceId: '',
+    emergencyName: '',
+    emergencyPhone: '',
+    emergencyRelation: '',
+    address1: '',
+    address2: '',
+  });
 
-    const [profileImg, setProfileImg] = useState(null)
-    const [creating, setCreating] = useState(false)
-    const [createdCredentials, setCreatedCredentials] = useState(null)
+  const [profileImg, setProfileImg] = useState(null);
+  const [aadharImg, setAadharImg] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState(null);
+  const [createdPatient, setCreatedPatient] = useState(null);
 
-    const onInput = (e) => {
-        const { name, value } = e.target
-        setForm(prev => ({ ...prev, [name]: value }))
+  const onInput = (event) => {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const validate = () => {
+    if (!form.name || !form.email || !form.phone || !form.dob || !form.gender || !form.medicalRecordNumber || !form.aadharNumber || !form.address1) {
+      toast.error('Please fill all required fields');
+      return false;
     }
 
-    const validate = () => {
-        if (!form.name || !form.email || !form.phone || !form.dob || !form.gender) {
-            toast.error('Please fill required fields (Name, Email, Phone, DOB, Gender)')
-            return false
-        }
-        return true
+    const emailPattern = /.+@.+\..+/;
+    if (!emailPattern.test(form.email)) {
+      toast.error('Invalid email');
+      return false;
     }
 
-    const handleSubmit = async () => {
-        if (!validate()) return
-        setCreating(true)
-        try {
-            const fd = new FormData()
-            fd.append('name', form.name)
-            fd.append('email', form.email)
-            fd.append('phone', form.phone)
-            fd.append('dob', form.dob)
-            fd.append('gender', form.gender)
-            const address = { line1: form.address1, line2: form.address2 }
-            fd.append('address', JSON.stringify(address))
-            fd.append('patientCategory', form.patientCategory)
-            fd.append('chronicConditions', form.chronicConditions)
-
-            if (profileImg) fd.append('image', profileImg)
-
-            const { data } = await axios.post(backendUrl + '/api/staff/create-patient', fd, { headers: { sToken } })
-            if (data.success) {
-                toast.success(data.message)
-                setCreatedCredentials(data.credentials)
-                setForm({ name: '', email: '', phone: '', dob: '', gender: 'Not Selected', address1: '', address2: '' })
-                setProfileImg(null)
-            } else {
-                toast.error(data.message)
-            }
-        } catch (error) {
-            console.log(error)
-            toast.error(error.message)
-        } finally {
-            setCreating(false)
-        }
+    const phoneDigits = form.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      toast.error('Invalid phone');
+      return false;
     }
 
-    return (
-        <div className='w-full px-4 sm:px-10 m-5'>
-            <div className='max-w-2xl bg-white p-8 rounded-xl border shadow-sm'>
-                <p className='text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2'>
-                    <img src={assets.add_icon} className='w-6 invert bg-black rounded-full p-1' alt="" />
-                    New Patient Registration
-                </p>
+    return true;
+  };
 
-                <div className='grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4'>
-                    <div className='md:col-span-2 flex items-center gap-4 mb-2'>
-                        <label htmlFor="doc-img" className='cursor-pointer flex items-center gap-3 bg-gray-50 px-4 py-3 rounded-lg border border-dashed border-gray-300 hover:bg-gray-100 transition-colors w-full'>
-                            <img className='w-12 h-12 rounded-full object-cover bg-gray-200' src={profileImg ? URL.createObjectURL(profileImg) : assets.upload_area} alt="" />
-                            <div>
-                                <p className='text-sm font-medium text-gray-700'>Upload Photo</p>
-                                <p className='text-xs text-gray-400'>Allowed: JPG, PNG</p>
-                            </div>
-                        </label>
-                        <input onChange={(e) => setProfileImg(e.target.files[0])} type="file" id="doc-img" hidden />
-                    </div>
+  const handleSubmit = async () => {
+    if (!validate()) return;
 
-                    <div>
-                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Full Name *</label>
-                        <input name='name' value={form.name} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='e.g. John Doe' />
-                    </div>
-                    <div>
-                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Phone Number *</label>
-                        <input name='phone' value={form.phone} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='e.g. 9876543210' />
-                    </div>
-                    <div>
-                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Email (Optional)</label>
-                        <input name='email' value={form.email} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='john@example.com' />
-                    </div>
-                    <div>
-                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Date of Birth *</label>
-                        <input type='date' name='dob' value={form.dob} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' />
-                    </div>
-                    <div>
-                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Gender *</label>
-                        <select name='gender' value={form.gender} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white'>
-                            <option>Not Selected</option>
-                            <option>Male</option>
-                            <option>Female</option>
-                            <option>Other</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Patient Category</label>
-                        <select name='patientCategory' value={form.patientCategory} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white'>
-                            <option>Standard</option>
-                            <option>VIP</option>
-                            <option>High-risk</option>
-                            <option>Frequent Visitor</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Location / Address</label>
-                        <input name='address1' value={form.address1} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='Area / City' />
-                    </div>
-                    <div className='md:col-span-2'>
-                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Chronic Conditions / Allergies</label>
-                        <textarea name='chronicConditions' value={form.chronicConditions} onChange={onInput} rows={2} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='List any allergies or chronic conditions...' />
-                    </div>
-                </div>
+    setCreating(true);
 
-                <div className='mt-8 pt-4 border-t'>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={creating}
-                        className={`w-full py-3 rounded-lg font-bold text-white shadow-md transition-all ${creating ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg'}`}
-                    >
-                        {creating ? 'Registering...' : 'Register Patient'}
-                    </button>
-                </div>
-            </div>
+    try {
+      const formData = new FormData();
+      formData.append('name', form.name);
+      formData.append('email', form.email);
+      formData.append('phone', form.phone);
+      formData.append('dob', form.dob);
+      formData.append('gender', form.gender);
+      formData.append('medicalRecordNumber', form.medicalRecordNumber);
+      formData.append('aadharNumber', form.aadharNumber);
+      formData.append('insuranceProvider', form.insuranceProvider);
+      formData.append('insuranceId', form.insuranceId);
+      formData.append('address', JSON.stringify({ line1: form.address1, line2: form.address2 }));
+      formData.append('emergencyContact', JSON.stringify({
+        name: form.emergencyName,
+        phone: form.emergencyPhone,
+        relation: form.emergencyRelation,
+      }));
 
-            {createdCredentials && (
-                <div className='bg-white p-6 rounded border mt-6'>
-                    <p className='text-lg font-semibold text-gray-700 mb-2'>Patient Created</p>
-                    <div className='mt-4 bg-gray-50 border rounded p-4'>
-                        <p className='font-medium text-gray-800 mb-2'>Login Credentials</p>
-                        <p className='text-sm text-gray-700'>Email: {createdCredentials.email}</p>
-                        <p className='text-sm text-gray-700'>Temporary Password: {createdCredentials.password}</p>
-                    </div>
-                </div>
-            )}
+      if (profileImg) formData.append('image', profileImg);
+      if (aadharImg) formData.append('aadharImage', aadharImg);
+
+      const { data } = await axios.post(`${backendUrl}/api/staff/create-patient`, formData, { headers: { sToken } });
+
+      if (data.success) {
+        toast.success(data.message);
+        setCreatedCredentials(data.credentials);
+        setCreatedPatient(data.patient);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error(error.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const printCredentials = () => {
+    window.print();
+  };
+
+  return (
+    <div className="w-full px-4 sm:px-10">
+      <div className="bg-white p-6 rounded border">
+        <p className="text-xl font-semibold text-gray-700 mb-4">Add Patient</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm mb-1">Full Name *</label>
+            <input name="name" value={form.name} onChange={onInput} className="w-full border rounded p-2" placeholder="John Doe" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Email *</label>
+            <input name="email" value={form.email} onChange={onInput} className="w-full border rounded p-2" placeholder="john@example.com" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Phone *</label>
+            <input name="phone" value={form.phone} onChange={onInput} className="w-full border rounded p-2" placeholder="9999999999" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Date of Birth *</label>
+            <input type="date" name="dob" value={form.dob} onChange={onInput} className="w-full border rounded p-2" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Gender *</label>
+            <select name="gender" value={form.gender} onChange={onInput} className="w-full border rounded p-2">
+              <option>Not Selected</option>
+              <option>Male</option>
+              <option>Female</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Medical Record Number (MRN) *</label>
+            <input name="medicalRecordNumber" value={form.medicalRecordNumber} onChange={onInput} className="w-full border rounded p-2" placeholder="MRN-00123" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Insurance Provider</label>
+            <input name="insuranceProvider" value={form.insuranceProvider} onChange={onInput} className="w-full border rounded p-2" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Insurance ID</label>
+            <input name="insuranceId" value={form.insuranceId} onChange={onInput} className="w-full border rounded p-2" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Aadhaar Number *</label>
+            <input name="aadharNumber" value={form.aadharNumber} onChange={onInput} className="w-full border rounded p-2" placeholder="XXXX-XXXX-XXXX" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Emergency Contact Name</label>
+            <input name="emergencyName" value={form.emergencyName} onChange={onInput} className="w-full border rounded p-2" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Emergency Contact Phone</label>
+            <input name="emergencyPhone" value={form.emergencyPhone} onChange={onInput} className="w-full border rounded p-2" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Emergency Relation</label>
+            <input name="emergencyRelation" value={form.emergencyRelation} onChange={onInput} className="w-full border rounded p-2" />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm mb-1">Address Line 1 *</label>
+            <input name="address1" value={form.address1} onChange={onInput} className="w-full border rounded p-2" />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm mb-1">Address Line 2</label>
+            <input name="address2" value={form.address2} onChange={onInput} className="w-full border rounded p-2" />
+          </div>
         </div>
-    )
-}
 
-export default StaffAddPatient
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div>
+            <label className="block text-sm mb-1">Profile Image</label>
+            <input type="file" accept="image/*" onChange={(event) => setProfileImg(event.target.files[0])} />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Aadhaar Image</label>
+            <input type="file" accept="image/*" onChange={(event) => setAadharImg(event.target.files[0])} />
+          </div>
+        </div>
+
+        <button onClick={handleSubmit} disabled={creating} className="mt-6 bg-primary text-white px-6 py-2 rounded">
+          {creating ? 'Creating...' : 'Create Patient'}
+        </button>
+      </div>
+
+      {createdCredentials && createdPatient ? (
+        <div className="bg-white p-6 rounded border mt-6">
+          <p className="text-lg font-semibold text-gray-700 mb-2">Patient Created</p>
+          <p className="text-sm text-gray-700">Name: {createdPatient.name}</p>
+          <p className="text-sm text-gray-700">Email: {createdPatient.email}</p>
+          <p className="text-sm text-gray-700">Phone: {createdPatient.phone}</p>
+          <p className="text-sm text-gray-700">MRN: {createdPatient.medicalRecordNumber}</p>
+          <p className="text-sm text-gray-700">Aadhaar reference: {createdPatient.aadharMasked || 'Stored securely'}</p>
+          <p className="text-sm text-gray-700">Account status: {createdPatient.accountStatus || 'active'}</p>
+
+          <div className="mt-4 bg-gray-50 border rounded p-4">
+            <p className="font-medium text-gray-800 mb-2">Login Credentials</p>
+            <p className="text-sm text-gray-700">Email: {createdCredentials.email}</p>
+            <p className="text-sm text-gray-700">Temporary Password: {createdCredentials.password}</p>
+            <button onClick={printCredentials} className="mt-3 border border-primary text-primary px-4 py-1 rounded">Print</button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+export default StaffAddPatient;

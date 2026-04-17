@@ -6,6 +6,8 @@ import { persistStoredSession, readStoredValue } from "@shared/utils/sessionStor
 
 export const StaffContext = createContext()
 
+const SESSION_PLACEHOLDER = '__cookie_session__';
+
 const StaffContextProvider = (props) => {
 
     const { backendUrl } = createClientConfig(import.meta.env);
@@ -18,12 +20,13 @@ const StaffContextProvider = (props) => {
     const [appointments, setAppointments] = useState([])
     const [patients, setPatients] = useState([])
 
-    const persistStaffSession = (nextAccessToken, nextRefreshToken) => {
+    const persistStaffSession = (nextAccessToken = SESSION_PLACEHOLDER, nextRefreshToken = SESSION_PLACEHOLDER) => {
+        const hasSession = Boolean(nextAccessToken || nextRefreshToken);
         const { accessToken, refreshToken } = persistStoredSession({
             accessKey: 'sToken',
             refreshKey: 'sRefreshToken',
-            accessToken: nextAccessToken,
-            refreshToken: nextRefreshToken,
+            accessToken: hasSession ? SESSION_PLACEHOLDER : '',
+            refreshToken: hasSession ? SESSION_PLACEHOLDER : '',
         })
 
         setSToken(accessToken)
