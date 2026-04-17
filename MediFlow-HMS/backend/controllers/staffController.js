@@ -3,6 +3,7 @@ import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import userModel from "../models/userModel.js";
 import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod } from "../utils/appointmentIntegrity.js";
+import { transitionAppointmentVisitStatus, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { runInTransaction } from "../utils/transaction.js";
 import { createRoleAuthRepository } from "../repositories/roleAuthRepository.js";
@@ -112,7 +113,7 @@ const cancelAppointment = async (req, res) => {
         const { appointmentId } = req.body
 
         await runInTransaction(async (session) => {
-            await cancelAppointmentRecord({ appointmentId, session })
+            await cancelAppointmentRecord({ appointmentId, session, reason: 'Cancelled by staff' })
         })
 
         res.json({ success: true, message: 'Appointment Cancelled' })
@@ -245,16 +246,28 @@ const getDailyAppointments = async (req, res) => {
 const markCheckIn = async (req, res) => {
     try {
         const { appointmentId } = req.body;
-        const appointment = await appointmentModel.findByIdAndUpdate(appointmentId, { isCheckedIn: true }).populate('userId', 'name');
+        await runInTransaction(async (session) => {
+            const appointment = await appointmentModel.findById(appointmentId).session(session);
 
-        // Create notification for staff
-        const staffNotification = new notificationModel({
-            recipientType: 'staff',
-            title: "Patient Checked In",
-            message: `Patient ${appointment.userId.name} has checked in for their appointment.`,
-            type: "appointment"
+            if (!appointment) {
+                throw new Error('Appointment not found');
+            }
+
+            transitionAppointmentVisitStatus({
+                appointment,
+                nextStatus: VISIT_STATUS.CHECKED_IN,
+                allowedFrom: [VISIT_STATUS.REQUESTED, VISIT_STATUS.ACCEPTED],
+            });
+
+            await appointment.save({ session });
+
+            await notificationModel.create([{
+                recipientType: 'staff',
+                title: "Patient Checked In",
+                message: `Patient ${appointment.userData?.name || 'Unknown patient'} has checked in for their appointment.`,
+                type: "appointment"
+            }], { session, ordered: true });
         })
-        await staffNotification.save()
 
         res.json({ success: true, message: 'Patient Checked In' });
     } catch (error) {

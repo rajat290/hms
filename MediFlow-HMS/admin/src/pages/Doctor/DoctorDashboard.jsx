@@ -8,10 +8,25 @@ import PageHeader from '../../components/backoffice/PageHeader';
 import StatCard from '../../components/backoffice/StatCard';
 import StatusBadge from '../../components/backoffice/StatusBadge';
 import SurfaceCard from '../../components/backoffice/SurfaceCard';
+import {
+  canAcceptAppointment,
+  canCancelAppointment,
+  canCompleteAppointment,
+  canStartConsultation,
+  getVisitStatusMeta,
+} from '../../utils/appointmentLifecycle';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
-  const { dToken, dashData, getDashData, cancelAppointment, completeAppointment } = useContext(DoctorContext);
+  const {
+    dToken,
+    dashData,
+    getDashData,
+    cancelAppointment,
+    acceptAppointment,
+    startConsultation,
+    completeAppointment,
+  } = useContext(DoctorContext);
   const { slotDateFormat, currency } = useContext(AppContext);
 
   useEffect(() => {
@@ -29,8 +44,8 @@ const DoctorDashboard = () => {
       <PageHeader
         eyebrow="Doctor overview"
         title="A calmer daily workspace for consults, follow-ups, and outcomes."
-        description="See your active load, complete appointments quickly, and keep patient actions visible without hunting through clutter."
-        actions={
+        description="See what is waiting, what is already in progress, and what still needs a clinical action without reading between the lines."
+        actions={(
           <>
             <button type="button" className="soft-button-secondary" onClick={() => navigate('/doctor-availability')}>
               Edit availability
@@ -39,7 +54,7 @@ const DoctorDashboard = () => {
               Open appointments
             </button>
           </>
-        }
+        )}
       />
 
       <div className="grid gap-4 xl:grid-cols-3">
@@ -79,52 +94,61 @@ const DoctorDashboard = () => {
           </div>
 
           <div className="space-y-3">
-            {dashData.latestAppointments.slice(0, 6).map((item) => (
-              <div key={item._id} className="flex flex-col gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 md:flex-row md:items-center">
-                <img src={item.userData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-900">{item.userData.name}</p>
-                    {item.cancelled ? (
-                      <StatusBadge tone="danger">Cancelled</StatusBadge>
-                    ) : item.isCompleted ? (
-                      <StatusBadge tone="success">Completed</StatusBadge>
-                    ) : item.isAccepted ? (
-                      <StatusBadge tone="info">Accepted</StatusBadge>
-                    ) : (
-                      <StatusBadge tone="warning">Awaiting review</StatusBadge>
-                    )}
+            {dashData.latestAppointments.slice(0, 6).map((item) => {
+              const visitStatusMeta = getVisitStatusMeta(item);
+
+              return (
+                <div key={item._id} className="flex flex-col gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 md:flex-row md:items-center">
+                  <img src={item.userData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-slate-900">{item.userData.name}</p>
+                      <StatusBadge tone={visitStatusMeta.tone}>{visitStatusMeta.label}</StatusBadge>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {slotDateFormat(item.slotDate)} | {item.slotTime}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">{visitStatusMeta.description}</p>
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {slotDateFormat(item.slotDate)} • {item.slotTime}
-                  </p>
-                </div>
-                {!item.cancelled && !item.isCompleted ? (
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => cancelAppointment(item._id)}>
-                      Cancel
-                    </button>
-                    <button type="button" className="soft-button-accent px-4 py-2" onClick={() => completeAppointment(item._id)}>
-                      Complete
-                    </button>
+                    {canAcceptAppointment(item) ? (
+                      <button type="button" className="soft-button-accent px-4 py-2" onClick={() => acceptAppointment(item._id)}>
+                        Confirm
+                      </button>
+                    ) : null}
+                    {canStartConsultation(item) ? (
+                      <button type="button" className="soft-button-accent px-4 py-2" onClick={() => startConsultation(item._id)}>
+                        Start consult
+                      </button>
+                    ) : null}
+                    {canCompleteAppointment(item) ? (
+                      <button type="button" className="soft-button-accent px-4 py-2" onClick={() => completeAppointment(item._id)}>
+                        Complete visit
+                      </button>
+                    ) : null}
+                    {canCancelAppointment(item) ? (
+                      <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => cancelAppointment(item._id)}>
+                        Cancel
+                      </button>
+                    ) : null}
                   </div>
-                ) : null}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </SurfaceCard>
 
         <SurfaceCard className="space-y-5">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Today’s guidance</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Today's guidance</p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-900">Stay ahead of the session</h2>
           </div>
 
           <div className="space-y-4">
             <div className="rounded-[24px] bg-slate-950 p-5 text-white">
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Good practice</p>
-              <p className="mt-3 text-lg font-semibold">Finish consultation notes while the context is still fresh.</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">That keeps prescriptions, follow-up actions, and patient communication much cleaner.</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Clinical flow</p>
+              <p className="mt-3 text-lg font-semibold">Confirm first, begin the consult only when the patient is actually ready.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">That keeps completion, notes, prescriptions, and billing aligned with what happened in the room.</p>
             </div>
 
             <div className="rounded-[24px] border border-sky-100 bg-sky-50 p-5">

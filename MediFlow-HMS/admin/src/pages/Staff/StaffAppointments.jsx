@@ -7,6 +7,13 @@ import LoadingState from '../../components/backoffice/LoadingState';
 import PageHeader from '../../components/backoffice/PageHeader';
 import StatusBadge from '../../components/backoffice/StatusBadge';
 import SurfaceCard from '../../components/backoffice/SurfaceCard';
+import {
+  canCancelAppointment,
+  canCheckInAppointment,
+  getVisitStatus,
+  getVisitStatusMeta,
+  isVisitActionableForBilling,
+} from '../../utils/appointmentLifecycle';
 
 const StaffAppointments = () => {
   const navigate = useNavigate();
@@ -33,19 +40,14 @@ const StaffAppointments = () => {
     return appointments
       .filter((appointment) => {
         const term = searchTerm.toLowerCase();
+        const visitStatus = getVisitStatus(appointment);
         const matchesSearch =
-          appointment.userData.name.toLowerCase().includes(term) ||
-          appointment.docData.name.toLowerCase().includes(term) ||
-          slotDateFormat(appointment.slotDate).toLowerCase().includes(term);
+          appointment.userData.name.toLowerCase().includes(term)
+          || appointment.docData.name.toLowerCase().includes(term)
+          || slotDateFormat(appointment.slotDate).toLowerCase().includes(term);
 
         const matchesDoctor = !doctorFilter || appointment.docData.name === doctorFilter;
-        const matchesStatus =
-          !statusFilter ||
-          (statusFilter === 'completed'
-            ? appointment.isCompleted
-            : statusFilter === 'cancelled'
-              ? appointment.cancelled
-              : !appointment.cancelled && !appointment.isCompleted);
+        const matchesStatus = !statusFilter || visitStatus === statusFilter;
 
         return matchesSearch && matchesDoctor && matchesStatus;
       })
@@ -65,13 +67,13 @@ const StaffAppointments = () => {
     <div className="space-y-6 animate-soft-in">
       <PageHeader
         eyebrow="Staff appointments"
-        title="Support bookings and arrivals without making staff decode the system."
-        description="The front desk should be able to search, check in, send patients to billing, and cancel safely with clear status cues."
-        actions={
+        title="Support arrivals, movement, and exceptions with one clear front-desk flow."
+        description="The desk should understand what is waiting, who has arrived, and what can still be cancelled or billed without guessing."
+        actions={(
           <button type="button" className="soft-button-accent" onClick={() => navigate('/staff-billing')}>
             Open billing
           </button>
-        }
+        )}
       />
 
       <SurfaceCard className="space-y-5">
@@ -96,8 +98,11 @@ const StaffAppointments = () => {
             ))}
           </select>
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="soft-select">
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
+            <option value="">All visit states</option>
+            <option value="requested">Requested</option>
+            <option value="accepted">Accepted</option>
+            <option value="checked_in">Checked in</option>
+            <option value="in_consultation">In consultation</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>
@@ -107,66 +112,63 @@ const StaffAppointments = () => {
           <EmptyState title="No appointment records found" description="Try a broader search or change the active filters." />
         ) : (
           <div className="space-y-3">
-            {filteredAppointments.map((item) => (
-              <div key={item._id} className="grid gap-4 rounded-[26px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[1.2fr_0.9fr_1.15fr_0.85fr_1.2fr] xl:items-center">
-                <div className="flex items-center gap-3">
-                  <img src={item.userData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold text-slate-900">{item.userData.name}</p>
-                      {item.cancelled ? (
-                        <StatusBadge tone="danger">Cancelled</StatusBadge>
-                      ) : item.isCompleted ? (
-                        <StatusBadge tone="success">Completed</StatusBadge>
-                      ) : item.isCheckedIn ? (
-                        <StatusBadge tone="info">Checked in</StatusBadge>
-                      ) : (
-                        <StatusBadge tone="warning">Awaiting check-in</StatusBadge>
-                      )}
+            {filteredAppointments.map((item) => {
+              const visitStatusMeta = getVisitStatusMeta(item);
+
+              return (
+                <div key={item._id} className="grid gap-4 rounded-[26px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[1.2fr_0.9fr_1.15fr_0.85fr_1.3fr] xl:items-center">
+                  <div className="flex items-center gap-3">
+                    <img src={item.userData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-900">{item.userData.name}</p>
+                        <StatusBadge tone={visitStatusMeta.tone}>{visitStatusMeta.label}</StatusBadge>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-500">{calculateAge(item.userData.dob)} years</p>
+                      <p className="mt-1 text-xs text-slate-400">{visitStatusMeta.description}</p>
                     </div>
-                    <p className="mt-1 text-sm text-slate-500">{calculateAge(item.userData.dob)} years</p>
                   </div>
-                </div>
 
-                <div>
-                  <p className="table-head">Date & time</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-900">{slotDateFormat(item.slotDate)}</p>
-                  <p className="text-xs text-slate-500">{item.slotTime}</p>
-                </div>
+                  <div>
+                    <p className="table-head">Date and time</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">{slotDateFormat(item.slotDate)}</p>
+                    <p className="text-xs text-slate-500">{item.slotTime}</p>
+                  </div>
 
-                <div>
-                  <p className="table-head">Doctor</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-900">{item.docData.name}</p>
-                  <p className="text-xs text-slate-500">{item.docData.speciality}</p>
-                </div>
+                  <div>
+                    <p className="table-head">Doctor</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">{item.docData.name}</p>
+                    <p className="text-xs text-slate-500">{item.docData.speciality}</p>
+                  </div>
 
-                <div>
-                  <p className="table-head">Billing</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-900">{currency}{item.amount}</p>
-                  {item.payment ? <StatusBadge tone="success">Paid</StatusBadge> : <StatusBadge tone="warning">Pending</StatusBadge>}
-                </div>
+                  <div>
+                    <p className="table-head">Billing</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">{currency}{item.amount}</p>
+                    <StatusBadge tone={item.paymentStatus === 'paid' ? 'success' : 'warning'}>
+                      {item.paymentStatus || 'unpaid'}
+                    </StatusBadge>
+                  </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {!item.cancelled && !item.isCompleted ? (
-                    <>
-                      {!item.payment ? (
-                        <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => navigate('/staff-billing')}>
-                          Billing
-                        </button>
-                      ) : null}
-                      {!item.isCheckedIn ? (
-                        <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => checkInAppointment(item._id)}>
-                          Check in
-                        </button>
-                      ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    {isVisitActionableForBilling(item) ? (
+                      <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => navigate('/staff-billing')}>
+                        Billing
+                      </button>
+                    ) : null}
+                    {canCheckInAppointment(item) ? (
+                      <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => checkInAppointment(item._id)}>
+                        Check in
+                      </button>
+                    ) : null}
+                    {canCancelAppointment(item) ? (
                       <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => cancelAppointment(item._id)}>
                         Cancel
                       </button>
-                    </>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </SurfaceCard>

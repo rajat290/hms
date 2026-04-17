@@ -1,112 +1,133 @@
-import React, { useContext, useEffect, useState } from 'react'
-import { StaffContext } from '../../context/StaffContext'
-import { AppContext } from '../../context/AppContext'
-import { assets } from '../../assets/assets'
-import { toast } from 'react-toastify'
+import React, { useContext, useEffect, useMemo } from 'react';
+import { StaffContext } from '../../context/StaffContext';
+import { AppContext } from '../../context/AppContext';
+import PageHeader from '../../components/backoffice/PageHeader';
+import StatusBadge from '../../components/backoffice/StatusBadge';
+import SurfaceCard from '../../components/backoffice/SurfaceCard';
+import { canCheckInAppointment, getVisitStatus, getVisitStatusMeta, VISIT_STATUS } from '../../utils/appointmentLifecycle';
 
 const StaffQueue = () => {
-    const { appointments, getAllAppointments, sToken, checkInAppointment } = useContext(StaffContext)
-    const { slotDateFormat } = useContext(AppContext)
-    const [queue, setQueue] = useState([])
+  const { appointments, getAllAppointments, sToken, checkInAppointment } = useContext(StaffContext);
+  const { slotDateFormat } = useContext(AppContext);
 
-    useEffect(() => {
-        if (sToken) {
-            getAllAppointments()
-        }
-    }, [sToken])
+  useEffect(() => {
+    if (sToken) {
+      getAllAppointments();
+    }
+  }, [sToken]);
 
-    useEffect(() => {
-        // Filter for today's appointments that are either checked in or pending
-        // For queue management, we focus on isCheckedIn = true and not completed
-        const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '_')
-        const activeQueue = appointments.filter(appt =>
-            appt.slotDate === today &&
-            !appt.cancelled &&
-            !appt.isCompleted
-        ).sort((a, b) => {
-            if (a.isCheckedIn && !b.isCheckedIn) return -1
-            if (!a.isCheckedIn && b.isCheckedIn) return 1
-            return a.slotTime.localeCompare(b.slotTime)
-        })
-        setQueue(activeQueue)
-    }, [appointments])
+  const queue = useMemo(() => {
+    const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '_');
 
-    return (
-        <div className='m-5 max-w-6xl mx-auto'>
-            <div className='flex justify-between items-center mb-8'>
-                <h1 className='text-3xl font-bold text-gray-800 flex items-center gap-3'>
-                    <img src={assets.list_icon} className='w-8' alt="" /> Clinic Queue
-                </h1>
-                <div className='flex gap-4'>
-                    <div className='bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100'>
-                        <p className='text-xs font-bold text-indigo-600 uppercase'>Currently Waiting</p>
-                        <p className='text-xl font-black text-indigo-900'>{queue.filter(a => a.isCheckedIn).length}</p>
-                    </div>
+    return appointments
+      .filter((appointment) => {
+        const visitStatus = getVisitStatus(appointment);
+        return appointment.slotDate === today && [
+          VISIT_STATUS.REQUESTED,
+          VISIT_STATUS.ACCEPTED,
+          VISIT_STATUS.CHECKED_IN,
+        ].includes(visitStatus);
+      })
+      .sort((left, right) => {
+        const leftStatus = getVisitStatus(left);
+        const rightStatus = getVisitStatus(right);
+
+        if (leftStatus === VISIT_STATUS.CHECKED_IN && rightStatus !== VISIT_STATUS.CHECKED_IN) return -1;
+        if (leftStatus !== VISIT_STATUS.CHECKED_IN && rightStatus === VISIT_STATUS.CHECKED_IN) return 1;
+        return left.slotTime.localeCompare(right.slotTime);
+      });
+  }, [appointments]);
+
+  return (
+    <div className="space-y-6 animate-soft-in">
+      <PageHeader
+        eyebrow="Live queue"
+        title="Keep today's arrivals visible in one simple queue."
+        description="Front desk staff can see who is still scheduled, who has arrived, and who is ready for the doctor without scanning a full appointments table."
+      />
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <SurfaceCard>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Today's queue</p>
+          <p className="mt-3 text-4xl font-semibold text-slate-950">{queue.length}</p>
+          <p className="mt-2 text-sm text-slate-500">Bookings still active for today</p>
+        </SurfaceCard>
+        <SurfaceCard>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Ready now</p>
+          <p className="mt-3 text-4xl font-semibold text-emerald-700">
+            {queue.filter((appointment) => getVisitStatus(appointment) === VISIT_STATUS.CHECKED_IN).length}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">Patients already checked in</p>
+        </SurfaceCard>
+        <SurfaceCard>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Still waiting</p>
+          <p className="mt-3 text-4xl font-semibold text-amber-700">
+            {queue.filter((appointment) => getVisitStatus(appointment) !== VISIT_STATUS.CHECKED_IN).length}
+          </p>
+          <p className="mt-2 text-sm text-slate-500">Patients who have not arrived yet</p>
+        </SurfaceCard>
+      </div>
+
+      <SurfaceCard className="space-y-4">
+        {queue.length === 0 ? (
+          <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50/70 p-10 text-center text-slate-500">
+            No patients are in today's queue.
+          </div>
+        ) : (
+          queue.map((item, index) => {
+            const visitStatusMeta = getVisitStatusMeta(item);
+
+            return (
+              <div key={item._id} className="grid gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[0.35fr_1.25fr_0.95fr_0.8fr_0.95fr_0.9fr] xl:items-center">
+                <div className="text-sm font-semibold text-slate-400">{index + 1}</div>
+                <div className="flex items-center gap-3">
+                  <img src={item.userData.image} className="h-12 w-12 rounded-2xl object-cover" alt="" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{item.userData.name}</p>
+                    <p className="text-xs text-slate-500">ID {item._id.slice(-6).toUpperCase()}</p>
+                  </div>
                 </div>
-            </div>
-
-            <div className='bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden'>
-                <div className='grid grid-cols-[0.5fr_2fr_1.5fr_1.5fr_1.5fr_1fr] gap-4 p-4 bg-gray-50 font-bold text-gray-600 text-sm border-b'>
-                    <p>Pos</p>
-                    <p>Patient</p>
-                    <p>Doctor</p>
-                    <p>Appt Time</p>
-                    <p>Status</p>
-                    <p className='text-right'>Actions</p>
+                <div>
+                  <p className="table-head">Doctor</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{item.docData.name}</p>
                 </div>
-
-                <div className='divide-y divide-gray-50'>
-                    {queue.length === 0 ? (
-                        <div className='p-10 text-center text-gray-500'>
-                            <p>No patients in queue for today.</p>
-                        </div>
-                    ) : queue.map((item, index) => (
-                        <div key={item._id} className={`grid grid-cols-[0.5fr_2fr_1.5fr_1.5fr_1.5fr_1fr] gap-4 p-4 items-center hover:bg-gray-50 transition-colors ${item.isCheckedIn ? 'bg-green-50/30' : ''}`}>
-                            <p className='font-mono font-bold text-gray-400'>{index + 1}</p>
-                            <div className='flex items-center gap-3'>
-                                <img src={item.userData.image} className='w-10 h-10 rounded-full object-cover border border-gray-200' alt="" />
-                                <div>
-                                    <p className='font-bold text-gray-800'>{item.userData.name}</p>
-                                    <p className='text-[10px] text-gray-500'>ID: {item._id.slice(-6).toUpperCase()}</p>
-                                </div>
-                            </div>
-                            <p className='text-sm text-gray-700 font-medium'>Dr. {item.docData.name}</p>
-                            <p className='text-sm text-gray-700 font-medium'>{item.slotTime}</p>
-                            <div>
-                                {item.isCheckedIn ? (
-                                    <span className='px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1 w-fit'>
-                                        <span className='w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse'></span>
-                                        Waiting
-                                    </span>
-                                ) : (
-                                    <span className='px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold w-fit'>
-                                        Scheduled
-                                    </span>
-                                )}
-                            </div>
-                            <div className='flex justify-end'>
-                                {!item.isCheckedIn ? (
-                                    <button
-                                        onClick={() => checkInAppointment(item._id)}
-                                        className='bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all shadow-sm'
-                                    >
-                                        Check In
-                                    </button>
-                                ) : (
-                                    <button
-                                        disabled
-                                        className='bg-gray-100 text-gray-400 px-4 py-1.5 rounded-lg text-xs font-bold cursor-not-allowed'
-                                    >
-                                        In Queue
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                <div>
+                  <p className="table-head">Time</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{item.slotTime}</p>
+                  <p className="text-xs text-slate-500">{slotDateFormat(item.slotDate)}</p>
                 </div>
-            </div>
-        </div>
-    )
-}
+                <div>
+                  <p className="table-head">State</p>
+                  <div className="mt-2">
+                    <StatusBadge tone={visitStatusMeta.tone}>{visitStatusMeta.label}</StatusBadge>
+                  </div>
+                </div>
+                <div className="flex justify-start xl:justify-end">
+                  {canCheckInAppointment(item) ? (
+                    <button
+                      type="button"
+                      onClick={() => checkInAppointment(item._id)}
+                      className="soft-button-accent px-4 py-2 text-xs"
+                    >
+                      Check in
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-400"
+                    >
+                      Ready for doctor
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </SurfaceCard>
+    </div>
+  );
+};
 
-export default StaffQueue
+export default StaffQueue;

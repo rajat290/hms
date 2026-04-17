@@ -12,6 +12,7 @@ import { v2 as cloudinary } from "cloudinary";
 import PDFDocument from 'pdfkit';
 import auditLogModel from "../models/auditLogModel.js";
 import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod, normalizePaymentLogMethod, refundAppointmentPayment } from "../utils/appointmentIntegrity.js";
+import { deriveVisitStatusFromLegacyFlags, transitionAppointmentVisitStatus, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
 import { sendPaginatedResponse } from "../utils/pagination.js";
 import { getAdminSubjectId, issueAuthTokens, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
@@ -108,7 +109,7 @@ const appointmentCancel = async (req, res) => {
         const { appointmentId } = req.body
 
         await runInTransaction(async (session) => {
-            await cancelAppointmentRecord({ appointmentId, session })
+            await cancelAppointmentRecord({ appointmentId, session, reason: 'Cancelled by admin' })
         })
 
         res.json({ success: true, message: 'Appointment Cancelled' })
@@ -125,8 +126,24 @@ const appointmentCancel = async (req, res) => {
 const appointmentAccept = async (req, res) => {
     try {
         const { appointmentId } = req.body
-        await appointmentModel.findByIdAndUpdate(appointmentId, { isAccepted: true })
-        res.json({ success: true, message: 'Appointment Accepted' })
+
+        await runInTransaction(async (session) => {
+            const appointmentData = await appointmentModel.findById(appointmentId).session(session)
+
+            if (!appointmentData) {
+                throw new Error('Appointment not found')
+            }
+
+            transitionAppointmentVisitStatus({
+                appointment: appointmentData,
+                nextStatus: VISIT_STATUS.ACCEPTED,
+                allowedFrom: [VISIT_STATUS.REQUESTED],
+            })
+
+            await appointmentData.save({ session })
+        })
+
+        res.json({ success: true, message: 'Appointment confirmed' })
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
@@ -203,7 +220,9 @@ const getAnalytics = async (req, res) => {
             Pending: 0,
             Completed: 0,
             Cancelled: 0,
-            Accepted: 0
+            Accepted: 0,
+            'Checked In': 0,
+            'In Consultation': 0,
         };
 
         const revenueByDateMap = {};
@@ -237,11 +256,16 @@ const getAnalytics = async (req, res) => {
             }
 
             // Status counts
-            if (apt.cancelled) {
+            const visitStatus = deriveVisitStatusFromLegacyFlags(apt);
+            if (visitStatus === VISIT_STATUS.CANCELLED) {
                 statusCounts.Cancelled += 1;
-            } else if (apt.isCompleted) {
+            } else if (visitStatus === VISIT_STATUS.COMPLETED) {
                 statusCounts.Completed += 1;
-            } else if (apt.isAccepted) {
+            } else if (visitStatus === VISIT_STATUS.IN_CONSULTATION) {
+                statusCounts['In Consultation'] += 1;
+            } else if (visitStatus === VISIT_STATUS.CHECKED_IN) {
+                statusCounts['Checked In'] += 1;
+            } else if (visitStatus === VISIT_STATUS.ACCEPTED) {
                 statusCounts.Accepted += 1;
             } else {
                 statusCounts.Pending += 1;
@@ -976,10 +1000,12 @@ const getAdvancedAnalytics = async (req, res) => {
         // 1. Operational Overview
         const operational = {
             totalAppointments: appointments.length,
-            completed: appointments.filter(a => a.isCompleted).length,
-            cancelled: appointments.filter(a => a.cancelled).length,
-            pending: appointments.filter(a => !a.isCompleted && !a.cancelled && !a.isAccepted).length,
-            accepted: appointments.filter(a => a.isAccepted && !a.isCompleted).length,
+            completed: appointments.filter(a => deriveVisitStatusFromLegacyFlags(a) === VISIT_STATUS.COMPLETED).length,
+            cancelled: appointments.filter(a => deriveVisitStatusFromLegacyFlags(a) === VISIT_STATUS.CANCELLED).length,
+            pending: appointments.filter(a => deriveVisitStatusFromLegacyFlags(a) === VISIT_STATUS.REQUESTED).length,
+            accepted: appointments.filter(a => deriveVisitStatusFromLegacyFlags(a) === VISIT_STATUS.ACCEPTED).length,
+            checkedIn: appointments.filter(a => deriveVisitStatusFromLegacyFlags(a) === VISIT_STATUS.CHECKED_IN).length,
+            inConsultation: appointments.filter(a => deriveVisitStatusFromLegacyFlags(a) === VISIT_STATUS.IN_CONSULTATION).length,
         };
 
         // 2. Financial Overview

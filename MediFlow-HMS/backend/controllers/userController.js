@@ -9,7 +9,8 @@ import razorpay from 'razorpay';
 import crypto from 'crypto';
 import { generateAvailableSlots } from "../utils/slotGenerator.js";
 import notificationModel from "../models/notificationModel.js";
-import { ensureInvoiceForAppointment, finalizeAppointmentPayment, isAppointmentSlotConflict, releaseDoctorSlot, reserveDoctorSlot } from "../utils/appointmentIntegrity.js";
+import { cancelAppointmentRecord, finalizeAppointmentPayment, isAppointmentSlotConflict, releaseDoctorSlot, reserveDoctorSlot } from "../utils/appointmentIntegrity.js";
+import { deriveVisitStatusFromLegacyFlags, resetAppointmentForReschedule, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
 import { runInTransaction } from "../utils/transaction.js";
@@ -177,6 +178,8 @@ const bookAppointment = async (req, res) => {
                 slotTime,
                 slotDate,
                 date: Date.now(),
+                visitStatus: VISIT_STATUS.REQUESTED,
+                lastStatusUpdatedAt: new Date(),
                 paymentMethod: paymentMethod || 'Cash',
                 patientInfo: patientInfo || null
             }
@@ -232,8 +235,15 @@ const cancelAppointment = async (req, res) => {
                 throw new Error('Unauthorized action')
             }
 
-            if (appointmentData.isAccepted) {
-                throw new Error('Appointment accepted by doctor. Cancellation Restricted.')
+            const visitStatus = deriveVisitStatusFromLegacyFlags(appointmentData)
+
+            if ([
+                VISIT_STATUS.CHECKED_IN,
+                VISIT_STATUS.IN_CONSULTATION,
+                VISIT_STATUS.COMPLETED,
+                VISIT_STATUS.CANCELLED,
+            ].includes(visitStatus)) {
+                throw new Error('This appointment can no longer be cancelled from the patient panel.')
             }
 
             const settings = await settingsModel.findOne({}).session(session)
@@ -267,17 +277,11 @@ const cancelAppointment = async (req, res) => {
                 throw new Error(`Cancellation restricted within ${cancelWindow} hours of appointment.`)
             }
 
-            appointmentData.cancelled = true
-            await appointmentData.save({ session })
-
-            await releaseDoctorSlot({
-                docId: appointmentData.docId,
-                slotDate: appointmentData.slotDate,
-                slotTime: appointmentData.slotTime,
+            await cancelAppointmentRecord({
+                appointmentId,
                 session,
+                reason: 'Cancelled by patient',
             })
-
-            await ensureInvoiceForAppointment(appointmentData, session, { createIfMissing: false })
         })
 
         res.json({ success: true, message: 'Appointment Cancelled' })
@@ -679,8 +683,15 @@ const rescheduleAppointment = async (req, res) => {
                 throw new Error('Appointment not found');
             }
 
-            if (appointment.cancelled || appointment.isCompleted) {
-                throw new Error('Cannot reschedule cancelled or completed appointment');
+            const visitStatus = deriveVisitStatusFromLegacyFlags(appointment);
+
+            if ([
+                VISIT_STATUS.CHECKED_IN,
+                VISIT_STATUS.IN_CONSULTATION,
+                VISIT_STATUS.COMPLETED,
+                VISIT_STATUS.CANCELLED,
+            ].includes(visitStatus)) {
+                throw new Error('Only requested or accepted appointments can be rescheduled');
             }
 
             const conflictingAppointment = await appointmentModel.findOne({
@@ -711,6 +722,7 @@ const rescheduleAppointment = async (req, res) => {
             appointment.reminderSent2hAt = undefined;
             appointment.reminder24hLockUntil = undefined;
             appointment.reminder2hLockUntil = undefined;
+            resetAppointmentForReschedule({ appointment, at: new Date() });
             await appointment.save({ session });
 
             await releaseDoctorSlot({

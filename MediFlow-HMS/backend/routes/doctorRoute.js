@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginDoctor, appointmentsDoctor, appointmentCancel, appointmentAccept, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, addAppointmentNotes, generatePrescriptionDoctor, getPatientFinancialSummary, getAvailability, updateAvailability, addReview, getDoctorReviews, forgotPassword, verifyResetOtp, resetPassword, refreshSession, logoutDoctor, verifyEmail } from '../controllers/doctorController.js';
+import { loginDoctor, appointmentsDoctor, appointmentCancel, appointmentAccept, doctorList, changeAvailablity, appointmentComplete, startConsultation, doctorDashboard, doctorProfile, updateDoctorProfile, addAppointmentNotes, generatePrescriptionDoctor, getPatientFinancialSummary, getAvailability, updateAvailability, addReview, getDoctorReviews, forgotPassword, verifyResetOtp, resetPassword, refreshSession, logoutDoctor, verifyEmail } from '../controllers/doctorController.js';
 import authDoctor from '../middleware/authDoctor.js';
 import authUser from '../middleware/authUser.js';
 import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
@@ -12,6 +12,7 @@ doctorRouter.post("/logout", authDoctor, logoutDoctor)
 doctorRouter.post("/verify-email", validateTokenPayload, verifyEmail)
 doctorRouter.post("/cancel-appointment", authDoctor, validateAppointmentId, appointmentCancel)
 doctorRouter.post("/accept-appointment", authDoctor, validateAppointmentId, appointmentAccept)
+doctorRouter.post("/start-consultation", authDoctor, validateAppointmentId, startConsultation)
 doctorRouter.get("/appointments", authDoctor, validatePaginationQuery, appointmentsDoctor)
 doctorRouter.get("/list", validateDoctorListQuery, doctorList)
 doctorRouter.post("/change-availability", authDoctor, validateDocId, changeAvailablity)
