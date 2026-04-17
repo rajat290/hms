@@ -1,9 +1,9 @@
 import express from 'express'
-import { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead, forgotPassword, resetPassword, refreshSession, logoutStaff, verifyEmail } from '../controllers/staffController.js'
+import { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead, forgotPassword, verifyResetOtp, resetPassword, refreshSession, logoutStaff, verifyEmail } from '../controllers/staffController.js'
 import authStaff from '../middleware/authStaff.js'
 import upload from '../middleware/multer.js';
 import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
-import { validateAppointmentId, validateForgotPassword, validateLogin, validateNotificationId, validateOptionalSlotDateQuery, validatePaginationQuery, validatePatientCreate, validateRefreshTokenPayload, validateResetPassword, validateStaffProfileUpdate, validateTokenPayload, validateUpdatePaymentStatus } from '../middleware/validators.js';
+import { validateAppointmentId, validateForgotPassword, validateLogin, validateNotificationId, validateOptionalSlotDateQuery, validatePaginationQuery, validatePatientCreate, validateRefreshTokenPayload, validateResetOtpVerification, validateResetPassword, validateStaffProfileUpdate, validateTokenPayload, validateUpdatePaymentStatus } from '../middleware/validators.js';
 
 const staffRouter = express.Router()
 
@@ -25,6 +25,7 @@ staffRouter.post('/update-payment', authStaff, validateUpdatePaymentStatus, upda
 staffRouter.get('/notifications', authStaff, validatePaginationQuery, getStaffNotifications)
 staffRouter.post('/mark-notification-read', authStaff, validateNotificationId, markNotificationRead)
 staffRouter.post('/forgot-password', forgotPasswordLimiter, validateForgotPassword, forgotPassword)
+staffRouter.post('/verify-reset-otp', forgotPasswordLimiter, validateResetOtpVerification, verifyResetOtp)
 staffRouter.post('/reset-password', forgotPasswordLimiter, validateResetPassword, resetPassword)
 
 export default staffRouter

@@ -1,12 +1,14 @@
 import bcrypt from 'bcrypt';
 import { jest } from '@jest/globals';
+import crypto from 'crypto';
 
 const createUserMock = jest.fn();
 const findUserByEmailMock = jest.fn();
 const findUserByIdMock = jest.fn();
+const findUserByResetOtpEmailMock = jest.fn();
 const findUserByResetTokenMock = jest.fn();
 const findUserByVerificationTokenMock = jest.fn();
-const sendPasswordResetEmailMock = jest.fn();
+const sendPasswordResetOtpEmailMock = jest.fn();
 const sendTwoFactorCodeEmailMock = jest.fn();
 const sendVerificationEmailMock = jest.fn();
 const issueAuthTokensMock = jest.fn();
@@ -16,12 +18,13 @@ jest.unstable_mockModule('../repositories/userAuthRepository.js', () => ({
   createUser: createUserMock,
   findUserByEmail: findUserByEmailMock,
   findUserById: findUserByIdMock,
+  findUserByResetOtpEmail: findUserByResetOtpEmailMock,
   findUserByResetToken: findUserByResetTokenMock,
   findUserByVerificationToken: findUserByVerificationTokenMock,
 }));
 
 jest.unstable_mockModule('../services/emailService.js', () => ({
-  sendPasswordResetEmail: sendPasswordResetEmailMock,
+  sendPasswordResetOtpEmail: sendPasswordResetOtpEmailMock,
   sendTwoFactorCodeEmail: sendTwoFactorCodeEmailMock,
   sendVerificationEmail: sendVerificationEmailMock,
 }));
@@ -37,6 +40,7 @@ const {
   registerUserAccount,
   requestUserPasswordReset,
   resetUserPassword,
+  verifyUserPasswordResetOtp,
   verifyUserEmail,
   verifyUserTwoFactor,
 } = await import('../services/auth/userAuthService.js');
@@ -195,48 +199,66 @@ describe('userAuthService', () => {
     });
   });
 
-  it('starts password reset flows and emails the reset token', async () => {
+  it('starts password reset flows and emails a 6-digit reset code', async () => {
     const saveMock = jest.fn().mockResolvedValue(undefined);
     findUserByEmailMock.mockResolvedValue({
       _id: 'user-1',
       email: 'alice@mediflow.test',
+      resetOtpAttempts: 0,
       save: saveMock,
     });
 
     const response = await requestUserPasswordReset({
       email: 'alice@mediflow.test',
-      origin: 'http://localhost:5173',
     });
 
     expect(saveMock).toHaveBeenCalled();
-    expect(sendPasswordResetEmailMock).toHaveBeenCalledWith(
+    expect(sendPasswordResetOtpEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({
         email: 'alice@mediflow.test',
-        origin: 'http://localhost:5173',
-        token: expect.any(String),
+        code: expect.any(String),
       })
     );
     expect(response).toEqual({
       success: true,
-      message: 'Reset token sent to email',
+      message: 'If an account exists for this email, a 6-digit reset code has been sent.',
     });
   });
 
-  it('resets passwords, revokes old sessions, and returns a fresh session', async () => {
+  it('verifies a reset code and returns a short-lived reset token', async () => {
+    const saveMock = jest.fn().mockResolvedValue(undefined);
+    findUserByResetOtpEmailMock.mockResolvedValue({
+      _id: 'user-otp-1',
+      email: 'alice@mediflow.test',
+      resetOtpCodeHash: crypto.createHash('sha256').update('123456').digest('hex'),
+      resetOtpExpiry: new Date(Date.now() + 5 * 60 * 1000),
+      resetOtpAttempts: 0,
+      save: saveMock,
+    });
+
+    const response = await verifyUserPasswordResetOtp({
+      email: 'alice@mediflow.test',
+      code: '123456',
+    });
+
+    expect(saveMock).toHaveBeenCalled();
+    expect(response).toEqual({
+      success: true,
+      message: 'Code verified. You can now set a new password.',
+      resetToken: expect.any(String),
+    });
+  });
+
+  it('resets passwords, revokes old sessions, and requires sign-in afterward', async () => {
     const saveMock = jest.fn().mockResolvedValue(undefined);
     findUserByResetTokenMock.mockResolvedValue({
       _id: 'user-3',
       save: saveMock,
     });
-    issueAuthTokensMock.mockResolvedValue({
-      token: 'access-token',
-      refreshToken: 'refresh-token',
-    });
 
     const response = await resetUserPassword({
       token: 'reset-token',
       newPassword: 'new-secret123',
-      req: { headers: { 'user-agent': 'jest' } },
     });
 
     expect(saveMock).toHaveBeenCalled();
@@ -245,16 +267,10 @@ describe('userAuthService', () => {
       role: 'user',
       reason: 'Password reset',
     });
-    expect(issueAuthTokensMock).toHaveBeenCalledWith({
-      subjectId: 'user-3',
-      role: 'user',
-      req: { headers: { 'user-agent': 'jest' } },
-    });
+    expect(issueAuthTokensMock).not.toHaveBeenCalled();
     expect(response).toEqual({
       success: true,
-      message: 'Password reset successfully',
-      token: 'access-token',
-      refreshToken: 'refresh-token',
+      message: 'Password reset successfully. Please sign in with your new password.',
     });
   });
 

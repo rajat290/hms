@@ -20,6 +20,7 @@ import {
     registerUserAccount,
     requestUserPasswordReset,
     resetUserPassword,
+    verifyUserPasswordResetOtp,
     verifyUserEmail,
     verifyUserTwoFactor,
 } from "../services/auth/userAuthService.js";
@@ -587,8 +588,18 @@ const forgotPassword = async (req, res) => {
         const { email } = req.body;
         const response = await requestUserPasswordReset({
             email,
-            origin: req.headers.origin,
         });
+        res.json(response);
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const verifyResetOtp = async (req, res) => {
+    try {
+        const { email, code } = req.body;
+        const response = await verifyUserPasswordResetOtp({ email, code });
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -603,7 +614,6 @@ const resetPassword = async (req, res) => {
         const response = await resetUserPassword({
             token,
             newPassword,
-            req,
         });
         res.json(response);
     } catch (error) {
@@ -831,6 +841,7 @@ export {
     verifyStripe,
     verifyEmail,
     forgotPassword,
+    verifyResetOtp,
     resetPassword,
     enable2FA,
     verify2FA,

@@ -79,6 +79,28 @@ const sendPasswordResetEmail = async ({ email, origin, token, role, subject, acc
     });
 };
 
+const sendPasswordResetOtpEmail = async ({ email, code, subject, accountLabel }) => {
+    const accountCopy = accountLabel ? ` for your ${accountLabel}` : '';
+
+    return sendEmail({
+        to: email,
+        subject,
+        html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px;">
+                <h2>Password Reset Code</h2>
+                <p>You requested a password reset${accountCopy}. Use the verification code below in the app to continue:</p>
+                <div style="margin: 20px 0; padding: 16px; border-radius: 12px; background-color: #eef2ff; border: 1px solid #c7d2fe; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; color: #4338ca; font-weight: 700;">Reset code</p>
+                    <p style="margin: 12px 0 0; font-size: 32px; letter-spacing: 0.32em; font-weight: 800; color: #1e1b4b;">${code}</p>
+                </div>
+                <p>This code expires in 10 minutes.</p>
+                <p>If you did not request this, you can safely ignore this email.</p>
+                <p>Thank you,<br>The Mediflow Team</p>
+            </div>
+        `,
+    });
+};
+
 const sendTwoFactorCodeEmail = async ({ email, code }) => sendEmail({
     to: email,
     subject: '2FA Verification Code - Mediflow',
@@ -145,6 +167,7 @@ export {
     sendEmail,
     sendOverdueInvoiceEmail,
     sendPasswordResetEmail,
+    sendPasswordResetOtpEmail,
     sendTwoFactorCodeEmail,
     sendVerificationEmail,
     sendWelcomeCredentialsEmail,

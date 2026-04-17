@@ -1,14 +1,13 @@
 import axios from 'axios';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AdminContext } from '../context/AdminContext';
 import { DoctorContext } from '../context/DoctorContext';
 import { StaffContext } from '../context/StaffContext';
 import { AppContext } from '../context/AppContext';
 import { createClientConfig } from '@shared/config/clientConfig.js';
 import ForgotPassword from './ForgotPassword';
-import ResetPassword from './ResetPassword';
 import { roleMeta } from '../utils/backofficeConfig';
 
 const roles = ['Admin', 'Doctor', 'Staff'];
@@ -16,7 +15,6 @@ const roles = ['Admin', 'Doctor', 'Staff'];
 const Login = () => {
   const [view, setView] = useState('login');
   const [state, setState] = useState('Admin');
-  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -33,21 +31,6 @@ const Login = () => {
 
   const roleKey = state.toLowerCase();
   const roleDetails = roleMeta[roleKey];
-
-  useEffect(() => {
-    const token = searchParams.get('token');
-    if (token) {
-      setView('reset');
-    }
-
-    const role = searchParams.get('role');
-    if (role) {
-      const roleState = role.charAt(0).toUpperCase() + role.slice(1);
-      if (roles.includes(roleState)) {
-        setState(roleState);
-      }
-    }
-  }, [searchParams]);
 
   const roleQuote = useMemo(() => ({
     Admin: 'Keep operations visible, safe, and easy to act on.',
@@ -124,7 +107,6 @@ const Login = () => {
   };
 
   if (view === 'forgot') return <ForgotPassword setView={setView} />;
-  if (view === 'reset') return <ResetPassword setView={setView} />;
 
   return (
     <div className="bo-login-shell relative min-h-screen overflow-hidden px-4 py-10 sm:px-6 lg:px-10">

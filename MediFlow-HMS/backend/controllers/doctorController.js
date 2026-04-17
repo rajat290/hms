@@ -7,7 +7,7 @@ import { deriveVisitStatusFromLegacyFlags, transitionAppointmentVisitStatus, VIS
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { runInTransaction } from "../utils/transaction.js";
 import { createRoleAuthRepository } from "../repositories/roleAuthRepository.js";
-import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail } from "../services/auth/roleAccountService.js";
+import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail, verifyRolePasswordResetOtp } from "../services/auth/roleAccountService.js";
 
 const doctorAccountRepository = createRoleAuthRepository(doctorModel);
 
@@ -493,14 +493,25 @@ const forgotPassword = async (req, res) => {
     try {
         const response = await requestRolePasswordReset({
             email: req.body.email,
-            origin: req.headers.origin,
             repository: doctorAccountRepository,
             emailConfig: {
-                role: 'doctor',
-                subject: 'Password Reset - Mediflow Doctor Panel',
-                accountLabel: 'Doctor account',
+                subject: 'Password Reset Code - Mediflow Doctor Panel',
+                accountLabel: 'doctor account',
             },
-            notFoundMessage: 'Doctor not found',
+        });
+        res.json(response);
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const verifyResetOtp = async (req, res) => {
+    try {
+        const response = await verifyRolePasswordResetOtp({
+            email: req.body.email,
+            code: req.body.code,
+            repository: doctorAccountRepository,
         });
         res.json(response);
     } catch (error) {
@@ -515,7 +526,6 @@ const resetPassword = async (req, res) => {
         const response = await resetRolePassword({
             token: req.body.token,
             newPassword: req.body.newPassword,
-            req,
             role: 'doctor',
             repository: doctorAccountRepository,
         });
@@ -573,6 +583,7 @@ export {
     addReview,
     getDoctorReviews,
     forgotPassword,
+    verifyResetOtp,
     resetPassword,
     refreshSession,
     logoutDoctor,
