@@ -6,6 +6,7 @@ import EmptyState from '../../components/backoffice/EmptyState';
 import PageHeader from '../../components/backoffice/PageHeader';
 import StatusBadge from '../../components/backoffice/StatusBadge';
 import SurfaceCard from '../../components/backoffice/SurfaceCard';
+import { isVisitActionableForBilling } from '../../utils/appointmentLifecycle';
 
 const StaffBilling = () => {
   const { appointments, updatePayment } = useContext(StaffContext);
@@ -23,7 +24,7 @@ const StaffBilling = () => {
         (appointment) =>
           (appointment.userData.name.toLowerCase().includes(search.toLowerCase()) ||
             appointment._id.includes(search)) &&
-          !appointment.cancelled,
+          isVisitActionableForBilling(appointment),
       ),
     [appointments, search],
   );

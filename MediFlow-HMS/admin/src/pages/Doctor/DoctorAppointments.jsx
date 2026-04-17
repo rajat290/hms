@@ -8,6 +8,13 @@ import LoadingState from '../../components/backoffice/LoadingState';
 import PageHeader from '../../components/backoffice/PageHeader';
 import StatusBadge from '../../components/backoffice/StatusBadge';
 import SurfaceCard from '../../components/backoffice/SurfaceCard';
+import {
+  canAcceptAppointment,
+  canCancelAppointment,
+  canCompleteAppointment,
+  canStartConsultation,
+  getVisitStatusMeta,
+} from '../../utils/appointmentLifecycle';
 
 const DoctorAppointments = () => {
   const {
@@ -17,6 +24,7 @@ const DoctorAppointments = () => {
     cancelAppointment,
     completeAppointment,
     acceptAppointment,
+    startConsultation,
     backendUrl,
   } = useContext(DoctorContext);
   const { slotDateFormat, calculateAge, currency } = useContext(AppContext);
@@ -38,9 +46,9 @@ const DoctorAppointments = () => {
       appointments.filter((item) => {
         const term = searchTerm.toLowerCase();
         return (
-          item.userData.name.toLowerCase().includes(term) ||
-          item.docData.name.toLowerCase().includes(term) ||
-          slotDateFormat(item.slotDate).toLowerCase().includes(term)
+          item.userData.name.toLowerCase().includes(term)
+          || item.docData.name.toLowerCase().includes(term)
+          || slotDateFormat(item.slotDate).toLowerCase().includes(term)
         );
       }),
     [appointments, searchTerm, slotDateFormat],
@@ -106,8 +114,8 @@ const DoctorAppointments = () => {
       <div className="space-y-6 animate-soft-in">
         <PageHeader
           eyebrow="Doctor appointments"
-          title="Everything you need for a consultation should stay in one focused workflow."
-          description="Review patient basics, accept or complete visits, add notes, and draft prescriptions without bouncing between separate screens."
+          title="Run each visit through one clear clinical workflow."
+          description="Review the patient, confirm the booking, start the consultation, complete the visit, and document notes without guessing the next step."
         />
 
         <SurfaceCard className="space-y-5">
@@ -126,71 +134,72 @@ const DoctorAppointments = () => {
             />
           ) : (
             <div className="space-y-3">
-              {filteredAppointments.map((item) => (
-                <div key={item._id} className="grid gap-4 rounded-[26px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[1.25fr_0.8fr_0.85fr_1.15fr] xl:items-center">
-                  <div className="flex items-center gap-3">
-                    <img src={item.userData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-slate-900">{item.userData.name}</p>
-                        {item.cancelled ? (
-                          <StatusBadge tone="danger">Cancelled</StatusBadge>
-                        ) : item.isCompleted ? (
-                          <StatusBadge tone="success">Completed</StatusBadge>
-                        ) : item.isAccepted ? (
-                          <StatusBadge tone="info">Accepted</StatusBadge>
-                        ) : (
-                          <StatusBadge tone="warning">Pending review</StatusBadge>
-                        )}
+              {filteredAppointments.map((item) => {
+                const visitStatusMeta = getVisitStatusMeta(item);
+
+                return (
+                  <div key={item._id} className="grid gap-4 rounded-[26px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[1.25fr_0.8fr_0.95fr_1.2fr] xl:items-center">
+                    <div className="flex items-center gap-3">
+                      <img src={item.userData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-900">{item.userData.name}</p>
+                          <StatusBadge tone={visitStatusMeta.tone}>{visitStatusMeta.label}</StatusBadge>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {calculateAge(item.userData.dob)} years | {slotDateFormat(item.slotDate)} | {item.slotTime}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">{visitStatusMeta.description}</p>
                       </div>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {calculateAge(item.userData.dob)} years • {slotDateFormat(item.slotDate)} • {item.slotTime}
-                      </p>
                     </div>
-                  </div>
 
-                  <div>
-                    <p className="table-head">Payment</p>
-                    <p className="mt-2 text-sm font-semibold text-slate-900">{item.paymentStatus || 'unpaid'}</p>
-                    <p className="text-xs text-slate-500">{currency}{item.amount}</p>
-                  </div>
+                    <div>
+                      <p className="table-head">Payment</p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">{item.paymentStatus || 'unpaid'}</p>
+                      <p className="text-xs text-slate-500">{currency}{item.amount}</p>
+                    </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {!item.cancelled && !item.isCompleted ? (
-                      <>
-                        {!item.isAccepted ? (
-                          <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => acceptAppointment(item._id)}>
-                            Accept
-                          </button>
-                        ) : (
-                          <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => completeAppointment(item._id)}>
-                            Complete
-                          </button>
-                        )}
+                    <div className="flex flex-wrap gap-2">
+                      {canAcceptAppointment(item) ? (
+                        <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => acceptAppointment(item._id)}>
+                          Confirm
+                        </button>
+                      ) : null}
+                      {canStartConsultation(item) ? (
+                        <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => startConsultation(item._id)}>
+                          Start consult
+                        </button>
+                      ) : null}
+                      {canCompleteAppointment(item) ? (
+                        <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => completeAppointment(item._id)}>
+                          Complete visit
+                        </button>
+                      ) : null}
+                      {canCancelAppointment(item) ? (
                         <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => cancelAppointment(item._id)}>
                           Cancel
                         </button>
-                      </>
-                    ) : null}
-                  </div>
+                      ) : null}
+                    </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => addNote(item._id)}>
-                      Add note
-                    </button>
-                    <button
-                      type="button"
-                      className="soft-button-secondary px-4 py-2 text-xs"
-                      onClick={() => {
-                        setCurrentAppointmentId(item._id);
-                        setShowPrescriptionModal(true);
-                      }}
-                    >
-                      Prescribe
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => addNote(item._id)}>
+                        Add note
+                      </button>
+                      <button
+                        type="button"
+                        className="soft-button-secondary px-4 py-2 text-xs"
+                        onClick={() => {
+                          setCurrentAppointmentId(item._id);
+                          setShowPrescriptionModal(true);
+                        }}
+                      >
+                        Prescribe
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </SurfaceCard>
@@ -227,7 +236,7 @@ const DoctorAppointments = () => {
                 <div key={`${medicine.name}-${index}`} className="rounded-[22px] border border-slate-100 bg-slate-50/80 p-4">
                   <p className="text-sm font-semibold text-slate-900">{medicine.name}</p>
                   <p className="mt-1 text-sm text-slate-500">
-                    {medicine.dosage} • {medicine.duration || 'Duration pending'} • {medicine.instruction || 'No extra instruction'}
+                    {medicine.dosage} | {medicine.duration || 'Duration pending'} | {medicine.instruction || 'No extra instruction'}
                   </p>
                 </div>
               ))}

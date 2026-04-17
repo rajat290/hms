@@ -3,6 +3,7 @@ import appointmentModel from '../models/appointmentModel.js';
 import doctorModel from '../models/doctorModel.js';
 import invoiceModel from '../models/invoiceModel.js';
 import paymentLogModel from '../models/paymentLogModel.js';
+import { VISIT_STATUS, transitionAppointmentVisitStatus } from './appointmentLifecycle.js';
 
 const INVOICE_DUE_DAYS = 30;
 
@@ -234,18 +235,26 @@ const finalizeAppointmentPayment = async ({
   return appointment;
 };
 
-const cancelAppointmentRecord = async ({ appointmentId, session }) => {
+const cancelAppointmentRecord = async ({ appointmentId, session, reason }) => {
   const appointment = await appointmentModel.findById(appointmentId).session(session);
 
   if (!appointment) {
     throw new Error('Appointment not found');
   }
 
-  if (appointment.cancelled) {
+  if (appointment.visitStatus === VISIT_STATUS.CANCELLED || appointment.cancelled) {
     return appointment;
   }
 
-  appointment.cancelled = true;
+  if (appointment.visitStatus === VISIT_STATUS.COMPLETED || appointment.isCompleted) {
+    throw new Error('Completed appointments cannot be cancelled');
+  }
+
+  transitionAppointmentVisitStatus({
+    appointment,
+    nextStatus: VISIT_STATUS.CANCELLED,
+    reason,
+  });
   await appointment.save({ session });
 
   await releaseDoctorSlot({

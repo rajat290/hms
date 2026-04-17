@@ -6,6 +6,7 @@ import LoadingState from '../../components/backoffice/LoadingState';
 import PageHeader from '../../components/backoffice/PageHeader';
 import StatusBadge from '../../components/backoffice/StatusBadge';
 import SurfaceCard from '../../components/backoffice/SurfaceCard';
+import { canAcceptAppointment, canCancelAppointment, getVisitStatus, getVisitStatusMeta } from '../../utils/appointmentLifecycle';
 
 const AllAppointments = () => {
   const { aToken, appointments, cancelAppointment, acceptAppointment, getAllAppointments } = useContext(AdminContext);
@@ -28,22 +29,17 @@ const AllAppointments = () => {
   );
 
   const filteredAppointments = useMemo(() => {
-    const result = appointments
+    return appointments
       .filter((appointment) => {
         const term = searchTerm.toLowerCase();
+        const visitStatus = getVisitStatus(appointment);
         const matchesSearch =
-          appointment.userData.name.toLowerCase().includes(term) ||
-          appointment.docData.name.toLowerCase().includes(term) ||
-          slotDateFormat(appointment.slotDate).toLowerCase().includes(term);
+          appointment.userData.name.toLowerCase().includes(term)
+          || appointment.docData.name.toLowerCase().includes(term)
+          || slotDateFormat(appointment.slotDate).toLowerCase().includes(term);
 
         const matchesDoctor = !doctorFilter || appointment.docData.name === doctorFilter;
-        const matchesStatus =
-          !statusFilter ||
-          (statusFilter === 'completed'
-            ? appointment.isCompleted
-            : statusFilter === 'cancelled'
-              ? appointment.cancelled
-              : !appointment.cancelled && !appointment.isCompleted);
+        const matchesStatus = !statusFilter || visitStatus === statusFilter;
 
         return matchesSearch && matchesDoctor && matchesStatus;
       })
@@ -53,8 +49,6 @@ const AllAppointments = () => {
         if (sortBy === 'date') return left.slotDate.localeCompare(right.slotDate);
         return 0;
       });
-
-    return result;
   }, [appointments, doctorFilter, searchTerm, slotDateFormat, sortBy, statusFilter]);
 
   if (!appointments.length && aToken) {
@@ -66,7 +60,7 @@ const AllAppointments = () => {
       <PageHeader
         eyebrow="Admin appointments"
         title="Keep every booking visible, searchable, and safe to action."
-        description="Front-office staff and admins should be able to understand appointment state at a glance, not decode a dense table."
+        description="Admins should be able to understand the visit state instantly and step in only when a legitimate action is still available."
       />
 
       <SurfaceCard className="space-y-5">
@@ -91,8 +85,11 @@ const AllAppointments = () => {
             ))}
           </select>
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="soft-select">
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
+            <option value="">All visit states</option>
+            <option value="requested">Requested</option>
+            <option value="accepted">Accepted</option>
+            <option value="checked_in">Checked in</option>
+            <option value="in_consultation">In consultation</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>
@@ -105,62 +102,57 @@ const AllAppointments = () => {
           />
         ) : (
           <div className="space-y-3">
-            {filteredAppointments.map((item, index) => (
-              <div key={item._id} className="grid gap-4 rounded-[26px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[0.35fr_1.2fr_0.8fr_1.2fr_1.2fr_0.8fr_1.1fr] xl:items-center">
-                <div className="hidden text-sm font-semibold text-slate-400 xl:block">{index + 1}</div>
-                <div className="flex items-center gap-3">
-                  <img src={item.userData.image} alt="" className="h-12 w-12 rounded-2xl object-cover" />
+            {filteredAppointments.map((item, index) => {
+              const visitStatusMeta = getVisitStatusMeta(item);
+
+              return (
+                <div key={item._id} className="grid gap-4 rounded-[26px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[0.35fr_1.2fr_0.8fr_1.2fr_1fr_0.9fr_1.1fr] xl:items-center">
+                  <div className="hidden text-sm font-semibold text-slate-400 xl:block">{index + 1}</div>
+                  <div className="flex items-center gap-3">
+                    <img src={item.userData.image} alt="" className="h-12 w-12 rounded-2xl object-cover" />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{item.userData.name}</p>
+                      <p className="text-xs text-slate-500">{calculateAge(item.userData.dob)} years</p>
+                    </div>
+                  </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{item.userData.name}</p>
-                    <p className="text-xs text-slate-500">{calculateAge(item.userData.dob)} years</p>
+                    <p className="table-head">Date</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{slotDateFormat(item.slotDate)}</p>
+                    <p className="text-xs text-slate-500">{item.slotTime}</p>
                   </div>
-                </div>
-                <div>
-                  <p className="table-head">Date</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{slotDateFormat(item.slotDate)}</p>
-                  <p className="text-xs text-slate-500">{item.slotTime}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <img src={item.docData.image} alt="" className="h-12 w-12 rounded-2xl object-cover bg-white" />
+                  <div className="flex items-center gap-3">
+                    <img src={item.docData.image} alt="" className="h-12 w-12 rounded-2xl object-cover bg-white" />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{item.docData.name}</p>
+                      <p className="text-xs text-slate-500">{item.docData.speciality}</p>
+                    </div>
+                  </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{item.docData.name}</p>
-                    <p className="text-xs text-slate-500">{item.docData.speciality}</p>
+                    <p className="table-head">Fees</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{currency}{item.amount}</p>
                   </div>
-                </div>
-                <div>
-                  <p className="table-head">Fees</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{currency}{item.amount}</p>
-                </div>
-                <div>
-                  <p className="table-head">Status</p>
-                  <div className="mt-2">
-                    {item.cancelled ? (
-                      <StatusBadge tone="danger">Cancelled</StatusBadge>
-                    ) : item.isCompleted ? (
-                      <StatusBadge tone="success">Completed</StatusBadge>
-                    ) : item.isAccepted ? (
-                      <StatusBadge tone="info">Accepted</StatusBadge>
-                    ) : (
-                      <StatusBadge tone="warning">Pending</StatusBadge>
-                    )}
+                  <div>
+                    <p className="table-head">Status</p>
+                    <div className="mt-2">
+                      <StatusBadge tone={visitStatusMeta.tone}>{visitStatusMeta.label}</StatusBadge>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-400">{visitStatusMeta.description}</p>
                   </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {!item.cancelled && !item.isCompleted ? (
-                    <>
-                      {!item.isAccepted ? (
-                        <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => acceptAppointment(item._id)}>
-                          Accept
-                        </button>
-                      ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    {canAcceptAppointment(item) ? (
+                      <button type="button" className="soft-button-accent px-4 py-2 text-xs" onClick={() => acceptAppointment(item._id)}>
+                        Confirm
+                      </button>
+                    ) : null}
+                    {canCancelAppointment(item) ? (
                       <button type="button" className="soft-button-secondary px-4 py-2 text-xs" onClick={() => cancelAppointment(item._id)}>
                         Cancel
                       </button>
-                    </>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </SurfaceCard>

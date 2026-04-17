@@ -1,78 +1,80 @@
-import React, { useContext } from 'react'
-import { StaffContext } from '../../context/StaffContext'
-import { AppContext } from '../../context/AppContext'
-import { assets } from '../../assets/assets'
+import React, { useContext, useMemo } from 'react';
+import { StaffContext } from '../../context/StaffContext';
+import { AppContext } from '../../context/AppContext';
+import PageHeader from '../../components/backoffice/PageHeader';
+import StatusBadge from '../../components/backoffice/StatusBadge';
+import SurfaceCard from '../../components/backoffice/SurfaceCard';
+import { getVisitStatusMeta, isVisitActive } from '../../utils/appointmentLifecycle';
 
 const StaffFollowUp = () => {
-    const { appointments, patients } = useContext(StaffContext)
-    const { slotDateFormat, calculateAge } = useContext(AppContext)
+  const { appointments } = useContext(StaffContext);
+  const { slotDateFormat } = useContext(AppContext);
 
-    // Helper: Determine if an appointment is "Upcoming" (Today or Future)
-    const isUpcoming = (slotDate) => {
-        // Simple string comparison for dd_mm_yyyy might be risky if not parsed, 
-        // but assuming standard format or consistent API. 
-        // Better to use actual Date objects for robustness.
+  const upcomingAppointments = useMemo(
+    () => appointments.filter((appointment) => isVisitActive(appointment)),
+    [appointments],
+  );
 
-        // Mocking: Assuming all non-cancelled, non-completed appointments are "Active"
-        return true
-    }
+  const sendReminder = (phone, name, date, time) => {
+    const message = `Hello ${name}, this is a reminder for your appointment at Mediflow on ${date} at ${time}. Please arrive 10 minutes early.`;
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
 
-    const upcomingAppts = appointments.filter(a => !a.cancelled && !a.isCompleted)
+  return (
+    <div className="space-y-6 animate-soft-in">
+      <PageHeader
+        eyebrow="Follow-ups"
+        title="Make reminders feel simple for the front desk."
+        description="Staff can quickly reach active appointments without accidentally messaging cancelled or already completed visits."
+      />
 
-    const sendReminder = (phone, name, date, time) => {
-        const message = `Hello ${name}, this is a reminder for your appointment at Mediflow on ${date} at ${time}. Please arrive 10 mins early.`
-        const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
-        window.open(url, '_blank')
-    }
+      <SurfaceCard className="space-y-4">
+        {upcomingAppointments.length === 0 ? (
+          <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50/70 p-10 text-center text-slate-500">
+            No upcoming appointments found.
+          </div>
+        ) : (
+          upcomingAppointments.map((item) => {
+            const visitStatusMeta = getVisitStatusMeta(item);
 
-    return (
-        <div className='m-5'>
-            <h1 className='text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2'>
-                <img src={assets.info_icon} className='w-8' alt="" /> Follow-ups & Reminders
-            </h1>
-
-            <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
-                <div className='grid grid-cols-[2fr_1fr_2fr_1fr] bg-gray-50 p-4 border-b font-medium text-gray-600'>
-                    <p>Patient</p>
-                    <p>Date & Time</p>
-                    <p>Doctor</p>
-                    <p className='text-center'>Action</p>
+            return (
+              <div key={item._id} className="grid gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 xl:grid-cols-[1.3fr_0.95fr_1.05fr_1fr] xl:items-center">
+                <div className="flex items-center gap-3">
+                  <img className="h-12 w-12 rounded-2xl object-cover" src={item.userData.image} alt="" />
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-900">{item.userData.name}</p>
+                      <StatusBadge tone={visitStatusMeta.tone}>{visitStatusMeta.label}</StatusBadge>
+                    </div>
+                    <p className="text-xs text-slate-500">Phone: {item.userData.phone || 'N/A'}</p>
+                  </div>
                 </div>
+                <div>
+                  <p className="table-head">Date and time</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{slotDateFormat(item.slotDate)}</p>
+                  <p className="text-xs text-slate-500">{item.slotTime}</p>
+                </div>
+                <div>
+                  <p className="table-head">Doctor</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{item.docData.name}</p>
+                </div>
+                <div className="flex justify-start xl:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => sendReminder(item.userData.phone, item.userData.name, item.slotDate, item.slotTime)}
+                    className="soft-button-accent px-4 py-2 text-xs"
+                  >
+                    Send reminder
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </SurfaceCard>
+    </div>
+  );
+};
 
-                {upcomingAppts.length === 0 ? (
-                    <div className='p-8 text-center text-gray-500'>No upcoming appointments found.</div>
-                ) : (
-                    upcomingAppts.map((item) => (
-                        <div key={item._id} className='grid grid-cols-[2fr_1fr_2fr_1fr] p-4 border-b items-center hover:bg-gray-50'>
-                            <div className='flex items-center gap-3'>
-                                <img className='w-10 h-10 rounded-full object-cover' src={item.userData.image} alt="" />
-                                <div>
-                                    <p className='font-bold text-gray-800'>{item.userData.name}</p>
-                                    <p className='text-xs text-gray-500'>Phone: {item.userData.phone || 'N/A'}</p>
-                                </div>
-                            </div>
-                            <div>
-                                <p className='text-indigo-600 font-medium'>{slotDateFormat(item.slotDate)}</p>
-                                <p className='text-xs text-gray-500'>{item.slotTime}</p>
-                            </div>
-                            <div className='flex items-center gap-2'>
-                                <img className='w-8 h-8 rounded-full bg-gray-100' src={item.docData.image} alt="" />
-                                <p className='text-sm text-gray-700'>{item.docData.name}</p>
-                            </div>
-                            <div className='text-center'>
-                                <button
-                                    onClick={() => sendReminder(item.userData.phone, item.userData.name, item.slotDate, item.slotTime)}
-                                    className='bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all flex items-center gap-1 justify-center mx-auto'
-                                >
-                                    <span>🔔</span> Send Reminder
-                                </button>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
-        </div>
-    )
-}
-
-export default StaffFollowUp
+export default StaffFollowUp;

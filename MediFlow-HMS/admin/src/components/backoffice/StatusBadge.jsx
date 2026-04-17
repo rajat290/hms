@@ -5,6 +5,7 @@ const variants = {
   warning: 'bg-amber-50 text-amber-700 ring-amber-100',
   danger: 'bg-rose-50 text-rose-700 ring-rose-100',
   info: 'bg-sky-50 text-sky-700 ring-sky-100',
+  accent: 'bg-violet-50 text-violet-700 ring-violet-100',
   neutral: 'bg-slate-100 text-slate-600 ring-slate-200',
 };
 
