@@ -1,5 +1,5 @@
 import React from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Navbar from './components/Navbar';
@@ -57,6 +57,7 @@ const App = () => (
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/appointment/:docId" element={<Appointment />} />
+          <Route path="/profile" element={<Navigate to="/my-profile" replace />} />
           <Route path="/my-appointments" element={<MyAppointments />} />
           <Route path="/my-appointments/:appointmentId" element={<AppointmentDetails />} />
           <Route path="/my-profile" element={<MyProfile />} />

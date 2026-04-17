@@ -5,6 +5,8 @@ const USER_PRIVATE_FIELDS = [
     'resetTokenExpiry',
     'twoFactorCode',
     'twoFactorCodeExpiry',
+    'aadharHash',
+    'aadharNumber',
 ];
 
 const DOCTOR_PRIVATE_FIELDS = [
@@ -80,11 +82,11 @@ const sanitizeUserForClient = (user, { viewer = 'staff' } = {}) => {
         return sanitizedUser;
     }
 
-    if (viewer !== 'self') {
-        if (sanitizedUser.aadharNumber) {
-            sanitizedUser.aadharNumber = maskIdentifier(sanitizedUser.aadharNumber);
-        }
+    if (!sanitizedUser.aadharMasked && user?.aadharNumber) {
+        sanitizedUser.aadharMasked = maskIdentifier(user.aadharNumber);
+    }
 
+    if (viewer !== 'self') {
         if (sanitizedUser.insuranceId) {
             sanitizedUser.insuranceId = maskIdentifier(sanitizedUser.insuranceId);
         }
@@ -93,6 +95,9 @@ const sanitizeUserForClient = (user, { viewer = 'staff' } = {}) => {
     if (viewer !== 'admin') {
         delete sanitizedUser.aadharImage;
     }
+
+    delete sanitizedUser.aadharNumber;
+    delete sanitizedUser.aadharHash;
 
     return sanitizedUser;
 };

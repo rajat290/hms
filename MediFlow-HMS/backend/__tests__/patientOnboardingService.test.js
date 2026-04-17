@@ -50,7 +50,7 @@ describe('patientOnboardingService', () => {
       email: 'aarav@mediflow.test',
       phone: '9999999999',
       medicalRecordNumber: 'MRN-1001',
-      aadharNumber: '123456789012',
+      aadharMasked: 'XXXX XXXX 9012',
     });
 
     const response = await createPatientOnboarding({
@@ -83,6 +83,7 @@ describe('patientOnboardingService', () => {
         { email: 'aarav@mediflow.test' },
         { phone: '9999999999' },
         { medicalRecordNumber: 'MRN-1001' },
+        { aadharHash: expect.any(String) },
         { aadharNumber: '123456789012' },
       ]),
     );
@@ -95,6 +96,8 @@ describe('patientOnboardingService', () => {
         chronicConditions: 'Diabetes',
         address: { line1: 'Salt Lake', city: 'Kolkata' },
         emergencyContact: { name: 'Neha', phone: '8888888888' },
+        aadharHash: expect.any(String),
+        aadharMasked: 'XXXX XXXX 9012',
       }),
     );
     expect(sendWelcomeCredentialsEmailMock).toHaveBeenCalledWith(
@@ -107,7 +110,7 @@ describe('patientOnboardingService', () => {
         email: 'aarav@mediflow.test',
         phone: '9999999999',
         medicalRecordNumber: 'MRN-1001',
-        aadharNumber: '123456789012',
+        aadharMasked: 'XXXX XXXX 9012',
       },
       credentials: {
         email: 'aarav@mediflow.test',

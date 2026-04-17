@@ -6,6 +6,7 @@ import feedbackModel from '../models/feedbackModel.js';
 import invoiceModel from '../models/invoiceModel.js';
 import notificationModel from '../models/notificationModel.js';
 import paymentLogModel from '../models/paymentLogModel.js';
+import privacyRequestModel from '../models/privacyRequestModel.js';
 import prescriptionModel from '../models/prescriptionModel.js';
 import reviewModel from '../models/reviewModel.js';
 import settingsModel from '../models/settingsModel.js';
@@ -95,7 +96,7 @@ const validatorEntries = [
       actorEmail: stringField(),
       actorRole: enumStringField(['admin', 'staff']),
       action: stringField(),
-      targetType: enumStringField(['user', 'doctor', 'appointment', 'system']),
+      targetType: enumStringField(['user', 'doctor', 'appointment', 'system', 'privacy_request']),
       targetId: stringField(),
       metadata: objectField(),
     }, ['actorEmail', 'action', 'targetType']),
@@ -169,6 +170,25 @@ const validatorEntries = [
     }, ['title', 'message']),
   },
   {
+    model: privacyRequestModel,
+    validator: objectField({
+      userId: objectIdField(),
+      type: enumStringField(['data_export', 'account_deletion']),
+      status: enumStringField(['pending', 'in_review', 'approved', 'rejected', 'completed']),
+      requestedBy: enumStringField(['self', 'admin', 'system']),
+      requestedAt: dateField(),
+      reason: stringField(),
+      reviewedBy: stringField(),
+      reviewedAt: dateField(),
+      reviewNotes: stringField(),
+      responseMessage: stringField(),
+      completedAt: dateField(),
+      metadata: objectField(),
+      createdAt: dateField(),
+      updatedAt: dateField(),
+    }, ['userId', 'type', 'status', 'requestedBy', 'requestedAt'] ),
+  },
+  {
     model: paymentLogModel,
     validator: objectField({
       appointmentId: objectIdField(),
@@ -215,6 +235,8 @@ const validatorEntries = [
     validator: objectField({
       cancellationWindow: numberField(),
       currency: stringField(),
+      privacyPolicyVersion: stringField(),
+      deletionReviewWindowDays: numberField(),
     }, ['cancellationWindow']),
   },
   {
@@ -273,10 +295,17 @@ const validatorEntries = [
       })),
       medicalRecordNumber: stringField(),
       aadharNumber: stringField(),
+      aadharHash: stringField(),
+      aadharMasked: stringField(),
       aadharImage: stringField(),
       emergencyContact: objectField(),
-      createdVia: enumStringField(['self', 'admin']),
+      createdVia: enumStringField(['self', 'admin', 'staff']),
       createdByEmail: stringField(),
+      accountStatus: enumStringField(['active', 'deletion_requested', 'anonymized']),
+      deletionRequestedAt: dateField(),
+      anonymizedAt: dateField(),
+      privacyConsent: objectField(),
+      date: numberField(),
     }, ['name', 'email', 'password']),
   },
 ];

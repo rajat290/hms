@@ -141,6 +141,18 @@ const validateBooleanLikeField = (field, source = 'body') => (req) => {
     return null
 }
 
+const validateAadhaarField = (field, source = 'body') => (req) => {
+    const value = getValue(req, source, field)
+    if (!hasValue(value)) return null
+
+    const normalizedValue = String(value).replace(/\D/g, '')
+    if (normalizedValue.length !== 12) {
+        return `${field} must contain exactly 12 digits`
+    }
+
+    return null
+}
+
 const validateStringOrArrayField = (field, { min, max } = {}, source = 'body') => (req) => {
     const value = getValue(req, source, field)
     if (!hasValue(value)) return null
@@ -392,16 +404,21 @@ const validateAdminAddStaff = validate([
     validatePasswordField('password'),
 ])
 
-const validatePatientCreate = validate([
-    requireFields(['name', 'email', 'phone', 'dob', 'gender']),
+const validateBackofficePatientCreate = validate([
+    requireFields(['name', 'email', 'phone', 'dob', 'gender', 'medicalRecordNumber', 'aadharNumber', 'address']),
     validateEmailField('email'),
     validateStringLength('name', { min: 2, max: 100 }),
     validateStringLength('phone', { min: 6, max: 20 }),
+    validateStringLength('medicalRecordNumber', { min: 3, max: 50 }),
+    validateObjectField('address'),
+    validateAadhaarField('aadharNumber'),
 ])
 
 const validateUpdateSettings = validate([
     requireFields(['cancellationWindow']),
     validateNumberField('cancellationWindow', { min: 1, max: 168, integer: true }),
+    validateStringLength('privacyPolicyVersion', { min: 4, max: 40 }),
+    validateNumberField('deletionReviewWindowDays', { min: 1, max: 365, integer: true }),
 ])
 
 const validateUpdatePaymentStatus = validate([
@@ -462,6 +479,24 @@ const validateAISchedule = validate([
     validateStringLength('date', { min: 4, max: 50 }),
 ])
 
+const validatePrivacyRequestCreate = validate([
+    requireFields(['type']),
+    validateEnumField('type', ['account_deletion']),
+    validateStringLength('reason', { max: 1000 }),
+])
+
+const validatePrivacyRequestIdParam = validate([
+    requireFields(['requestId'], 'params'),
+    validateObjectIdField('requestId', 'params'),
+])
+
+const validatePrivacyRequestReview = validate([
+    requireFields(['status']),
+    validateEnumField('status', ['in_review', 'approved', 'rejected', 'completed']),
+    validateStringLength('reviewNotes', { max: 1000 }),
+    validateStringLength('responseMessage', { max: 1000 }),
+])
+
 export {
     validateUserRegistration,
     validateLogin,
@@ -496,7 +531,7 @@ export {
     validateDoctorProfileUpdate,
     validateAdminAddDoctor,
     validateAdminAddStaff,
-    validatePatientCreate,
+    validateBackofficePatientCreate,
     validateUpdateSettings,
     validateUpdatePaymentStatus,
     validatePaymentMethods,
@@ -508,4 +543,7 @@ export {
     validateAIChat,
     validateAISymptoms,
     validateAISchedule,
+    validatePrivacyRequestCreate,
+    validatePrivacyRequestIdParam,
+    validatePrivacyRequestReview,
 }

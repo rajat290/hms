@@ -64,7 +64,7 @@ const AddPatient = () => {
       const { data } = await axios.post(backendUrl + '/api/admin/create-patient', fd, { headers: { aToken } })
       if (data.success) {
         toast.success(data.message)
-        setCreatedCredentials(data.loginCredentials)
+        setCreatedCredentials(data.credentials || data.loginCredentials)
         setCreatedPatient(data.patient)
       } else {
         toast.error(data.message)
@@ -173,7 +173,8 @@ const AddPatient = () => {
           <p className='text-sm text-gray-700'>Email: {createdPatient.email}</p>
           <p className='text-sm text-gray-700'>Phone: {createdPatient.phone}</p>
           <p className='text-sm text-gray-700'>MRN: {createdPatient.medicalRecordNumber}</p>
-          <p className='text-sm text-gray-700'>Aadhaar: {createdPatient.aadharNumber}</p>
+          <p className='text-sm text-gray-700'>Aadhaar reference: {createdPatient.aadharMasked || 'Stored securely'}</p>
+          <p className='text-sm text-gray-700'>Account status: {createdPatient.accountStatus || 'active'}</p>
 
           <div className='mt-4 bg-gray-50 border rounded p-4'>
             <p className='font-medium text-gray-800 mb-2'>Login Credentials</p>

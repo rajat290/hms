@@ -1,10 +1,10 @@
 import express from 'express';
-import { loginAdmin, getAdminSession, refreshSession, logoutAdmin, appointmentsAdmin, appointmentCancel, appointmentAccept, addDoctor, allDoctors, adminDashboard, getAllPatients, updatePaymentStatus, getSettings, updateSettings, getPatientDetails, getAnalytics, updatePaymentMethods, updateDoctor, createPatientAdmin, generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF, processRefund, getPaymentHistory, getPaymentKPIs, getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs, addStaff, allStaff, deleteDoctor } from '../controllers/adminController.js';
+import { loginAdmin, getAdminSession, refreshSession, logoutAdmin, appointmentsAdmin, appointmentCancel, appointmentAccept, addDoctor, allDoctors, adminDashboard, getAllPatients, updatePaymentStatus, getSettings, updateSettings, getPatientDetails, getAnalytics, updatePaymentMethods, updateDoctor, createPatientAdmin, generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF, processRefund, getPaymentHistory, getPaymentKPIs, getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs, addStaff, allStaff, deleteDoctor, getPrivacyRequests, reviewPrivacyRequest } from '../controllers/adminController.js';
 import { changeAvailablity } from '../controllers/doctorController.js';
 import authAdmin from '../middleware/authAdmin.js';
 import upload from '../middleware/multer.js';
 import { authLimiter } from '../middleware/rateLimiters.js';
-import { validateAdminAddDoctor, validateAdminAddStaff, validateAppointmentId, validateAppointmentIdParam, validateDocId, validateDoctorDeleteParam, validateInvoiceIdParam, validateInvoiceStatusUpdate, validateLogin, validatePaginationQuery, validatePatientCreate, validatePaymentMethods, validateRefund, validateRefreshTokenPayload, validateUpdateDoctor, validateUpdatePaymentStatus, validateUpdateSettings, validateUserIdParam } from '../middleware/validators.js';
+import { validateAdminAddDoctor, validateAdminAddStaff, validateAppointmentId, validateAppointmentIdParam, validateBackofficePatientCreate, validateDocId, validateDoctorDeleteParam, validateInvoiceIdParam, validateInvoiceStatusUpdate, validateLogin, validatePaginationQuery, validatePaymentMethods, validatePrivacyRequestIdParam, validatePrivacyRequestReview, validateRefund, validateRefreshTokenPayload, validateUpdateDoctor, validateUpdatePaymentStatus, validateUpdateSettings, validateUserIdParam } from '../middleware/validators.js';
 const adminRouter = express.Router();
 
 adminRouter.post("/login", authLimiter, validateLogin, loginAdmin)
@@ -29,7 +29,7 @@ adminRouter.get("/analytics", authAdmin, getAnalytics)
 adminRouter.post("/update-payment-methods", authAdmin, validatePaymentMethods, updatePaymentMethods)
 adminRouter.put("/update-doctor", authAdmin, upload.single('image'), validateUpdateDoctor, updateDoctor)
 // Create patient (admin/staff)
-adminRouter.post("/create-patient", authAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'aadharImage', maxCount: 1 }]), validatePatientCreate, createPatientAdmin)
+adminRouter.post("/create-patient", authAdmin, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'aadharImage', maxCount: 1 }]), validateBackofficePatientCreate, createPatientAdmin)
 
 // Invoice management
 adminRouter.post("/generate-invoice", authAdmin, validateAppointmentId, generateInvoice)
@@ -45,5 +45,7 @@ adminRouter.get("/payment-history/:appointmentId", authAdmin, validateAppointmen
 adminRouter.get("/export-financials", authAdmin, exportFinancialsCSV)
 adminRouter.get("/advanced-analytics", authAdmin, getAdvancedAnalytics)
 adminRouter.get("/audit-logs", authAdmin, validatePaginationQuery, getAuditLogs)
+adminRouter.get("/privacy-requests", authAdmin, validatePaginationQuery, getPrivacyRequests)
+adminRouter.post("/privacy-requests/:requestId/review", authAdmin, validatePrivacyRequestIdParam, validatePrivacyRequestReview, reviewPrivacyRequest)
 
 export default adminRouter;

@@ -171,19 +171,33 @@ const getAllPatients = async (req, res) => {
 // API to create patient (Staff)
 const createPatient = async (req, res) => {
     try {
-        const { credentials } = await createPatientOnboarding({
+        const staff = await staffModel.findById(req.body.staffId).select('email');
+
+        const { patient, credentials } = await createPatientOnboarding({
             input: req.body,
             files: req.files,
             options: {
-                requiredFields: ['name', 'email', 'phone', 'dob', 'gender'],
-                missingFieldsMessage: 'Name, Email, Phone, DOB and Gender are required',
-                duplicateMessage: 'Patient with this details already exists',
+                requiredFields: ['name', 'email', 'phone', 'dob', 'gender', 'medicalRecordNumber', 'aadharNumber', 'address'],
+                missingFieldsMessage: 'All required fields must be provided',
+                duplicateMessage: 'Patient with this email, phone, MRN, or Aadhaar already exists',
+                createdByEmail: staff?.email || '',
+                createdByRole: 'staff',
             },
         });
 
         res.json({
             success: true,
             message: 'Patient created successfully',
+            patient: sanitizeUserForClient({
+                _id: patient._id,
+                name: patient.name,
+                email: patient.email,
+                phone: patient.phone,
+                medicalRecordNumber: patient.medicalRecordNumber,
+                aadharMasked: patient.aadharMasked,
+                insuranceId: patient.insuranceId,
+                accountStatus: patient.accountStatus,
+            }, { viewer: 'staff' }),
             credentials,
         });
 

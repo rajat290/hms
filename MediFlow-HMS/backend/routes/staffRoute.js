@@ -3,7 +3,7 @@ import { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppoin
 import authStaff from '../middleware/authStaff.js'
 import upload from '../middleware/multer.js';
 import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
-import { validateAppointmentId, validateForgotPassword, validateLogin, validateNotificationId, validateOptionalSlotDateQuery, validatePaginationQuery, validatePatientCreate, validateRefreshTokenPayload, validateResetPassword, validateStaffProfileUpdate, validateTokenPayload, validateUpdatePaymentStatus } from '../middleware/validators.js';
+import { validateAppointmentId, validateBackofficePatientCreate, validateForgotPassword, validateLogin, validateNotificationId, validateOptionalSlotDateQuery, validatePaginationQuery, validateRefreshTokenPayload, validateResetPassword, validateStaffProfileUpdate, validateTokenPayload, validateUpdatePaymentStatus } from '../middleware/validators.js';
 
 const staffRouter = express.Router()
 
@@ -16,7 +16,7 @@ staffRouter.post('/update-profile', authStaff, validateStaffProfileUpdate, updat
 staffRouter.get('/appointments', authStaff, validatePaginationQuery, getAllAppointments)
 staffRouter.post('/cancel-appointment', authStaff, validateAppointmentId, cancelAppointment)
 staffRouter.get('/all-patients', authStaff, validatePaginationQuery, getAllPatients)
-staffRouter.post('/create-patient', authStaff, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'aadharImage', maxCount: 1 }]), validatePatientCreate, createPatient)
+staffRouter.post('/create-patient', authStaff, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'aadharImage', maxCount: 1 }]), validateBackofficePatientCreate, createPatient)
 staffRouter.get('/dashboard', authStaff, staffDashboard)
 
 staffRouter.get('/daily-appointments', authStaff, validateOptionalSlotDateQuery, validatePaginationQuery, getDailyAppointments)
