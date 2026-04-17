@@ -35,11 +35,6 @@ const buildVerificationUrl = ({ origin, token, role }) => {
     return `${origin}/verify-email?token=${token}${roleQuery}`;
 };
 
-const buildResetUrl = ({ origin, token, role }) => {
-    const roleQuery = role ? `&role=${role}` : '';
-    return `${origin}/reset-password?token=${token}${roleQuery}`;
-};
-
 const sendVerificationEmail = async ({ email, origin, token, role, subject, heading, body }) => {
     const verificationUrl = buildVerificationUrl({ origin, token, role });
 
@@ -59,20 +54,32 @@ const sendVerificationEmail = async ({ email, origin, token, role, subject, head
     });
 };
 
-const sendPasswordResetEmail = async ({ email, origin, token, role, subject, accountLabel }) => {
-    const resetUrl = buildResetUrl({ origin, token, role });
+const sendPasswordResetEmail = async ({ email, subject, accountLabel, code }) => {
+    logger.warn('Legacy password reset email helper was called. Falling back to OTP-based reset email.', {
+        email,
+        accountLabel,
+    });
+
+    if (code) {
+        return sendPasswordResetOtpEmail({
+            email,
+            code,
+            subject: subject || 'Password Reset Code - Mediflow',
+            accountLabel,
+        });
+    }
+
     const accountCopy = accountLabel ? ` for your ${accountLabel}` : '';
 
     return sendEmail({
         to: email,
-        subject,
+        subject: subject || 'Password Reset Code - Mediflow',
         html: `
             <div style="font-family: Arial, sans-serif; padding: 20px;">
-                <h2>Password Reset Request</h2>
-                <p>You requested a password reset${accountCopy}. Please click the button below to set a new password:</p>
-                <a href="${resetUrl}" style="background-color: #5f6FFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0;">Reset Password</a>
-                <p>This link will expire in 1 hour.</p>
-                <p>If you did not request this, please ignore this email.</p>
+                <h2>Password Reset Code</h2>
+                <p>Password reset${accountCopy} now works with a one-time code instead of a link.</p>
+                <p>Please return to the app, request a fresh reset code, and enter that 6-digit code on the reset screen.</p>
+                <p>If you did not request this, you can safely ignore this email.</p>
                 <p>Thank you,<br>The Mediflow Team</p>
             </div>
         `,
