@@ -5,11 +5,13 @@ import {
     createUser,
     findUserByEmail,
     findUserById,
+    findUserByResetOtpEmail,
     findUserByResetToken,
     findUserByVerificationToken,
 } from '../../repositories/userAuthRepository.js';
-import { sendPasswordResetEmail, sendTwoFactorCodeEmail, sendVerificationEmail } from '../emailService.js';
+import { sendPasswordResetOtpEmail, sendTwoFactorCodeEmail, sendVerificationEmail } from '../emailService.js';
 import { issueAuthTokens, revokeAllSessionsForSubject } from '../../utils/authSessions.js';
+import { issuePasswordResetOtp, verifyPasswordResetOtp } from './passwordResetOtpService.js';
 
 const hashPassword = async (password) => {
     const salt = await bcrypt.genSalt(10);
@@ -131,29 +133,44 @@ const verifyUserEmail = async ({ token }) => {
     return { success: true, message: 'Email verified successfully' };
 };
 
-const requestUserPasswordReset = async ({ email, origin }) => {
+const requestUserPasswordReset = async ({ email }) => {
     const user = await findUserByEmail(email);
-    if (!user) {
-        return { success: false, message: 'User not found' };
+    if (user) {
+        const code = issuePasswordResetOtp(user);
+        await user.save();
+
+        await sendPasswordResetOtpEmail({
+            email,
+            code,
+            subject: 'Password Reset Code - Mediflow',
+            accountLabel: 'patient account',
+        });
     }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    user.resetToken = resetToken;
-    user.resetTokenExpiry = Date.now() + 3600000;
-    await user.save();
-
-    await sendPasswordResetEmail({
-        email,
-        origin,
-        token: resetToken,
-        subject: 'Password Reset - Mediflow',
-        accountLabel: '',
-    });
-
-    return { success: true, message: 'Reset token sent to email' };
+    return {
+        success: true,
+        message: 'If an account exists for this email, a 6-digit reset code has been sent.',
+    };
 };
 
-const resetUserPassword = async ({ token, newPassword, req }) => {
+const verifyUserPasswordResetOtp = async ({ email, code }) => {
+    const user = await findUserByResetOtpEmail(email);
+
+    if (!user) {
+        return { success: false, message: 'Invalid email or reset code.' };
+    }
+
+    const verification = verifyPasswordResetOtp({ account: user, code });
+    await user.save();
+
+    if (!verification.success) {
+        return verification;
+    }
+
+    return verification;
+};
+
+const resetUserPassword = async ({ token, newPassword }) => {
     const user = await findUserByResetToken(token);
     if (!user) {
         return { success: false, message: 'Invalid or expired token' };
@@ -174,16 +191,9 @@ const resetUserPassword = async ({ token, newPassword, req }) => {
         reason: 'Password reset',
     });
 
-    const session = await issueAuthTokens({
-        subjectId: user._id,
-        role: 'user',
-        req,
-    });
-
     return {
         success: true,
-        message: 'Password reset successfully',
-        ...session,
+        message: 'Password reset successfully. Please sign in with your new password.',
     };
 };
 
@@ -244,6 +254,7 @@ export {
     registerUserAccount,
     requestUserPasswordReset,
     resetUserPassword,
+    verifyUserPasswordResetOtp,
     verifyUserEmail,
     verifyUserTwoFactor,
 };

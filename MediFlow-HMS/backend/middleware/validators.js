@@ -223,8 +223,15 @@ const validateForgotPassword = validate([
     validateEmailField('email'),
 ])
 
+const validateResetOtpVerification = validate([
+    requireFields(['email', 'code']),
+    validateEmailField('email'),
+    validateStringLength('code', { min: 6, max: 6 }),
+])
+
 const validateResetPassword = validate([
     requireFields(['token', 'newPassword']),
+    validateStringLength('token', { min: 8, max: 500 }),
     validatePasswordField('newPassword'),
 ])
 
@@ -463,6 +470,7 @@ export {
     validateTokenPayload,
     validateRefreshTokenPayload,
     validateForgotPassword,
+    validateResetOtpVerification,
     validateResetPassword,
     validateAppointmentId,
     validateBooking,

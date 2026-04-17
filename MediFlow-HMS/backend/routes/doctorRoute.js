@@ -1,9 +1,9 @@
 import express from 'express';
-import { loginDoctor, appointmentsDoctor, appointmentCancel, appointmentAccept, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, addAppointmentNotes, generatePrescriptionDoctor, getPatientFinancialSummary, getAvailability, updateAvailability, addReview, getDoctorReviews, forgotPassword, resetPassword, refreshSession, logoutDoctor, verifyEmail } from '../controllers/doctorController.js';
+import { loginDoctor, appointmentsDoctor, appointmentCancel, appointmentAccept, doctorList, changeAvailablity, appointmentComplete, doctorDashboard, doctorProfile, updateDoctorProfile, addAppointmentNotes, generatePrescriptionDoctor, getPatientFinancialSummary, getAvailability, updateAvailability, addReview, getDoctorReviews, forgotPassword, verifyResetOtp, resetPassword, refreshSession, logoutDoctor, verifyEmail } from '../controllers/doctorController.js';
 import authDoctor from '../middleware/authDoctor.js';
 import authUser from '../middleware/authUser.js';
 import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
-import { validateAppointmentId, validateDocId, validateDoctorAvailabilityUpdate, validateDoctorIdParam, validateDoctorListQuery, validateDoctorNote, validateDoctorProfileUpdate, validateForgotPassword, validateLogin, validatePaginationQuery, validatePatientFinancialRequest, validatePrescription, validateRefreshTokenPayload, validateResetPassword, validateReview, validateTokenPayload } from '../middleware/validators.js';
+import { validateAppointmentId, validateDocId, validateDoctorAvailabilityUpdate, validateDoctorIdParam, validateDoctorListQuery, validateDoctorNote, validateDoctorProfileUpdate, validateForgotPassword, validateLogin, validatePaginationQuery, validatePatientFinancialRequest, validatePrescription, validateRefreshTokenPayload, validateResetOtpVerification, validateResetPassword, validateReview, validateTokenPayload } from '../middleware/validators.js';
 const doctorRouter = express.Router();
 
 doctorRouter.post("/login", authLimiter, validateLogin, loginDoctor)
@@ -27,6 +27,7 @@ doctorRouter.post("/update-availability", authDoctor, validateDoctorAvailability
 doctorRouter.get("/reviews/:docId", validateDoctorIdParam, validatePaginationQuery, getDoctorReviews)
 doctorRouter.post("/add-review", authUser, validateReview, addReview) // Use authUser for patients
 doctorRouter.post("/forgot-password", forgotPasswordLimiter, validateForgotPassword, forgotPassword)
+doctorRouter.post("/verify-reset-otp", forgotPasswordLimiter, validateResetOtpVerification, verifyResetOtp)
 doctorRouter.post("/reset-password", forgotPasswordLimiter, validateResetPassword, resetPassword)
 
 export default doctorRouter;

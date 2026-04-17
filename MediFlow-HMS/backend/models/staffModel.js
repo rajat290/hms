@@ -11,6 +11,9 @@ const staffSchema = new mongoose.Schema({
     date: { type: Number, required: true },
     resetToken: { type: String },
     resetTokenExpiry: { type: Date },
+    resetOtpCodeHash: { type: String },
+    resetOtpExpiry: { type: Date },
+    resetOtpAttempts: { type: Number, default: 0 },
     isVerified: { type: Boolean, default: false },
     verificationToken: { type: String },
 }, { minimize: false })
