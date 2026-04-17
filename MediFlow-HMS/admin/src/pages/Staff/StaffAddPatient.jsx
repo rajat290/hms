@@ -4,27 +4,28 @@ import { toast } from 'react-toastify';
 import { StaffContext } from '../../context/StaffContext';
 import { AppContext } from '../../context/AppContext';
 
+const defaultForm = {
+  name: '',
+  email: '',
+  phone: '',
+  dob: '',
+  gender: 'Not Selected',
+  medicalRecordNumber: '',
+  aadharNumber: '',
+  insuranceProvider: '',
+  insuranceId: '',
+  emergencyName: '',
+  emergencyPhone: '',
+  emergencyRelation: '',
+  address1: '',
+  address2: '',
+};
+
 const StaffAddPatient = () => {
   const { sToken } = useContext(StaffContext);
   const { backendUrl } = useContext(AppContext);
 
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    dob: '',
-    gender: 'Not Selected',
-    medicalRecordNumber: '',
-    aadharNumber: '',
-    insuranceProvider: '',
-    insuranceId: '',
-    emergencyName: '',
-    emergencyPhone: '',
-    emergencyRelation: '',
-    address1: '',
-    address2: '',
-  });
-
+  const [form, setForm] = useState(defaultForm);
   const [profileImg, setProfileImg] = useState(null);
   const [aadharImg, setAadharImg] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -37,7 +38,16 @@ const StaffAddPatient = () => {
   };
 
   const validate = () => {
-    if (!form.name || !form.email || !form.phone || !form.dob || !form.gender || !form.medicalRecordNumber || !form.aadharNumber || !form.address1) {
+    if (
+      !form.name
+      || !form.email
+      || !form.phone
+      || !form.dob
+      || !form.medicalRecordNumber
+      || !form.aadharNumber
+      || !form.address1
+      || form.gender === 'Not Selected'
+    ) {
       toast.error('Please fill all required fields');
       return false;
     }
@@ -74,11 +84,14 @@ const StaffAddPatient = () => {
       formData.append('insuranceProvider', form.insuranceProvider);
       formData.append('insuranceId', form.insuranceId);
       formData.append('address', JSON.stringify({ line1: form.address1, line2: form.address2 }));
-      formData.append('emergencyContact', JSON.stringify({
-        name: form.emergencyName,
-        phone: form.emergencyPhone,
-        relation: form.emergencyRelation,
-      }));
+      formData.append(
+        'emergencyContact',
+        JSON.stringify({
+          name: form.emergencyName,
+          phone: form.emergencyPhone,
+          relation: form.emergencyRelation,
+        }),
+      );
 
       if (profileImg) formData.append('image', profileImg);
       if (aadharImg) formData.append('aadharImage', aadharImg);
@@ -87,8 +100,11 @@ const StaffAddPatient = () => {
 
       if (data.success) {
         toast.success(data.message);
-        setCreatedCredentials(data.credentials);
-        setCreatedPatient(data.patient);
+        setCreatedCredentials(data.credentials || data.loginCredentials || null);
+        setCreatedPatient(data.patient || null);
+        setForm(defaultForm);
+        setProfileImg(null);
+        setAadharImg(null);
       } else {
         toast.error(data.message);
       }
@@ -112,23 +128,23 @@ const StaffAddPatient = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm mb-1">Full Name *</label>
-            <input name="name" value={form.name} onChange={onInput} className="w-full border rounded p-2" placeholder="John Doe" />
+            <input aria-label="Full Name" name="name" value={form.name} onChange={onInput} className="w-full border rounded p-2" placeholder="John Doe" />
           </div>
           <div>
             <label className="block text-sm mb-1">Email *</label>
-            <input name="email" value={form.email} onChange={onInput} className="w-full border rounded p-2" placeholder="john@example.com" />
+            <input aria-label="Email" name="email" value={form.email} onChange={onInput} className="w-full border rounded p-2" placeholder="john@example.com" />
           </div>
           <div>
             <label className="block text-sm mb-1">Phone *</label>
-            <input name="phone" value={form.phone} onChange={onInput} className="w-full border rounded p-2" placeholder="9999999999" />
+            <input aria-label="Phone" name="phone" value={form.phone} onChange={onInput} className="w-full border rounded p-2" placeholder="9999999999" />
           </div>
           <div>
             <label className="block text-sm mb-1">Date of Birth *</label>
-            <input type="date" name="dob" value={form.dob} onChange={onInput} className="w-full border rounded p-2" />
+            <input aria-label="Date of Birth" type="date" name="dob" value={form.dob} onChange={onInput} className="w-full border rounded p-2" />
           </div>
           <div>
             <label className="block text-sm mb-1">Gender *</label>
-            <select name="gender" value={form.gender} onChange={onInput} className="w-full border rounded p-2">
+            <select aria-label="Gender" name="gender" value={form.gender} onChange={onInput} className="w-full border rounded p-2">
               <option>Not Selected</option>
               <option>Male</option>
               <option>Female</option>
@@ -137,50 +153,50 @@ const StaffAddPatient = () => {
           </div>
           <div>
             <label className="block text-sm mb-1">Medical Record Number (MRN) *</label>
-            <input name="medicalRecordNumber" value={form.medicalRecordNumber} onChange={onInput} className="w-full border rounded p-2" placeholder="MRN-00123" />
+            <input aria-label="Medical Record Number" name="medicalRecordNumber" value={form.medicalRecordNumber} onChange={onInput} className="w-full border rounded p-2" placeholder="MRN-00123" />
           </div>
           <div>
             <label className="block text-sm mb-1">Insurance Provider</label>
-            <input name="insuranceProvider" value={form.insuranceProvider} onChange={onInput} className="w-full border rounded p-2" />
+            <input aria-label="Insurance Provider" name="insuranceProvider" value={form.insuranceProvider} onChange={onInput} className="w-full border rounded p-2" />
           </div>
           <div>
             <label className="block text-sm mb-1">Insurance ID</label>
-            <input name="insuranceId" value={form.insuranceId} onChange={onInput} className="w-full border rounded p-2" />
+            <input aria-label="Insurance ID" name="insuranceId" value={form.insuranceId} onChange={onInput} className="w-full border rounded p-2" />
           </div>
           <div>
             <label className="block text-sm mb-1">Aadhaar Number *</label>
-            <input name="aadharNumber" value={form.aadharNumber} onChange={onInput} className="w-full border rounded p-2" placeholder="XXXX-XXXX-XXXX" />
+            <input aria-label="Aadhaar Number" name="aadharNumber" value={form.aadharNumber} onChange={onInput} className="w-full border rounded p-2" placeholder="XXXX-XXXX-XXXX" />
           </div>
           <div>
             <label className="block text-sm mb-1">Emergency Contact Name</label>
-            <input name="emergencyName" value={form.emergencyName} onChange={onInput} className="w-full border rounded p-2" />
+            <input aria-label="Emergency Contact Name" name="emergencyName" value={form.emergencyName} onChange={onInput} className="w-full border rounded p-2" />
           </div>
           <div>
             <label className="block text-sm mb-1">Emergency Contact Phone</label>
-            <input name="emergencyPhone" value={form.emergencyPhone} onChange={onInput} className="w-full border rounded p-2" />
+            <input aria-label="Emergency Contact Phone" name="emergencyPhone" value={form.emergencyPhone} onChange={onInput} className="w-full border rounded p-2" />
           </div>
           <div>
             <label className="block text-sm mb-1">Emergency Relation</label>
-            <input name="emergencyRelation" value={form.emergencyRelation} onChange={onInput} className="w-full border rounded p-2" />
+            <input aria-label="Emergency Relation" name="emergencyRelation" value={form.emergencyRelation} onChange={onInput} className="w-full border rounded p-2" />
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm mb-1">Address Line 1 *</label>
-            <input name="address1" value={form.address1} onChange={onInput} className="w-full border rounded p-2" />
+            <input aria-label="Address Line 1" name="address1" value={form.address1} onChange={onInput} className="w-full border rounded p-2" />
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm mb-1">Address Line 2</label>
-            <input name="address2" value={form.address2} onChange={onInput} className="w-full border rounded p-2" />
+            <input aria-label="Address Line 2" name="address2" value={form.address2} onChange={onInput} className="w-full border rounded p-2" />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <div>
             <label className="block text-sm mb-1">Profile Image</label>
-            <input type="file" accept="image/*" onChange={(event) => setProfileImg(event.target.files[0])} />
+            <input aria-label="Profile Image" type="file" accept="image/*" onChange={(event) => setProfileImg(event.target.files[0])} />
           </div>
           <div>
             <label className="block text-sm mb-1">Aadhaar Image</label>
-            <input type="file" accept="image/*" onChange={(event) => setAadharImg(event.target.files[0])} />
+            <input aria-label="Aadhaar Image" type="file" accept="image/*" onChange={(event) => setAadharImg(event.target.files[0])} />
           </div>
         </div>
 
