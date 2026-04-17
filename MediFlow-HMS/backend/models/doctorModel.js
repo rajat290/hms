@@ -18,6 +18,9 @@ const doctorSchema = new mongoose.Schema({
     verificationToken: { type: String },
     resetToken: { type: String },
     resetTokenExpiry: { type: Date },
+    resetOtpCodeHash: { type: String },
+    resetOtpExpiry: { type: Date },
+    resetOtpAttempts: { type: Number, default: 0 },
     twoFactorEnabled: { type: Boolean, default: false },
     availability: {
         type: Object,

@@ -1,9 +1,9 @@
 import express from 'express';
-import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, verifyEmail, forgotPassword, resetPassword, enable2FA, verify2FA, refreshSession, logoutUser, getFinancialSummary, getUserPrescriptions, getDoctorSlots, rescheduleAppointment, getNotifications, markNotificationsRead, getPrivacySummary, recordPrivacyConsent, downloadPrivacyExport, createPrivacyRequest, listPrivacyRequests } from '../controllers/userController.js';
+import { loginUser, registerUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, verifyEmail, forgotPassword, verifyResetOtp, resetPassword, enable2FA, verify2FA, refreshSession, logoutUser, getFinancialSummary, getUserPrescriptions, getDoctorSlots, rescheduleAppointment, getNotifications, markNotificationsRead, getPrivacySummary, recordPrivacyConsent, downloadPrivacyExport, createPrivacyRequest, listPrivacyRequests } from '../controllers/userController.js';
 import upload from '../middleware/multer.js';
 import authUser from '../middleware/authUser.js';
 import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiters.js';
-import { validateAppointmentId, validateAppointmentReschedule, validateBooking, validateDoctorIdParam, validateForgotPassword, validateLogin, validatePaginationQuery, validatePrivacyRequestCreate, validateRazorpayVerification, validateRefreshTokenPayload, validateResetPassword, validateStripeVerification, validateTokenPayload, validateUserActionSubject, validateUserProfileUpdate, validateUserRegistration, validate2FAVerification } from '../middleware/validators.js';
+import { validateAppointmentId, validateAppointmentReschedule, validateBooking, validateDoctorIdParam, validateForgotPassword, validateLogin, validatePaginationQuery, validatePrivacyRequestCreate, validateRazorpayVerification, validateRefreshTokenPayload, validateResetOtpVerification, validateResetPassword, validateStripeVerification, validateTokenPayload, validateUserActionSubject, validateUserProfileUpdate, validateUserRegistration, validate2FAVerification } from '../middleware/validators.js';
 const userRouter = express.Router();
 
 userRouter.post("/register", authLimiter, validateUserRegistration, registerUser)
@@ -22,6 +22,7 @@ userRouter.post("/payment-stripe", authUser, validateAppointmentId, paymentStrip
 userRouter.post("/verifyStripe", authUser, validateStripeVerification, verifyStripe)
 userRouter.post("/verify-email", validateTokenPayload, verifyEmail)
 userRouter.post("/forgot-password", forgotPasswordLimiter, validateForgotPassword, forgotPassword)
+userRouter.post("/verify-reset-otp", forgotPasswordLimiter, validateResetOtpVerification, verifyResetOtp)
 userRouter.post("/reset-password", forgotPasswordLimiter, validateResetPassword, resetPassword)
 userRouter.post("/enable-2fa", authUser, validateUserActionSubject, enable2FA)
 userRouter.post("/verify-2fa", authLimiter, validate2FAVerification, verify2FA)

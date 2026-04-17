@@ -1,7 +1,8 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from '../../utils/authSessions.js';
-import { sendPasswordResetEmail, sendVerificationEmail } from '../emailService.js';
+import { sendPasswordResetOtpEmail, sendVerificationEmail } from '../emailService.js';
+import { issuePasswordResetOtp, verifyPasswordResetOtp } from './passwordResetOtpService.js';
 
 const hashPassword = async (password) => {
     const salt = await bcrypt.genSalt(10);
@@ -93,39 +94,48 @@ const verifyRoleEmail = async ({
 
 const requestRolePasswordReset = async ({
     email,
-    origin,
     repository,
     emailConfig,
-    notFoundMessage,
 }) => {
     const account = await repository.findByEmail(email);
 
-    if (!account) {
-        return { success: false, message: notFoundMessage };
+    if (account) {
+        const code = issuePasswordResetOtp(account);
+        await account.save();
+
+        await sendPasswordResetOtpEmail({
+            email,
+            code,
+            ...emailConfig,
+        });
     }
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    account.resetToken = resetToken;
-    account.resetTokenExpiry = Date.now() + 3600000;
-    await account.save();
-
-    await sendPasswordResetEmail({
-        email,
-        origin,
-        token: resetToken,
-        ...emailConfig,
-    });
 
     return {
         success: true,
-        message: 'Reset link sent to your email',
+        message: 'If an account exists for this email, a 6-digit reset code has been sent.',
     };
+};
+
+const verifyRolePasswordResetOtp = async ({
+    email,
+    code,
+    repository,
+}) => {
+    const account = await repository.findByResetOtpEmail(email);
+
+    if (!account) {
+        return { success: false, message: 'Invalid email or reset code.' };
+    }
+
+    const verification = verifyPasswordResetOtp({ account, code });
+    await account.save();
+
+    return verification;
 };
 
 const resetRolePassword = async ({
     token,
     newPassword,
-    req,
     role,
     repository,
     minPasswordLength = 8,
@@ -156,16 +166,9 @@ const resetRolePassword = async ({
         reason: 'Password reset',
     });
 
-    const session = await issueAuthTokens({
-        subjectId: account._id,
-        role,
-        req,
-    });
-
     return {
         success: true,
-        message: 'Password reset successfully',
-        ...session,
+        message: 'Password reset successfully. Please sign in with your new password.',
     };
 };
 
@@ -191,5 +194,6 @@ export {
     refreshRoleSession,
     requestRolePasswordReset,
     resetRolePassword,
+    verifyRolePasswordResetOtp,
     verifyRoleEmail,
 };

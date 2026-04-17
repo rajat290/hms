@@ -18,7 +18,7 @@ import {
     setSessionCookies,
 } from "../utils/sessionCookies.js";
 import { createRoleAuthRepository } from "../repositories/roleAuthRepository.js";
-import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail } from "../services/auth/roleAccountService.js";
+import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail, verifyRolePasswordResetOtp } from "../services/auth/roleAccountService.js";
 import { createPatientOnboarding } from "../services/patients/patientOnboardingService.js";
 
 const staffAccountRepository = createRoleAuthRepository(staffModel);
@@ -416,19 +416,27 @@ const forgotPassword = async (req, res) => {
     try {
         const response = await requestRolePasswordReset({
             email: req.body.email,
-            origin: req.headers.origin,
             repository: staffAccountRepository,
             emailConfig: {
-                role: 'staff',
-                subject: 'Password Reset - Mediflow Staff Panel',
-                accountLabel: 'Staff account',
+                subject: 'Password Reset Code - Mediflow Staff Panel',
+                accountLabel: 'staff account',
             },
-            notFoundMessage: 'Staff member not found',
         });
-        res.json({
-            ...response,
-            message: response.success ? 'Reset link sent' : response.message,
+        res.json(response);
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const verifyResetOtp = async (req, res) => {
+    try {
+        const response = await verifyRolePasswordResetOtp({
+            email: req.body.email,
+            code: req.body.code,
+            repository: staffAccountRepository,
         });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -441,7 +449,6 @@ const resetPassword = async (req, res) => {
         const response = await resetRolePassword({
             token: req.body.token,
             newPassword: req.body.newPassword,
-            req,
             role: 'staff',
             repository: staffAccountRepository,
         });
@@ -486,4 +493,4 @@ const logoutStaff = async (req, res) => {
     }
 }
 
-export { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead, forgotPassword, resetPassword, refreshSession, logoutStaff, verifyEmail }
+export { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead, forgotPassword, verifyResetOtp, resetPassword, refreshSession, logoutStaff, verifyEmail }
