@@ -5,6 +5,7 @@ describe('appConfig', () => {
     const config = getAppConfig({
       NODE_ENV: 'production',
       PORT: '5055',
+      ENABLE_STATIC_ASSETS: 'false',
       LOG_LEVEL: 'warn',
       MONGODB_URI: 'mongodb://localhost:27017/mediflow',
       JWT_SECRET: 'jwt-secret',
@@ -24,6 +25,7 @@ describe('appConfig', () => {
     expect(config.server).toEqual({
       env: 'production',
       port: 5055,
+      enableStaticAssets: false,
       logLevel: 'warn',
     });
     expect(config.auth.accessTokenTtl).toBe('20m');
