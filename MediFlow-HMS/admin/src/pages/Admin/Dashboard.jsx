@@ -17,6 +17,7 @@ import PageHeader from '../../components/backoffice/PageHeader';
 import StatCard from '../../components/backoffice/StatCard';
 import StatusBadge from '../../components/backoffice/StatusBadge';
 import SurfaceCard from '../../components/backoffice/SurfaceCard';
+import { canCancelAppointment, getVisitStatusMeta } from '../../utils/appointmentLifecycle';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -105,8 +106,8 @@ const Dashboard = () => {
       <PageHeader
         eyebrow="Admin overview"
         title="Run the hospital from one calm, visible control center."
-        description="Watch patient flow, collections, cancellations, and staffing signals without having to jump across disconnected screens."
-        actions={
+        description="Watch patient flow, collections, cancellations, and staffing signals without forcing anyone to decode inconsistent appointment states."
+        actions={(
           <>
             <button type="button" className="soft-button-secondary" onClick={() => navigate('/analytics')}>
               Open analytics
@@ -115,7 +116,7 @@ const Dashboard = () => {
               Review billing
             </button>
           </>
-        }
+        )}
       />
 
       <div className="grid gap-4 xl:grid-cols-4">
@@ -213,33 +214,30 @@ const Dashboard = () => {
           </div>
 
           <div className="space-y-3">
-            {dashData.latestAppointments.slice(0, 5).map((item) => (
-              <div key={item._id} className="flex flex-col gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 sm:flex-row sm:items-center">
-                <img src={item.docData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-900">{item.docData.name}</p>
-                    {item.cancelled ? (
-                      <StatusBadge tone="danger">Cancelled</StatusBadge>
-                    ) : item.isCompleted ? (
-                      <StatusBadge tone="success">Completed</StatusBadge>
-                    ) : item.isAccepted ? (
-                      <StatusBadge tone="info">Accepted</StatusBadge>
-                    ) : (
-                      <StatusBadge tone="warning">Pending</StatusBadge>
-                    )}
+            {dashData.latestAppointments.slice(0, 5).map((item) => {
+              const visitStatusMeta = getVisitStatusMeta(item);
+
+              return (
+                <div key={item._id} className="flex flex-col gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 sm:flex-row sm:items-center">
+                  <img src={item.docData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-slate-900">{item.docData.name}</p>
+                      <StatusBadge tone={visitStatusMeta.tone}>{visitStatusMeta.label}</StatusBadge>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {item.userData.name} | {slotDateFormat(item.slotDate)} | {item.slotTime}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">{visitStatusMeta.description}</p>
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {item.userData.name} • {slotDateFormat(item.slotDate)} • {item.slotTime}
-                  </p>
+                  {canCancelAppointment(item) ? (
+                    <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => cancelAppointment(item._id)}>
+                      Cancel
+                    </button>
+                  ) : null}
                 </div>
-                {!item.cancelled && !item.isCompleted ? (
-                  <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => cancelAppointment(item._id)}>
-                    Cancel
-                  </button>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </SurfaceCard>
 
@@ -266,16 +264,14 @@ const Dashboard = () => {
               <p className="mt-2 text-sm text-amber-800/80">Fresh registrations this month.</p>
             </div>
             <div className="rounded-[24px] border border-sky-100 bg-sky-50 p-5">
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-700">Average transaction</p>
-              <p className="mt-3 text-4xl font-semibold text-sky-950">
-                {currency}{Math.round(insights?.financial?.averageTransaction || 0)}
-              </p>
-              <p className="mt-2 text-sm text-sky-800/80">Good pulse on billing consistency.</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-700">Checked in now</p>
+              <p className="mt-3 text-4xl font-semibold text-sky-950">{insights?.operational?.checkedIn || 0}</p>
+              <p className="mt-2 text-sm text-sky-800/80">Patients currently ready for consultation.</p>
             </div>
-            <div className="rounded-[24px] border border-rose-100 bg-rose-50 p-5">
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-rose-700">Cancelled</p>
-              <p className="mt-3 text-4xl font-semibold text-rose-950">{insights?.operational?.cancelled || 0}</p>
-              <p className="mt-2 text-sm text-rose-800/80">Use this to spot scheduling friction early.</p>
+            <div className="rounded-[24px] border border-violet-100 bg-violet-50 p-5">
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-violet-700">In consultation</p>
+              <p className="mt-3 text-4xl font-semibold text-violet-950">{insights?.operational?.inConsultation || 0}</p>
+              <p className="mt-2 text-sm text-violet-800/80">Visits that are actively in progress.</p>
             </div>
           </div>
         </SurfaceCard>

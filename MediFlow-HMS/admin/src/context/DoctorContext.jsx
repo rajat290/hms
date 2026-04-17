@@ -99,6 +99,23 @@ const DoctorContextProvider = (props) => {
             if (data.success) {
                 toast.success(data.message)
                 getAppointments()
+                if (dashData) getDashData()
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+            console.log(error)
+        }
+    }
+
+    const startConsultation = async (appointmentId) => {
+        try {
+            const { data } = await axios.post(backendUrl + '/api/doctor/start-consultation', { appointmentId }, { headers: { dToken } })
+            if (data.success) {
+                toast.success(data.message)
+                getAppointments()
+                if (dashData) getDashData()
             } else {
                 toast.error(data.message)
             }
@@ -159,6 +176,7 @@ const DoctorContextProvider = (props) => {
         cancelAppointment,
         completeAppointment,
         acceptAppointment,
+        startConsultation,
         dashData, getDashData,
         profileData, setProfileData,
         getProfileData,

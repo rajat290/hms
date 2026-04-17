@@ -3,6 +3,7 @@ import appointmentModel from "../models/appointmentModel.js";
 import prescriptionModel from "../models/prescriptionModel.js";
 import reviewModel from "../models/reviewModel.js";
 import { cancelAppointmentRecord } from "../utils/appointmentIntegrity.js";
+import { deriveVisitStatusFromLegacyFlags, transitionAppointmentVisitStatus, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { runInTransaction } from "../utils/transaction.js";
 import { createRoleAuthRepository } from "../repositories/roleAuthRepository.js";
@@ -95,7 +96,7 @@ const appointmentCancel = async (req, res) => {
                 throw new Error('Unauthorized or appointment not found')
             }
 
-            await cancelAppointmentRecord({ appointmentId, session })
+            await cancelAppointmentRecord({ appointmentId, session, reason: 'Cancelled by doctor' })
         })
 
         res.json({ success: true, message: 'Appointment Cancelled' })
@@ -111,12 +112,51 @@ const appointmentCancel = async (req, res) => {
 const appointmentAccept = async (req, res) => {
     try {
         const { docId, appointmentId } = req.body
-        const appointmentData = await appointmentModel.findById(appointmentId)
-        if (appointmentData && appointmentData.docId.toString() === docId) {
-            await appointmentModel.findByIdAndUpdate(appointmentId, { isAccepted: true })
-            return res.json({ success: true, message: 'Appointment Accepted' })
-        }
-        res.json({ success: false, message: 'Appointment Cancelled' })
+
+        await runInTransaction(async (session) => {
+            const appointmentData = await appointmentModel.findById(appointmentId).session(session)
+
+            if (!appointmentData || appointmentData.docId.toString() !== docId) {
+                throw new Error('Unauthorized or appointment not found')
+            }
+
+            transitionAppointmentVisitStatus({
+                appointment: appointmentData,
+                nextStatus: VISIT_STATUS.ACCEPTED,
+                allowedFrom: [VISIT_STATUS.REQUESTED],
+            })
+
+            await appointmentData.save({ session })
+        })
+
+        res.json({ success: true, message: 'Appointment confirmed' })
+    } catch (error) {
+        console.log(error)
+        res.json({ success: false, message: error.message })
+    }
+}
+
+const startConsultation = async (req, res) => {
+    try {
+        const { docId, appointmentId } = req.body
+
+        await runInTransaction(async (session) => {
+            const appointmentData = await appointmentModel.findById(appointmentId).session(session)
+
+            if (!appointmentData || appointmentData.docId.toString() !== docId) {
+                throw new Error('Unauthorized or appointment not found')
+            }
+
+            transitionAppointmentVisitStatus({
+                appointment: appointmentData,
+                nextStatus: VISIT_STATUS.IN_CONSULTATION,
+                allowedFrom: [VISIT_STATUS.ACCEPTED, VISIT_STATUS.CHECKED_IN],
+            })
+
+            await appointmentData.save({ session })
+        })
+
+        res.json({ success: true, message: 'Consultation started' })
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
@@ -129,13 +169,23 @@ const appointmentComplete = async (req, res) => {
 
         const { docId, appointmentId } = req.body
 
-        const appointmentData = await appointmentModel.findById(appointmentId)
-        if (appointmentData && appointmentData.docId.toString() === docId) {
-            await appointmentModel.findByIdAndUpdate(appointmentId, { isCompleted: true })
-            return res.json({ success: true, message: 'Appointment Completed' })
-        }
+        await runInTransaction(async (session) => {
+            const appointmentData = await appointmentModel.findById(appointmentId).session(session)
 
-        res.json({ success: false, message: 'Appointment Cancelled' })
+            if (!appointmentData || appointmentData.docId.toString() !== docId) {
+                throw new Error('Unauthorized or appointment not found')
+            }
+
+            transitionAppointmentVisitStatus({
+                appointment: appointmentData,
+                nextStatus: VISIT_STATUS.COMPLETED,
+                allowedFrom: [VISIT_STATUS.IN_CONSULTATION],
+            })
+
+            await appointmentData.save({ session })
+        })
+
+        res.json({ success: true, message: 'Appointment completed' })
 
     } catch (error) {
         console.log(error)
@@ -372,7 +422,9 @@ const addReview = async (req, res) => {
 
         // Verify appointment completion and ownership
         const appointment = await appointmentModel.findById(appointmentId);
-        if (!appointment || appointment.userId.toString() !== userId || !appointment.isCompleted) {
+        const visitStatus = appointment ? deriveVisitStatusFromLegacyFlags(appointment) : null;
+
+        if (!appointment || appointment.userId.toString() !== userId || visitStatus !== VISIT_STATUS.COMPLETED) {
             return res.json({ success: false, message: "You can only review completed appointments." });
         }
 
@@ -509,6 +561,7 @@ export {
     doctorList,
     changeAvailablity,
     appointmentComplete,
+    startConsultation,
     doctorDashboard,
     doctorProfile,
     updateDoctorProfile,

@@ -12,6 +12,7 @@ const appointmentFindOneMock = jest.fn();
 const appointmentCreateMock = jest.fn();
 const appointmentFindByIdMock = jest.fn();
 const notificationCreateMock = jest.fn();
+const cancelAppointmentRecordMock = jest.fn();
 const reserveDoctorSlotMock = jest.fn();
 const finalizeAppointmentPaymentMock = jest.fn();
 const runInTransactionMock = jest.fn();
@@ -71,6 +72,7 @@ jest.unstable_mockModule('../utils/slotGenerator.js', () => ({
 }));
 
 jest.unstable_mockModule('../utils/appointmentIntegrity.js', () => ({
+  cancelAppointmentRecord: cancelAppointmentRecordMock,
   ensureInvoiceForAppointment: jest.fn(),
   finalizeAppointmentPayment: finalizeAppointmentPaymentMock,
   isAppointmentSlotConflict: (error) => Boolean(

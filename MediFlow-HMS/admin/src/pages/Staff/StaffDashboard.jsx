@@ -8,10 +8,11 @@ import PageHeader from '../../components/backoffice/PageHeader';
 import StatCard from '../../components/backoffice/StatCard';
 import StatusBadge from '../../components/backoffice/StatusBadge';
 import SurfaceCard from '../../components/backoffice/SurfaceCard';
+import { canCancelAppointment, canCheckInAppointment, getVisitStatusMeta } from '../../utils/appointmentLifecycle';
 
 const StaffDashboard = () => {
   const navigate = useNavigate();
-  const { sToken, getDashData, cancelAppointment, dashData } = useContext(StaffContext);
+  const { sToken, getDashData, cancelAppointment, checkInAppointment, dashData } = useContext(StaffContext);
   const { slotDateFormat, isEmergencyMode } = useContext(AppContext);
 
   useEffect(() => {
@@ -29,8 +30,8 @@ const StaffDashboard = () => {
       <PageHeader
         eyebrow="Front desk overview"
         title="Help the team move faster without forcing them to learn software tricks."
-        description="Today’s volume, collections, and patient intake are visible up front so staff can act confidently with minimal training."
-        actions={
+        description="Today's volume, arrivals, collections, and next actions stay visible up front so staff can operate confidently with minimal training."
+        actions={(
           <>
             <button type="button" className="soft-button-secondary" onClick={() => navigate('/staff-patients')}>
               Find patient
@@ -39,7 +40,7 @@ const StaffDashboard = () => {
               Register patient
             </button>
           </>
-        }
+        )}
       />
 
       {isEmergencyMode ? (
@@ -61,7 +62,7 @@ const StaffDashboard = () => {
         <StatCard icon={assets.appointments_icon} label="Appointments" value={dashData.appointments} hint="Total scheduled visits" accent="from-sky-500 to-indigo-500" />
         <StatCard icon={assets.patients_icon} label="Patients" value={dashData.patients} hint="Registered patient records" accent="from-teal-500 to-emerald-500" />
         <StatCard icon={assets.doctor_icon} label="Doctors" value={dashData.doctors} hint="Available doctor roster" accent="from-amber-500 to-orange-500" />
-        <StatCard icon={assets.earning_icon} label="Collections" value={`INR ${dashData.totalCollections || 0}`} hint="Today’s captured collections" accent="from-rose-500 to-pink-500" />
+        <StatCard icon={assets.earning_icon} label="Collections" value={`INR ${dashData.totalCollections || 0}`} hint="Today's captured collections" accent="from-rose-500 to-pink-500" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.1fr]">
@@ -81,7 +82,7 @@ const StaffDashboard = () => {
             <div className="grid gap-4 sm:grid-cols-2">
               <button type="button" className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => navigate('/staff-appointments')}>
                 <p className="text-sm font-semibold text-slate-900">Appointments</p>
-                <p className="mt-1 text-sm text-slate-500">Check in patients, cancel, and move bookings forward.</p>
+                <p className="mt-1 text-sm text-slate-500">Check in patients, cancel safely, and move bookings forward.</p>
               </button>
               <button type="button" className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => navigate('/staff-billing')}>
                 <p className="text-sm font-semibold text-slate-900">Billing</p>
@@ -111,31 +112,37 @@ const StaffDashboard = () => {
           </div>
 
           <div className="space-y-3">
-            {dashData.latestAppointments.slice(0, 6).map((item) => (
-              <div key={item._id} className="flex flex-col gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 md:flex-row md:items-center">
-                <img src={item.docData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-900">{item.docData.name}</p>
-                    {item.cancelled ? (
-                      <StatusBadge tone="danger">Cancelled</StatusBadge>
-                    ) : item.isCompleted ? (
-                      <StatusBadge tone="success">Completed</StatusBadge>
-                    ) : (
-                      <StatusBadge tone="info">Active</StatusBadge>
-                    )}
+            {dashData.latestAppointments.slice(0, 6).map((item) => {
+              const visitStatusMeta = getVisitStatusMeta(item);
+
+              return (
+                <div key={item._id} className="flex flex-col gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 md:flex-row md:items-center">
+                  <img src={item.docData.image} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-slate-900">{item.userData?.name || item.docData.name}</p>
+                      <StatusBadge tone={visitStatusMeta.tone}>{visitStatusMeta.label}</StatusBadge>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {item.docData.name} | {slotDateFormat(item.slotDate)} | {item.slotTime}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">{visitStatusMeta.description}</p>
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {slotDateFormat(item.slotDate)} • {item.slotTime}
-                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {canCheckInAppointment(item) ? (
+                      <button type="button" className="soft-button-accent px-4 py-2" onClick={() => checkInAppointment(item._id)}>
+                        Check in
+                      </button>
+                    ) : null}
+                    {canCancelAppointment(item) ? (
+                      <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => cancelAppointment(item._id)}>
+                        Cancel
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-                {!item.cancelled && !item.isCompleted ? (
-                  <button type="button" className="soft-button-secondary px-4 py-2" onClick={() => cancelAppointment(item._id)}>
-                    Cancel
-                  </button>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </SurfaceCard>
       </div>
