@@ -16,6 +16,18 @@ const optionalTrimmedString = z.preprocess(
 const normalizedEnvSchema = z.object({
     NODE_ENV: z.enum(['development', 'test', 'production']).optional().default('development'),
     PORT: z.coerce.number().int().positive().optional().default(4000),
+    ENABLE_STATIC_ASSETS: z.preprocess(
+        (value) => {
+            if (typeof value === 'string') {
+                const normalizedValue = value.trim().toLowerCase();
+                if (normalizedValue === 'true') return true;
+                if (normalizedValue === 'false') return false;
+            }
+
+            return value;
+        },
+        z.boolean().optional().default(true),
+    ),
     LOG_LEVEL: optionalTrimmedString,
     MONGODB_URI: optionalTrimmedString,
     JWT_SECRET: optionalTrimmedString,
@@ -67,6 +79,7 @@ const getAppConfig = (env = process.env) => {
         server: {
             env: runtimeEnv,
             port: normalizedEnv.PORT,
+            enableStaticAssets: normalizedEnv.ENABLE_STATIC_ASSETS,
             logLevel: normalizedEnv.LOG_LEVEL || (runtimeEnv === 'production' ? 'info' : 'debug'),
         },
         database: {

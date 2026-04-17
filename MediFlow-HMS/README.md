@@ -517,6 +517,27 @@ Prescripto-Hospital_Management_System-main/
    npm run dev
    ```
 
+### Docker Setup
+1. Review the example environment files:
+   - [backend/.env.example](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/backend/.env.example)
+   - [frontend/.env.example](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/frontend/.env.example)
+   - [admin/.env.example](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/admin/.env.example)
+
+2. Start the full stack from the repo root:
+   ```bash
+   docker compose up --build
+   ```
+
+3. Open the apps:
+   - Patient app: `http://localhost:5173`
+   - Admin app: `http://localhost:5174`
+   - Backend health: `http://localhost:4000/api/health`
+
+### CI/CD
+- GitHub Actions now runs backend tests, frontend tests/build, admin tests/build, and Docker image builds on pushes and pull requests to `main`.
+- Workflow file: [ci.yml](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/.github/workflows/ci.yml)
+- Release engineering guide: [release-engineering-deployment.md](/C:/Users/vikas/OneDrive/Desktop/hms/MediFlow-HMS/docs/release-engineering-deployment.md)
+
 ## 📡 Comprehensive API Endpoints
 
 ### 🔐 **User Authentication & Management**

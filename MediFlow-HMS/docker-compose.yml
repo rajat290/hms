@@ -1,0 +1,80 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: mediflow
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      ENABLE_STATIC_ASSETS: "false"
+      LOG_LEVEL: info
+      MONGODB_URI: mongodb://mongo:27017/mediflow
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@mediflow.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      ADMIN_URL: ${ADMIN_URL:-http://localhost:5174}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+      APP_URL: ${APP_URL:-http://localhost:4000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASS: ${EMAIL_PASS:-}
+      CLOUDINARY_NAME: ${CLOUDINARY_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_SECRET_KEY: ${CLOUDINARY_SECRET_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3-flash-preview}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_test_placeholder}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-rzp_secret_placeholder}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-rzp_webhook_placeholder}
+      CURRENCY: ${CURRENCY:-INR}
+    ports:
+      - "4000:4000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-http://localhost:4000}
+        VITE_CURRENCY: ${VITE_CURRENCY:-INR}
+        VITE_RAZORPAY_KEY_ID: ${VITE_RAZORPAY_KEY_ID:-rzp_test_placeholder}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+  admin:
+    build:
+      context: .
+      dockerfile: admin/Dockerfile
+      args:
+        VITE_BACKEND_URL: ${ADMIN_VITE_BACKEND_URL:-http://localhost:4000}
+        VITE_CURRENCY: ${ADMIN_VITE_CURRENCY:-INR}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5174:80"
+
+volumes:
+  mongo-data:

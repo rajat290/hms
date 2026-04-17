@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      MONGODB_URI: mongodb://127.0.0.1:27017/mediflow_test
+      JWT_SECRET: test_jwt_secret
+      JWT_REFRESH_SECRET: test_refresh_secret
+      ADMIN_EMAIL: admin@mediflow.test
+      ADMIN_PASSWORD: super-secret-password
+      STRIPE_SECRET_KEY: sk_test_fake
+      STRIPE_WEBHOOK_SECRET: whsec_test
+      RAZORPAY_KEY_ID: rzp_test_fake
+      RAZORPAY_KEY_SECRET: rzp_secret_fake
+      RAZORPAY_WEBHOOK_SECRET: rzp_webhook_secret
+      CURRENCY: INR
+      GEMINI_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm test -- --runInBand
+
+  frontend:
+    name: Frontend Tests And Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      VITE_BACKEND_URL: http://localhost:4000
+      VITE_CURRENCY: INR
+      VITE_RAZORPAY_KEY_ID: rzp_test_fake
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test -- --run
+      - run: npm run build
+
+  admin:
+    name: Admin Tests And Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    env:
+      VITE_BACKEND_URL: http://localhost:4000
+      VITE_CURRENCY: INR
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - run: npm ci
+      - run: npm test -- --run
+      - run: npm run build
+
+  containers:
+    name: Container Builds
+    runs-on: ubuntu-latest
+    needs:
+      - backend
+      - frontend
+      - admin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build . -f backend/Dockerfile -t mediflow-backend:ci
+      - name: Build frontend image
+        run: docker build . -f frontend/Dockerfile --build-arg VITE_BACKEND_URL=http://localhost:4000 --build-arg VITE_CURRENCY=INR --build-arg VITE_RAZORPAY_KEY_ID=rzp_test_fake -t mediflow-frontend:ci
+      - name: Build admin image
+        run: docker build . -f admin/Dockerfile --build-arg VITE_BACKEND_URL=http://localhost:4000 --build-arg VITE_CURRENCY=INR -t mediflow-admin:ci

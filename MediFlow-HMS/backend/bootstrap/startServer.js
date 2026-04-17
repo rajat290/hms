@@ -9,13 +9,16 @@ const listen = (app, port) => new Promise((resolve, reject) => {
     server.on('error', reject);
 });
 
-const startServer = async ({ env = process.env, port, enableStaticAssets = true } = {}) => {
+const startServer = async ({ env = process.env, port, enableStaticAssets } = {}) => {
     const { config, warnings } = validateRuntimeConfig(env);
     warnings.forEach((warning) => logger.warn(warning));
 
     await initializeInfrastructure();
 
-    const app = createApp({ enableStaticAssets });
+    const resolvedEnableStaticAssets = typeof enableStaticAssets === 'boolean'
+        ? enableStaticAssets
+        : config.server.enableStaticAssets;
+    const app = createApp({ enableStaticAssets: resolvedEnableStaticAssets });
     const resolvedPort = port || config.server.port;
 
     try {
