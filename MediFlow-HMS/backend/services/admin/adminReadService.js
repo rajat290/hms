@@ -9,6 +9,12 @@ import {
     getStaffPage,
 } from '../../repositories/adminReadRepository.js';
 import { parsePaginationQuery } from '../../utils/pagination.js';
+import {
+    sanitizeAppointmentForClient,
+    sanitizeDoctorForClient,
+    sanitizeStaffForClient,
+    sanitizeUserForClient,
+} from '../../utils/clientSanitizers.js';
 
 const getPaginatedAppointmentsForAdmin = async (query) => {
     const pagination = parsePaginationQuery(query, { defaultLimit: 50 });
@@ -17,7 +23,7 @@ const getPaginatedAppointmentsForAdmin = async (query) => {
     return {
         message: 'Appointments fetched successfully',
         itemKey: 'appointments',
-        items: appointments,
+        items: appointments.map((appointment) => sanitizeAppointmentForClient(appointment)),
         totalItems,
         ...pagination,
     };
@@ -30,7 +36,7 @@ const getPaginatedDoctorsForAdmin = async (query) => {
     return {
         message: 'Doctors fetched successfully',
         itemKey: 'doctors',
-        items: doctors,
+        items: doctors.map((doctor) => sanitizeDoctorForClient(doctor)),
         totalItems,
         ...pagination,
     };
@@ -43,7 +49,7 @@ const getPaginatedPatientsForAdmin = async (query) => {
     return {
         message: 'Patients fetched successfully',
         itemKey: 'patients',
-        items: patients,
+        items: patients.map((patient) => sanitizeUserForClient(patient, { viewer: 'admin' })),
         totalItems,
         ...pagination,
     };
@@ -95,7 +101,7 @@ const getPaginatedStaffForAdmin = async (query) => {
     return {
         message: 'Staff fetched successfully',
         itemKey: 'staff',
-        items: staff,
+        items: staff.map((staffMember) => sanitizeStaffForClient(staffMember)),
         totalItems,
         ...pagination,
     };
@@ -108,7 +114,7 @@ const getAdminDashboardData = async () => {
         doctors: dashboardSnapshot.doctorCount,
         appointments: dashboardSnapshot.appointmentCount,
         patients: dashboardSnapshot.patientCount,
-        latestAppointments: dashboardSnapshot.latestAppointments,
+        latestAppointments: dashboardSnapshot.latestAppointments.map((appointment) => sanitizeAppointmentForClient(appointment)),
     };
 };
 

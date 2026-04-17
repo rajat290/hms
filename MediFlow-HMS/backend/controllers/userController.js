@@ -13,6 +13,17 @@ import { cancelAppointmentRecord, finalizeAppointmentPayment, isAppointmentSlotC
 import { deriveVisitStatusFromLegacyFlags, resetAppointmentForReschedule, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
+import {
+    buildAppointmentDoctorSnapshot,
+    buildAppointmentUserSnapshot,
+    sanitizeAppointmentForClient,
+    sanitizeUserForClient,
+} from "../utils/clientSanitizers.js";
+import {
+    clearSessionCookies,
+    getRefreshTokenFromRequest,
+    setSessionCookies,
+} from "../utils/sessionCookies.js";
 import { runInTransaction } from "../utils/transaction.js";
 import {
     enableUserTwoFactor,
@@ -63,6 +74,10 @@ const loginUser = async (req, res) => {
             req,
         });
 
+        if (response.success && response.token && response.refreshToken) {
+            setSessionCookies(res, 'user', response);
+        }
+
         res.json(response)
     } catch (error) {
         console.log(error)
@@ -75,9 +90,9 @@ const getProfile = async (req, res) => {
 
     try {
         const { userId } = req.body
-        const userData = await userModel.findById(userId).select('-password')
+        const userData = await userModel.findById(userId)
 
-        res.json({ success: true, userData })
+        res.json({ success: true, userData: sanitizeUserForClient(userData, { viewer: 'self' }) })
 
     } catch (error) {
         console.log(error)
@@ -165,14 +180,11 @@ const bookAppointment = async (req, res) => {
                 throw new Error('User not found')
             }
 
-            const doctorSnapshot = docData.toObject()
-            delete doctorSnapshot.slots_booked
-
             const appointmentData = {
                 userId,
                 docId,
-                userData: userData.toObject(),
-                docData: doctorSnapshot,
+                userData: buildAppointmentUserSnapshot(userData),
+                docData: buildAppointmentDoctorSnapshot(docData),
                 amount: docData.fees,
                 slotTime,
                 slotDate,
@@ -307,7 +319,7 @@ const listAppointment = async (req, res) => {
         sendPaginatedResponse(res, {
             message: 'Appointments fetched successfully',
             itemKey: 'appointments',
-            items: appointments,
+            items: appointments.map((appointment) => sanitizeAppointmentForClient(appointment)),
             page,
             limit,
             totalItems,
@@ -605,6 +617,11 @@ const resetPassword = async (req, res) => {
             newPassword,
             req,
         });
+
+        if (response.success && response.token && response.refreshToken) {
+            setSessionCookies(res, 'user', response);
+        }
+
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -633,6 +650,11 @@ const verify2FA = async (req, res) => {
             code,
             req,
         });
+
+        if (response.success && response.token && response.refreshToken) {
+            setSessionCookies(res, 'user', response);
+        }
+
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -642,8 +664,9 @@ const verify2FA = async (req, res) => {
 
 const refreshSession = async (req, res) => {
     try {
-        const { refreshToken } = req.body;
+        const refreshToken = getRefreshTokenFromRequest(req, 'user');
         const session = await rotateRefreshSession(refreshToken, 'user', req);
+        setSessionCookies(res, 'user', session);
 
         res.json({ success: true, ...session });
     } catch (error) {
@@ -655,6 +678,7 @@ const refreshSession = async (req, res) => {
 const logoutUser = async (req, res) => {
     try {
         await revokeSessionById(req.auth?.sessionId, 'User logout');
+        clearSessionCookies(res, 'user');
         res.json({ success: true, message: 'Logged out successfully' });
     } catch (error) {
         console.log(error);

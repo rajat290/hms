@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import validator from 'validator'
+import { requestHasRefreshToken } from '../utils/sessionCookies.js';
 
 const badRequest = (res, message) => res.status(400).json({ success: false, message })
 
@@ -214,8 +215,15 @@ const validateTokenPayload = validate([
 ])
 
 const validateRefreshTokenPayload = validate([
-    requireFields(['refreshToken']),
-    validateStringLength('refreshToken', { min: 8, max: 1000 }),
+    (req) => (requestHasRefreshToken(req) ? null : 'refreshToken is required'),
+    (req) => {
+        const refreshToken = req.body?.refreshToken;
+        if (!hasValue(refreshToken)) {
+            return null;
+        }
+
+        return validateStringLength('refreshToken', { min: 8, max: 1000 })(req);
+    },
 ])
 
 const validateForgotPassword = validate([

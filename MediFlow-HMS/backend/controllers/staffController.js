@@ -6,6 +6,17 @@ import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppoin
 import { transitionAppointmentVisitStatus, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { runInTransaction } from "../utils/transaction.js";
+import {
+    sanitizeAppointmentForClient,
+    sanitizeStaffForClient,
+    sanitizeUserForClient,
+} from "../utils/clientSanitizers.js";
+import {
+    clearBackofficeSessionCookies,
+    clearSessionCookies,
+    getRefreshTokenFromRequest,
+    setSessionCookies,
+} from "../utils/sessionCookies.js";
 import { createRoleAuthRepository } from "../repositories/roleAuthRepository.js";
 import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail } from "../services/auth/roleAccountService.js";
 import { createPatientOnboarding } from "../services/patients/patientOnboardingService.js";
@@ -45,6 +56,12 @@ const loginStaff = async (req, res) => {
                 body: 'Please click the button below to verify your staff account.',
             },
         });
+
+        if (response.success && response.token && response.refreshToken) {
+            clearBackofficeSessionCookies(res);
+            setSessionCookies(res, 'staff', response);
+        }
+
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -56,8 +73,8 @@ const loginStaff = async (req, res) => {
 const getProfile = async (req, res) => {
     try {
         const { staffId } = req.body;
-        const staff = await staffModel.findById(staffId).select('-password');
-        res.json({ success: true, staff });
+        const staff = await staffModel.findById(staffId);
+        res.json({ success: true, staff: sanitizeStaffForClient(staff) });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -96,7 +113,7 @@ const getAllAppointments = async (req, res) => {
         sendPaginatedResponse(res, {
             message: 'Staff appointments fetched successfully',
             itemKey: 'appointments',
-            items: appointments,
+            items: appointments.map((appointment) => sanitizeAppointmentForClient(appointment)),
             page,
             limit,
             totalItems,
@@ -132,7 +149,6 @@ const getAllPatients = async (req, res) => {
         const [totalItems, patients] = await Promise.all([
             userModel.countDocuments(query),
             userModel.find(query)
-                .select('-password')
                 .sort({ _id: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -141,7 +157,7 @@ const getAllPatients = async (req, res) => {
         sendPaginatedResponse(res, {
             message: 'Patients fetched successfully',
             itemKey: 'patients',
-            items: patients,
+            items: patients.map((patient) => sanitizeUserForClient(patient, { viewer: 'staff' })),
             page,
             limit,
             totalItems,
@@ -193,7 +209,7 @@ const staffDashboard = async (req, res) => {
             appointments: appointments.length,
             patients: patients.length,
             totalCollections,
-            latestAppointments: appointments.reverse().slice(0, 5)
+            latestAppointments: appointments.reverse().slice(0, 5).map((appointment) => sanitizeAppointmentForClient(appointment))
         }
 
         res.json({ success: true, dashData })
@@ -230,7 +246,7 @@ const getDailyAppointments = async (req, res) => {
         sendPaginatedResponse(res, {
             message: 'Daily appointments fetched successfully',
             itemKey: 'appointments',
-            items: appointments,
+            items: appointments.map((appointment) => sanitizeAppointmentForClient(appointment)),
             page,
             limit,
             totalItems,
@@ -415,6 +431,11 @@ const resetPassword = async (req, res) => {
             role: 'staff',
             repository: staffAccountRepository,
         });
+
+        if (response.success && response.token && response.refreshToken) {
+            setSessionCookies(res, 'staff', response);
+        }
+
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -425,10 +446,11 @@ const resetPassword = async (req, res) => {
 const refreshSession = async (req, res) => {
     try {
         const response = await refreshRoleSession({
-            refreshToken: req.body.refreshToken,
+            refreshToken: getRefreshTokenFromRequest(req, 'staff'),
             role: 'staff',
             req,
         });
+        setSessionCookies(res, 'staff', response);
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -442,6 +464,7 @@ const logoutStaff = async (req, res) => {
             sessionId: req.auth?.sessionId,
             reason: 'Staff logout',
         });
+        clearSessionCookies(res, 'staff');
         res.json(response);
     } catch (error) {
         console.log(error);

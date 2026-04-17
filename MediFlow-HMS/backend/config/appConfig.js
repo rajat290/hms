@@ -34,6 +34,20 @@ const normalizedEnvSchema = z.object({
     ADMIN_URL: optionalTrimmedString,
     CLIENT_URL: optionalTrimmedString,
     APP_URL: optionalTrimmedString,
+    COOKIE_DOMAIN: optionalTrimmedString,
+    COOKIE_SAME_SITE: optionalTrimmedString,
+    COOKIE_SECURE: z.preprocess(
+        (value) => {
+            if (typeof value === 'string') {
+                const normalizedValue = value.trim().toLowerCase();
+                if (normalizedValue === 'true') return true;
+                if (normalizedValue === 'false') return false;
+            }
+
+            return value;
+        },
+        z.boolean().optional().default(false),
+    ),
 }).passthrough();
 
 const requiredRuntimeSchema = z.object({
@@ -89,6 +103,9 @@ const getAppConfig = (env = process.env) => {
             adminUrl: normalizedEnv.ADMIN_URL,
             clientUrl: normalizedEnv.CLIENT_URL,
             appUrl: normalizedEnv.APP_URL,
+            cookieDomain: normalizedEnv.COOKIE_DOMAIN,
+            cookieSameSite: normalizedEnv.COOKIE_SAME_SITE,
+            cookieSecure: normalizedEnv.COOKIE_SECURE,
         },
     };
 };

@@ -42,7 +42,7 @@ const App = () => {
   const { dToken } = useContext(DoctorContext);
   const { aToken } = useContext(AdminContext);
   const { sToken } = useContext(StaffContext);
-  const { isDarkMode } = useContext(AppContext);
+  const { isDarkMode, sessionBootstrapComplete } = useContext(AppContext);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const role = useMemo(() => {
@@ -97,6 +97,25 @@ const App = () => {
 
   const renderRoleRoute = (allowedRoles, element) =>
     allowedRoles.includes(role) ? element : <Navigate to={defaultRoute} replace />;
+
+  if (!sessionBootstrapComplete) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        <ToastContainer
+          position="top-right"
+          autoClose={2600}
+          toastStyle={{ borderRadius: 18 }}
+        />
+        <div className="flex min-h-screen items-center justify-center px-6">
+          <div className="rounded-[28px] border border-white/10 bg-white/5 px-8 py-7 text-center backdrop-blur-xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-teal-100">MediFlow Workspace</p>
+            <h1 className="mt-3 text-2xl font-semibold">Restoring your secure session</h1>
+            <p className="mt-2 text-sm text-slate-300">Checking role access before opening the workspace.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!role) {
     return (

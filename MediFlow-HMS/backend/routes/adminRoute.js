@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginAdmin, refreshSession, logoutAdmin, appointmentsAdmin, appointmentCancel, appointmentAccept, addDoctor, allDoctors, adminDashboard, getAllPatients, updatePaymentStatus, getSettings, updateSettings, getPatientDetails, getAnalytics, updatePaymentMethods, updateDoctor, createPatientAdmin, generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF, processRefund, getPaymentHistory, getPaymentKPIs, getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs, addStaff, allStaff, deleteDoctor } from '../controllers/adminController.js';
+import { loginAdmin, getAdminSession, refreshSession, logoutAdmin, appointmentsAdmin, appointmentCancel, appointmentAccept, addDoctor, allDoctors, adminDashboard, getAllPatients, updatePaymentStatus, getSettings, updateSettings, getPatientDetails, getAnalytics, updatePaymentMethods, updateDoctor, createPatientAdmin, generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF, processRefund, getPaymentHistory, getPaymentKPIs, getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs, addStaff, allStaff, deleteDoctor } from '../controllers/adminController.js';
 import { changeAvailablity } from '../controllers/doctorController.js';
 import authAdmin from '../middleware/authAdmin.js';
 import upload from '../middleware/multer.js';
@@ -8,6 +8,7 @@ import { validateAdminAddDoctor, validateAdminAddStaff, validateAppointmentId, v
 const adminRouter = express.Router();
 
 adminRouter.post("/login", authLimiter, validateLogin, loginAdmin)
+adminRouter.get("/session", authAdmin, getAdminSession)
 adminRouter.post("/refresh-session", validateRefreshTokenPayload, refreshSession)
 adminRouter.post("/logout", authAdmin, logoutAdmin)
 adminRouter.post("/add-doctor", authAdmin, upload.single('image'), validateAdminAddDoctor, addDoctor)

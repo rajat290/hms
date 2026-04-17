@@ -9,21 +9,26 @@ import { calculateAgeFromDob, formatSlotDate } from "@shared/utils/date.js";
 
 export const AppContext = createContext();
 
+const SESSION_PLACEHOLDER = '__cookie_session__';
+
 const AppContextProvider = (props) => {
 
     const { backendUrl, currency } = createClientConfig(import.meta.env, {
-        defaultCurrency: '₹',
+        defaultCurrency: '\u20B9',
     });
 
+    axios.defaults.withCredentials = true;
+
     const { aToken, aRefreshToken, persistAdminSession, clearAdminSession } = useContext(AdminContext);
-    const { dToken, dRefreshToken, persistDoctorSession, clearDoctorSession } = useContext(DoctorContext);
-    const { sToken, sRefreshToken, persistStaffSession, clearStaffSession } = useContext(StaffContext);
+    const { dToken, dRefreshToken, persistDoctorSession, clearDoctorSession, setProfileData } = useContext(DoctorContext);
+    const { sToken, sRefreshToken, persistStaffSession, clearStaffSession, setStaffProfile } = useContext(StaffContext);
 
     const slotDateFormat = formatSlotDate;
     const calculateAge = calculateAgeFromDob;
 
     const [isEmergencyMode, setIsEmergencyMode] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
+    const [sessionBootstrapComplete, setSessionBootstrapComplete] = useState(false);
 
     const clearAllSessions = () => {
         clearAdminSession();
@@ -77,13 +82,13 @@ const AppContextProvider = (props) => {
     const refreshCurrentSession = async () => {
         const activeSession = getActiveSessionConfig();
 
-        if (!activeSession?.refreshToken) {
+        if (!activeSession?.token && !activeSession?.refreshToken) {
             throw new Error('No refresh token available');
         }
 
         const { data } = await axios.post(
             backendUrl + activeSession.refreshEndpoint,
-            { refreshToken: activeSession.refreshToken },
+            {},
             { skipSessionRefresh: true },
         );
 
@@ -91,7 +96,7 @@ const AppContextProvider = (props) => {
             throw new Error(data.message || 'Session refresh failed');
         }
 
-        activeSession.persistSession(data.token, data.refreshToken);
+        activeSession.persistSession();
         return {
             ...data,
             headerName: activeSession.headerName,
@@ -107,7 +112,6 @@ const AppContextProvider = (props) => {
                     backendUrl + activeSession.logoutEndpoint,
                     {},
                     {
-                        headers: { [activeSession.headerName]: activeSession.token },
                         skipSessionRefresh: true,
                     },
                 );
@@ -126,7 +130,7 @@ const AppContextProvider = (props) => {
             refreshSession: () => refreshCurrentSession(),
             applyRefreshedSession: ({ headers, refreshedSession }) => ({
                 ...headers,
-                [refreshedSession.headerName]: refreshedSession.token,
+                [refreshedSession.headerName]: refreshedSession.token || SESSION_PLACEHOLDER,
             }),
             onSessionExpired: async () => {
                 clearAllSessions();
@@ -137,6 +141,100 @@ const AppContextProvider = (props) => {
         });
     }, [aToken, aRefreshToken, dToken, dRefreshToken, sToken, sRefreshToken]);
 
+    useEffect(() => {
+        const bootstrapRoleSession = async ({
+            sessionEndpoint,
+            refreshEndpoint,
+            persistSession,
+            clearSession,
+            onSuccess,
+        }) => {
+            const loadRoleSession = async () => axios.get(backendUrl + sessionEndpoint, { skipSessionRefresh: true });
+
+            try {
+                const { data } = await loadRoleSession();
+                if (data.success) {
+                    persistSession();
+                    onSuccess?.(data);
+                    return true;
+                }
+            } catch (error) {
+                if (error?.response?.status !== 401) {
+                    return false;
+                }
+            }
+
+            try {
+                const refreshResponse = await axios.post(
+                    backendUrl + refreshEndpoint,
+                    {},
+                    { skipSessionRefresh: true },
+                );
+
+                if (!refreshResponse.data?.success) {
+                    clearSession();
+                    return false;
+                }
+
+                persistSession();
+                const { data } = await loadRoleSession();
+                if (data.success) {
+                    onSuccess?.(data);
+                    return true;
+                }
+            } catch (error) {
+                clearSession();
+            }
+
+            return false;
+        };
+
+        const bootstrapBackofficeSession = async () => {
+            setSessionBootstrapComplete(false);
+
+            const adminActive = await bootstrapRoleSession({
+                sessionEndpoint: '/api/admin/session',
+                refreshEndpoint: '/api/admin/refresh-session',
+                persistSession: persistAdminSession,
+                clearSession: clearAdminSession,
+            });
+
+            if (adminActive) {
+                setSessionBootstrapComplete(true);
+                return;
+            }
+
+            const doctorActive = await bootstrapRoleSession({
+                sessionEndpoint: '/api/doctor/profile',
+                refreshEndpoint: '/api/doctor/refresh-session',
+                persistSession: persistDoctorSession,
+                clearSession: clearDoctorSession,
+                onSuccess: (data) => setProfileData(data.profileData),
+            });
+
+            if (doctorActive) {
+                setSessionBootstrapComplete(true);
+                return;
+            }
+
+            const staffActive = await bootstrapRoleSession({
+                sessionEndpoint: '/api/staff/profile',
+                refreshEndpoint: '/api/staff/refresh-session',
+                persistSession: persistStaffSession,
+                clearSession: clearStaffSession,
+                onSuccess: (data) => setStaffProfile(data.staff),
+            });
+
+            if (!staffActive) {
+                clearAllSessions();
+            }
+
+            setSessionBootstrapComplete(true);
+        };
+
+        bootstrapBackofficeSession();
+    }, [backendUrl]);
+
     const value = {
         backendUrl,
         currency,
@@ -146,6 +244,7 @@ const AppContextProvider = (props) => {
         setIsEmergencyMode,
         isDarkMode,
         setIsDarkMode,
+        sessionBootstrapComplete,
         logoutCurrentSession,
         refreshCurrentSession,
     };

@@ -7,25 +7,31 @@ import { persistStoredSession, readStoredValue } from "@shared/utils/sessionStor
 
 export const AppContext = createContext();
 
+const SESSION_PLACEHOLDER = '__cookie_session__';
+
 const AppContextProvider = (props) => {
 
     const { backendUrl, currency: currencySymbol } = createClientConfig(import.meta.env, {
         defaultCurrency: '\u20B9',
     });
 
+    axios.defaults.withCredentials = true;
+
     const [doctors, setDoctors] = useState([]);
     const [token, setToken] = useState(() => readStoredValue('token'));
     const [refreshToken, setRefreshToken] = useState(() => readStoredValue('refreshToken'));
     const [userData, setUserData] = useState(false);
     const [doctorsLoading, setDoctorsLoading] = useState(true);
-    const [profileLoading, setProfileLoading] = useState(Boolean(readStoredValue('token')));
+    const [profileLoading, setProfileLoading] = useState(true);
+    const [sessionReady, setSessionReady] = useState(false);
 
-    const persistSession = (nextAccessToken, nextRefreshToken) => {
+    const persistSession = (nextAccessToken = SESSION_PLACEHOLDER, nextRefreshToken = SESSION_PLACEHOLDER) => {
+        const hasSession = Boolean(nextAccessToken || nextRefreshToken);
         const { accessToken, refreshToken: storedRefreshToken } = persistStoredSession({
             accessKey: 'token',
             refreshKey: 'refreshToken',
-            accessToken: nextAccessToken,
-            refreshToken: nextRefreshToken,
+            accessToken: hasSession ? SESSION_PLACEHOLDER : '',
+            refreshToken: hasSession ? SESSION_PLACEHOLDER : '',
         });
 
         setToken(accessToken);
@@ -38,15 +44,13 @@ const AppContextProvider = (props) => {
     };
 
     const refreshUserSession = async () => {
-        const storedRefreshToken = refreshToken || readStoredValue('refreshToken') || '';
-
-        if (!storedRefreshToken) {
+        if (!refreshToken) {
             throw new Error('No refresh token available');
         }
 
         const { data } = await axios.post(
             backendUrl + '/api/user/refresh-session',
-            { refreshToken: storedRefreshToken },
+            {},
             { skipSessionRefresh: true },
         );
 
@@ -54,7 +58,7 @@ const AppContextProvider = (props) => {
             throw new Error(data.message || 'Session refresh failed');
         }
 
-        persistSession(data.token, data.refreshToken);
+        persistSession();
         return data;
     };
 
@@ -65,7 +69,6 @@ const AppContextProvider = (props) => {
                     backendUrl + '/api/user/logout',
                     {},
                     {
-                        headers: { token },
                         skipSessionRefresh: true,
                     },
                 );
@@ -98,19 +101,17 @@ const AppContextProvider = (props) => {
 
     };
 
-    const loadUserProfileData = async () => {
-        if (!token) {
-            setProfileLoading(false);
-            return;
+    const loadUserProfileData = async ({ keepLoading = false } = {}) => {
+        if (!keepLoading) {
+            setProfileLoading(true);
         }
-
-        setProfileLoading(true);
 
         try {
 
-            const { data } = await axios.get(backendUrl + '/api/user/get-profile', { headers: { token } });
+            const { data } = await axios.get(backendUrl + '/api/user/get-profile');
 
             if (data.success) {
+                persistSession();
                 setUserData(data.userData);
             } else {
                 toast.error(data.message);
@@ -118,25 +119,57 @@ const AppContextProvider = (props) => {
 
         } catch (error) {
             console.log(error);
-            toast.error(error.message);
+            throw error;
         } finally {
             setProfileLoading(false);
         }
 
     };
 
+    const bootstrapUserSession = async () => {
+        setProfileLoading(true);
+
+        try {
+            await loadUserProfileData({ keepLoading: true });
+        } catch (error) {
+            const statusCode = error?.response?.status;
+
+            if (statusCode === 401) {
+                try {
+                    persistSession();
+                    await refreshUserSession();
+                    await loadUserProfileData({ keepLoading: true });
+                } catch (refreshError) {
+                    clearSession();
+                }
+            } else {
+                clearSession();
+            }
+        } finally {
+            setSessionReady(true);
+            setProfileLoading(false);
+        }
+    };
+
     useEffect(() => {
         getDoctosData();
+        bootstrapUserSession();
     }, []);
 
     useEffect(() => {
-        if (token) {
-            loadUserProfileData();
-        } else {
+        if (!sessionReady) {
+            return;
+        }
+
+        if (token && !userData) {
+            loadUserProfileData().catch(() => {
+                clearSession();
+            });
+        } else if (!token) {
             setUserData(false);
             setProfileLoading(false);
         }
-    }, [token]);
+    }, [sessionReady, token, userData]);
 
     useEffect(() => {
         return registerSessionRefreshInterceptor({
@@ -148,7 +181,7 @@ const AppContextProvider = (props) => {
             refreshSession: () => refreshUserSession(),
             applyRefreshedSession: ({ headers, refreshedSession }) => ({
                 ...headers,
-                token: refreshedSession.token,
+                token: refreshedSession.token || SESSION_PLACEHOLDER,
             }),
             onSessionExpired: async () => {
                 clearSession();
@@ -168,6 +201,7 @@ const AppContextProvider = (props) => {
         refreshToken, setRefreshToken,
         doctorsLoading,
         profileLoading,
+        sessionReady,
         isAuthenticated: Boolean(token),
         persistSession,
         clearSession,

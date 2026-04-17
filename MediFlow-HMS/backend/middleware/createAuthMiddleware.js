@@ -1,11 +1,12 @@
 import { verifyAccessTokenSession } from '../utils/authSessions.js';
+import { getAccessTokenFromRequest } from '../utils/sessionCookies.js';
 
 const unauthorized = (res, message = 'Not Authorized Login Again') => (
     res.status(401).json({ success: false, message })
 );
 
 const createAuthMiddleware = ({ headerName, role, bodyField }) => async (req, res, next) => {
-    const rawToken = req.headers?.[headerName];
+    const rawToken = getAccessTokenFromRequest(req, role, headerName);
 
     if (!rawToken) {
         return unauthorized(res, 'Not Authorized Login Again');
@@ -14,6 +15,7 @@ const createAuthMiddleware = ({ headerName, role, bodyField }) => async (req, re
     try {
         const auth = await verifyAccessTokenSession(rawToken, role);
         req.auth = auth;
+        req.body = req.body || {};
         req.body[bodyField] = auth.subjectId;
         next();
     } catch (error) {

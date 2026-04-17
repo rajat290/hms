@@ -15,6 +15,12 @@ import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppoin
 import { deriveVisitStatusFromLegacyFlags, transitionAppointmentVisitStatus, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
 import { sendPaginatedResponse } from "../utils/pagination.js";
 import { getAdminSubjectId, issueAuthTokens, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
+import { sanitizeUserForClient } from "../utils/clientSanitizers.js";
+import {
+    clearBackofficeSessionCookies,
+    getRefreshTokenFromRequest,
+    setSessionCookies,
+} from "../utils/sessionCookies.js";
 import { runInTransaction } from "../utils/transaction.js";
 import {
     getAdminDashboardData,
@@ -55,6 +61,8 @@ const loginAdmin = async (req, res) => {
                 role: 'admin',
                 req,
             });
+            clearBackofficeSessionCookies(res);
+            setSessionCookies(res, 'admin', session);
             res.json({ success: true, ...session })
         } else {
             res.json({ success: false, message: "Invalid credentials" })
@@ -67,10 +75,21 @@ const loginAdmin = async (req, res) => {
 
 }
 
+const getAdminSession = async (req, res) => {
+    res.json({
+        success: true,
+        admin: {
+            email: process.env.ADMIN_EMAIL,
+            role: 'admin',
+        },
+    });
+}
+
 const refreshSession = async (req, res) => {
     try {
-        const { refreshToken } = req.body;
+        const refreshToken = getRefreshTokenFromRequest(req, 'admin');
         const session = await rotateRefreshSession(refreshToken, 'admin', req);
+        setSessionCookies(res, 'admin', session);
 
         res.json({ success: true, ...session });
     } catch (error) {
@@ -82,6 +101,7 @@ const refreshSession = async (req, res) => {
 const logoutAdmin = async (req, res) => {
     try {
         await revokeSessionById(req.auth?.sessionId, 'Admin logout');
+        clearBackofficeSessionCookies(res);
         res.json({ success: true, message: 'Logged out successfully' });
     } catch (error) {
         console.log(error);
@@ -193,11 +213,11 @@ const updateSettings = async (req, res) => {
 const getPatientDetails = async (req, res) => {
     try {
         const { userId } = req.params;
-        const user = await userModel.findById(userId).select('-password');
+        const user = await userModel.findById(userId);
         if (!user) {
             return res.json({ success: false, message: 'Patient not found' });
         }
-        res.json({ success: true, patient: user });
+        res.json({ success: true, patient: sanitizeUserForClient(user, { viewer: 'admin' }) });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -566,14 +586,15 @@ const createPatientAdmin = async (req, res) => {
         res.json({
             success: true,
             message: 'Patient created successfully',
-            patient: {
+            patient: sanitizeUserForClient({
                 _id: patient._id,
                 name: patient.name,
                 email: patient.email,
                 phone: patient.phone,
                 medicalRecordNumber: patient.medicalRecordNumber,
-                aadharNumber: patient.aadharNumber
-            },
+                aadharNumber: patient.aadharNumber,
+                insuranceId: patient.insuranceId,
+            }, { viewer: 'admin' }),
             credentials: {
                 email: credentials.email,
                 password: credentials.password
@@ -1167,7 +1188,7 @@ const allStaff = async (req, res) => {
 }
 
 export {
-    loginAdmin, refreshSession, logoutAdmin, appointmentsAdmin, appointmentCancel, addDoctor, allDoctors, adminDashboard,
+    loginAdmin, getAdminSession, refreshSession, logoutAdmin, appointmentsAdmin, appointmentCancel, addDoctor, allDoctors, adminDashboard,
     appointmentAccept, getSettings, updateSettings, getPatientDetails, getAnalytics, getAllPatients,
     updatePaymentStatus, updatePaymentMethods, updateDoctor, createPatientAdmin,
     generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF,
