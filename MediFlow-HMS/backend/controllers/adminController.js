@@ -6,6 +6,7 @@ import prescriptionModel from "../models/prescriptionModel.js";
 import paymentLogModel from "../models/paymentLogModel.js";
 import invoiceModel from "../models/invoiceModel.js";
 import staffModel from "../models/staffModel.js";
+import privacyRequestModel from "../models/privacyRequestModel.js";
 import bcrypt from "bcrypt";
 import validator from "validator";
 import { v2 as cloudinary } from "cloudinary";
@@ -13,8 +14,19 @@ import PDFDocument from 'pdfkit';
 import auditLogModel from "../models/auditLogModel.js";
 import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppointmentPaymentMethod, normalizePaymentLogMethod, refundAppointmentPayment } from "../utils/appointmentIntegrity.js";
 import { deriveVisitStatusFromLegacyFlags, transitionAppointmentVisitStatus, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
-import { sendPaginatedResponse } from "../utils/pagination.js";
-import { getAdminSubjectId, issueAuthTokens, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
+import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
+import { getAdminSubjectId, issueAuthTokens, revokeAllSessionsForSubject, revokeSessionById, rotateRefreshSession } from "../utils/authSessions.js";
+import { sanitizeUserForClient } from "../utils/clientSanitizers.js";
+import {
+    clearBackofficeSessionCookies,
+    getRefreshTokenFromRequest,
+    setSessionCookies,
+} from "../utils/sessionCookies.js";
+import {
+    anonymizeUserForDeletion,
+    DEFAULT_DELETION_REVIEW_WINDOW_DAYS,
+    DEFAULT_PRIVACY_POLICY_VERSION,
+} from "../utils/privacy.js";
 import { runInTransaction } from "../utils/transaction.js";
 import {
     getAdminDashboardData,
@@ -43,6 +55,37 @@ const logAdminAction = async (actorEmail, action, targetType, targetId, metadata
     }
 }
 
+const getOrCreateSettings = async () => {
+    let settings = await settingsModel.findOne({})
+
+    if (!settings) {
+        settings = await settingsModel.create({
+            cancellationWindow: 24,
+            privacyPolicyVersion: DEFAULT_PRIVACY_POLICY_VERSION,
+            deletionReviewWindowDays: DEFAULT_DELETION_REVIEW_WINDOW_DAYS,
+        })
+    }
+
+    return settings
+}
+
+const serializePrivacyRequest = (request) => {
+    if (!request) {
+        return request
+    }
+
+    const requestObject = typeof request.toObject === 'function'
+        ? request.toObject({ virtuals: false })
+        : JSON.parse(JSON.stringify(request))
+
+    if (requestObject.userId && typeof requestObject.userId === 'object' && requestObject.userId._id) {
+        requestObject.user = sanitizeUserForClient(requestObject.userId, { viewer: 'admin' })
+        requestObject.userId = requestObject.user._id
+    }
+
+    return requestObject
+}
+
 // API for admin login
 const loginAdmin = async (req, res) => {
     try {
@@ -55,6 +98,8 @@ const loginAdmin = async (req, res) => {
                 role: 'admin',
                 req,
             });
+            clearBackofficeSessionCookies(res);
+            setSessionCookies(res, 'admin', session);
             res.json({ success: true, ...session })
         } else {
             res.json({ success: false, message: "Invalid credentials" })
@@ -67,10 +112,21 @@ const loginAdmin = async (req, res) => {
 
 }
 
+const getAdminSession = async (req, res) => {
+    res.json({
+        success: true,
+        admin: {
+            email: process.env.ADMIN_EMAIL,
+            role: 'admin',
+        },
+    });
+}
+
 const refreshSession = async (req, res) => {
     try {
-        const { refreshToken } = req.body;
+        const refreshToken = getRefreshTokenFromRequest(req, 'admin');
         const session = await rotateRefreshSession(refreshToken, 'admin', req);
+        setSessionCookies(res, 'admin', session);
 
         res.json({ success: true, ...session });
     } catch (error) {
@@ -82,6 +138,7 @@ const refreshSession = async (req, res) => {
 const logoutAdmin = async (req, res) => {
     try {
         await revokeSessionById(req.auth?.sessionId, 'Admin logout');
+        clearBackofficeSessionCookies(res);
         res.json({ success: true, message: 'Logged out successfully' });
     } catch (error) {
         console.log(error);
@@ -153,10 +210,7 @@ const appointmentAccept = async (req, res) => {
 // API to get Settings
 const getSettings = async (req, res) => {
     try {
-        let settings = await settingsModel.findOne({})
-        if (!settings) {
-            settings = await settingsModel.create({ cancellationWindow: 24 })
-        }
+        const settings = await getOrCreateSettings()
 
         res.json({ success: true, settings })
     } catch (error) {
@@ -168,19 +222,28 @@ const getSettings = async (req, res) => {
 // API to update Settings
 const updateSettings = async (req, res) => {
     try {
-        const { cancellationWindow } = req.body;
+        const {
+            cancellationWindow,
+            privacyPolicyVersion,
+            deletionReviewWindowDays,
+        } = req.body;
 
         if (!cancellationWindow || cancellationWindow < 1 || cancellationWindow > 168) {
             return res.json({ success: false, message: 'Cancellation window must be between 1 and 168 hours' });
         }
 
-        let settings = await settingsModel.findOne({})
-        if (!settings) {
-            settings = await settingsModel.create({ cancellationWindow })
-        } else {
-            settings.cancellationWindow = cancellationWindow
-            await settings.save()
+        const settings = await getOrCreateSettings()
+        settings.cancellationWindow = cancellationWindow
+
+        if (privacyPolicyVersion) {
+            settings.privacyPolicyVersion = String(privacyPolicyVersion).trim()
         }
+
+        if (deletionReviewWindowDays) {
+            settings.deletionReviewWindowDays = Number(deletionReviewWindowDays)
+        }
+
+        await settings.save()
 
         res.json({ success: true, message: 'Settings updated successfully' });
     } catch (error) {
@@ -193,11 +256,122 @@ const updateSettings = async (req, res) => {
 const getPatientDetails = async (req, res) => {
     try {
         const { userId } = req.params;
-        const user = await userModel.findById(userId).select('-password');
+        const user = await userModel.findById(userId).select('+aadharNumber');
         if (!user) {
             return res.json({ success: false, message: 'Patient not found' });
         }
-        res.json({ success: true, patient: user });
+        res.json({ success: true, patient: sanitizeUserForClient(user, { viewer: 'admin' }) });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const getPrivacyRequests = async (req, res) => {
+    try {
+        const { page, limit, skip } = parsePaginationQuery(req.query, { defaultLimit: 20 });
+
+        const [totalItems, requests] = await Promise.all([
+            privacyRequestModel.countDocuments({}),
+            privacyRequestModel
+                .find({})
+                .sort({ requestedAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .populate('userId'),
+        ]);
+
+        sendPaginatedResponse(res, {
+            message: 'Privacy requests fetched successfully',
+            itemKey: 'requests',
+            items: requests.map((request) => serializePrivacyRequest(request)),
+            page,
+            limit,
+            totalItems,
+        });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const reviewPrivacyRequest = async (req, res) => {
+    try {
+        const { requestId } = req.params;
+        const { status, reviewNotes = '', responseMessage = '' } = req.body;
+        const request = await privacyRequestModel.findById(requestId).populate('userId');
+
+        if (!request) {
+            return res.json({ success: false, message: 'Privacy request not found' });
+        }
+
+        if (request.status === 'completed') {
+            return res.json({ success: false, message: 'Completed privacy requests cannot be modified' });
+        }
+
+        if (!request.userId) {
+            return res.json({ success: false, message: 'Associated user record was not found' });
+        }
+
+        const user = request.userId;
+
+        if (request.type === 'data_export' && status !== 'completed') {
+            return res.json({ success: false, message: 'Export requests are completed automatically' });
+        }
+
+        if (request.type === 'account_deletion') {
+            if (status === 'rejected') {
+                user.accountStatus = 'active';
+                user.deletionRequestedAt = undefined;
+            } else if (status === 'completed') {
+                anonymizeUserForDeletion(user);
+            } else {
+                user.accountStatus = 'deletion_requested';
+                user.deletionRequestedAt = user.deletionRequestedAt || request.requestedAt || new Date();
+            }
+
+            await user.save();
+        }
+
+        request.status = status;
+        request.reviewNotes = reviewNotes;
+        request.responseMessage = responseMessage;
+        request.reviewedBy = process.env.ADMIN_EMAIL || '';
+        request.reviewedAt = new Date();
+
+        if (status === 'completed') {
+            request.completedAt = new Date();
+        }
+
+        await request.save();
+
+        if (request.type === 'account_deletion' && status === 'completed') {
+            await revokeAllSessionsForSubject({
+                subjectId: user._id,
+                role: 'user',
+                reason: 'Account deletion request completed',
+            });
+        }
+
+        await logAdminAction(
+            process.env.ADMIN_EMAIL,
+            'REVIEW_PRIVACY_REQUEST',
+            'privacy_request',
+            request._id,
+            {
+                requestType: request.type,
+                status,
+                userId: user._id,
+            },
+        );
+
+        const updatedRequest = await privacyRequestModel.findById(requestId).populate('userId');
+
+        res.json({
+            success: true,
+            message: 'Privacy request updated successfully',
+            request: serializePrivacyRequest(updatedRequest),
+        });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -560,20 +734,24 @@ const createPatientAdmin = async (req, res) => {
                 requiredFields: ['name', 'email', 'phone', 'dob', 'gender', 'medicalRecordNumber', 'aadharNumber', 'address'],
                 missingFieldsMessage: 'All required fields must be provided',
                 duplicateMessage: 'Patient with this email, phone, MRN, or Aadhaar already exists',
+                createdByEmail: process.env.ADMIN_EMAIL,
+                createdByRole: 'admin',
             },
         });
 
         res.json({
             success: true,
             message: 'Patient created successfully',
-            patient: {
+            patient: sanitizeUserForClient({
                 _id: patient._id,
                 name: patient.name,
                 email: patient.email,
                 phone: patient.phone,
                 medicalRecordNumber: patient.medicalRecordNumber,
-                aadharNumber: patient.aadharNumber
-            },
+                aadharMasked: patient.aadharMasked,
+                insuranceId: patient.insuranceId,
+                accountStatus: patient.accountStatus,
+            }, { viewer: 'admin' }),
             credentials: {
                 email: credentials.email,
                 password: credentials.password
@@ -1167,11 +1345,11 @@ const allStaff = async (req, res) => {
 }
 
 export {
-    loginAdmin, refreshSession, logoutAdmin, appointmentsAdmin, appointmentCancel, addDoctor, allDoctors, adminDashboard,
+    loginAdmin, getAdminSession, refreshSession, logoutAdmin, appointmentsAdmin, appointmentCancel, addDoctor, allDoctors, adminDashboard,
     appointmentAccept, getSettings, updateSettings, getPatientDetails, getAnalytics, getAllPatients,
     updatePaymentStatus, updatePaymentMethods, updateDoctor, createPatientAdmin,
     generateInvoice, getAllInvoices, updateInvoiceStatus, downloadInvoicePDF,
     processRefund, getPaymentHistory, getPaymentKPIs,
     getBillingMetrics, getAdvancedAnalytics, exportFinancialsCSV, getAuditLogs,
-    addStaff, allStaff, deleteDoctor
+    addStaff, allStaff, deleteDoctor, getPrivacyRequests, reviewPrivacyRequest
 }

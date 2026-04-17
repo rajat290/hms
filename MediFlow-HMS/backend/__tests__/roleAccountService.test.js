@@ -1,7 +1,8 @@
 import bcrypt from 'bcrypt';
 import { jest } from '@jest/globals';
+import crypto from 'crypto';
 
-const sendPasswordResetEmailMock = jest.fn();
+const sendPasswordResetOtpEmailMock = jest.fn();
 const sendVerificationEmailMock = jest.fn();
 const issueAuthTokensMock = jest.fn();
 const revokeAllSessionsForSubjectMock = jest.fn();
@@ -9,7 +10,7 @@ const revokeSessionByIdMock = jest.fn();
 const rotateRefreshSessionMock = jest.fn();
 
 jest.unstable_mockModule('../services/emailService.js', () => ({
-  sendPasswordResetEmail: sendPasswordResetEmailMock,
+  sendPasswordResetOtpEmail: sendPasswordResetOtpEmailMock,
   sendVerificationEmail: sendVerificationEmailMock,
 }));
 
@@ -26,6 +27,7 @@ const {
   refreshRoleSession,
   requestRolePasswordReset,
   resetRolePassword,
+  verifyRolePasswordResetOtp,
   verifyRoleEmail,
 } = await import('../services/auth/roleAccountService.js');
 
@@ -138,12 +140,65 @@ describe('roleAccountService', () => {
     });
   });
 
-  it('resets role passwords, revokes prior sessions, and issues a new session', async () => {
+  it('emails a 6-digit reset code for role accounts without exposing whether the account exists', async () => {
     const saveMock = jest.fn().mockResolvedValue(undefined);
-    issueAuthTokensMock.mockResolvedValue({
-      token: 'staff-access',
-      refreshToken: 'staff-refresh',
+
+    const response = await requestRolePasswordReset({
+      email: 'staff@mediflow.test',
+      repository: {
+        findByEmail: jest.fn().mockResolvedValue({
+          _id: 'staff-1',
+          email: 'staff@mediflow.test',
+          resetOtpAttempts: 0,
+          save: saveMock,
+        }),
+      },
+      emailConfig: {
+        subject: 'Password Reset Code - Mediflow Staff Panel',
+        accountLabel: 'staff account',
+      },
     });
+
+    expect(saveMock).toHaveBeenCalled();
+    expect(sendPasswordResetOtpEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'staff@mediflow.test',
+        code: expect.any(String),
+      }),
+    );
+    expect(response).toEqual({
+      success: true,
+      message: 'If an account exists for this email, a 6-digit reset code has been sent.',
+    });
+  });
+
+  it('verifies a role reset code and returns a reset token', async () => {
+    const saveMock = jest.fn().mockResolvedValue(undefined);
+
+    const response = await verifyRolePasswordResetOtp({
+      email: 'staff@mediflow.test',
+      code: '123456',
+      repository: {
+        findByResetOtpEmail: jest.fn().mockResolvedValue({
+          _id: 'staff-1',
+          resetOtpCodeHash: crypto.createHash('sha256').update('123456').digest('hex'),
+          resetOtpExpiry: new Date(Date.now() + 5 * 60 * 1000),
+          resetOtpAttempts: 0,
+          save: saveMock,
+        }),
+      },
+    });
+
+    expect(saveMock).toHaveBeenCalled();
+    expect(response).toEqual({
+      success: true,
+      message: 'Code verified. You can now set a new password.',
+      resetToken: expect.any(String),
+    });
+  });
+
+  it('resets role passwords, revokes prior sessions, and requires a fresh login', async () => {
+    const saveMock = jest.fn().mockResolvedValue(undefined);
 
     const account = {
       _id: 'staff-1',
@@ -158,7 +213,6 @@ describe('roleAccountService', () => {
     const response = await resetRolePassword({
       token: 'reset-token',
       newPassword: 'newStrongPass1',
-      req: { headers: { 'user-agent': 'Jest' } },
       role: 'staff',
       repository: {
         findByResetToken: jest.fn().mockResolvedValue(account),
@@ -172,11 +226,10 @@ describe('roleAccountService', () => {
       role: 'staff',
       reason: 'Password reset',
     });
+    expect(issueAuthTokensMock).not.toHaveBeenCalled();
     expect(response).toEqual({
       success: true,
-      message: 'Password reset successfully',
-      token: 'staff-access',
-      refreshToken: 'staff-refresh',
+      message: 'Password reset successfully. Please sign in with your new password.',
     });
   });
 

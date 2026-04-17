@@ -6,8 +6,18 @@ import { cancelAppointmentRecord } from "../utils/appointmentIntegrity.js";
 import { deriveVisitStatusFromLegacyFlags, transitionAppointmentVisitStatus, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { runInTransaction } from "../utils/transaction.js";
+import {
+    sanitizeAppointmentForClient,
+    sanitizeDoctorForClient,
+} from "../utils/clientSanitizers.js";
+import {
+    clearBackofficeSessionCookies,
+    clearSessionCookies,
+    getRefreshTokenFromRequest,
+    setSessionCookies,
+} from "../utils/sessionCookies.js";
 import { createRoleAuthRepository } from "../repositories/roleAuthRepository.js";
-import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail } from "../services/auth/roleAccountService.js";
+import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail, verifyRolePasswordResetOtp } from "../services/auth/roleAccountService.js";
 
 const doctorAccountRepository = createRoleAuthRepository(doctorModel);
 
@@ -46,6 +56,12 @@ const loginDoctor = async (req, res) => {
                 body: 'Please click the button below to verify your doctor account.',
             },
         });
+
+        if (response.success && response.token && response.refreshToken) {
+            clearBackofficeSessionCookies(res);
+            setSessionCookies(res, 'doctor', response);
+        }
+
         res.json(response)
 
 
@@ -71,7 +87,7 @@ const appointmentsDoctor = async (req, res) => {
         sendPaginatedResponse(res, {
             message: 'Doctor appointments fetched successfully',
             itemKey: 'appointments',
-            items: appointments,
+            items: appointments.map((appointment) => sanitizeAppointmentForClient(appointment)),
             page,
             limit,
             totalItems,
@@ -220,7 +236,7 @@ const doctorList = async (req, res) => {
         sendPaginatedResponse(res, {
             message: 'Doctors fetched successfully',
             itemKey: 'doctors',
-            items: doctors,
+            items: doctors.map((doctor) => sanitizeDoctorForClient(doctor)),
             page,
             limit,
             totalItems,
@@ -254,9 +270,9 @@ const doctorProfile = async (req, res) => {
     try {
 
         const { docId } = req.body
-        const profileData = await doctorModel.findById(docId).select('-password')
+        const profileData = await doctorModel.findById(docId)
 
-        res.json({ success: true, profileData })
+        res.json({ success: true, profileData: sanitizeDoctorForClient(profileData) })
 
     } catch (error) {
         console.log(error)
@@ -314,7 +330,7 @@ const doctorDashboard = async (req, res) => {
             earnings,
             appointments: appointments.length,
             patients: patients.length,
-            latestAppointments: appointments.reverse()
+            latestAppointments: appointments.reverse().map((appointment) => sanitizeAppointmentForClient(appointment))
         }
 
         res.json({ success: true, dashData })
@@ -493,14 +509,25 @@ const forgotPassword = async (req, res) => {
     try {
         const response = await requestRolePasswordReset({
             email: req.body.email,
-            origin: req.headers.origin,
             repository: doctorAccountRepository,
             emailConfig: {
-                role: 'doctor',
-                subject: 'Password Reset - Mediflow Doctor Panel',
-                accountLabel: 'Doctor account',
+                subject: 'Password Reset Code - Mediflow Doctor Panel',
+                accountLabel: 'doctor account',
             },
-            notFoundMessage: 'Doctor not found',
+        });
+        res.json(response);
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const verifyResetOtp = async (req, res) => {
+    try {
+        const response = await verifyRolePasswordResetOtp({
+            email: req.body.email,
+            code: req.body.code,
+            repository: doctorAccountRepository,
         });
         res.json(response);
     } catch (error) {
@@ -515,10 +542,14 @@ const resetPassword = async (req, res) => {
         const response = await resetRolePassword({
             token: req.body.token,
             newPassword: req.body.newPassword,
-            req,
             role: 'doctor',
             repository: doctorAccountRepository,
         });
+
+        if (response.success && response.token && response.refreshToken) {
+            setSessionCookies(res, 'doctor', response);
+        }
+
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -529,10 +560,11 @@ const resetPassword = async (req, res) => {
 const refreshSession = async (req, res) => {
     try {
         const response = await refreshRoleSession({
-            refreshToken: req.body.refreshToken,
+            refreshToken: getRefreshTokenFromRequest(req, 'doctor'),
             role: 'doctor',
             req,
         });
+        setSessionCookies(res, 'doctor', response);
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -546,6 +578,7 @@ const logoutDoctor = async (req, res) => {
             sessionId: req.auth?.sessionId,
             reason: 'Doctor logout',
         });
+        clearSessionCookies(res, 'doctor');
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -573,6 +606,7 @@ export {
     addReview,
     getDoctorReviews,
     forgotPassword,
+    verifyResetOtp,
     resetPassword,
     refreshSession,
     logoutDoctor,

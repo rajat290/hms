@@ -1,22 +1,30 @@
-const readStoredValue = (key) => {
+const inMemorySession = new Map();
+
+const removeLegacyBrowserValue = (key) => {
     if (typeof window === 'undefined') {
-        return '';
+        return;
     }
 
-    return window.localStorage.getItem(key) || '';
+    window.localStorage.removeItem(key);
+    window.sessionStorage.removeItem(key);
+};
+
+const readStoredValue = (key) => {
+    return inMemorySession.get(key) || '';
 };
 
 const persistStoredSession = ({ accessKey, refreshKey, accessToken, refreshToken }) => {
     const resolvedAccessToken = accessToken || '';
     const resolvedRefreshToken = refreshToken || '';
 
-    if (typeof window !== 'undefined') {
-        if (resolvedAccessToken) window.localStorage.setItem(accessKey, resolvedAccessToken);
-        else window.localStorage.removeItem(accessKey);
+    if (resolvedAccessToken) inMemorySession.set(accessKey, resolvedAccessToken);
+    else inMemorySession.delete(accessKey);
 
-        if (resolvedRefreshToken) window.localStorage.setItem(refreshKey, resolvedRefreshToken);
-        else window.localStorage.removeItem(refreshKey);
-    }
+    if (resolvedRefreshToken) inMemorySession.set(refreshKey, resolvedRefreshToken);
+    else inMemorySession.delete(refreshKey);
+
+    removeLegacyBrowserValue(accessKey);
+    removeLegacyBrowserValue(refreshKey);
 
     return {
         accessToken: resolvedAccessToken,

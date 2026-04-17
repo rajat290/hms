@@ -4,6 +4,10 @@ import validator from 'validator';
 import { createPatientRecord, findExistingPatientByIdentifiers } from '../../repositories/patientOnboardingRepository.js';
 import { logEmailFailure, sendWelcomeCredentialsEmail } from '../emailService.js';
 import { uploadImageIfPresent } from '../uploads/cloudinaryUploadService.js';
+import {
+    buildAadhaarRecord,
+    normalizeAadhaarNumber,
+} from '../../utils/privacy.js';
 
 const parseStructuredValue = (value, fieldName) => {
     if (value === undefined || value === null || value === '') {
@@ -51,6 +55,8 @@ const createPatientOnboarding = async ({
         missingFieldsMessage = 'All required fields must be provided',
         duplicateMessage = 'Patient already exists',
         sendWelcomeEmail = true,
+        createdByEmail = '',
+        createdByRole = 'admin',
     } = options;
 
     validateRequiredFields({
@@ -80,13 +86,15 @@ const createPatientOnboarding = async ({
     }
 
     const identifierQuery = [{ email }, { phone }];
+    const normalizedAadhaar = aadharNumber ? normalizeAadhaarNumber(aadharNumber) : '';
 
     if (medicalRecordNumber) {
         identifierQuery.push({ medicalRecordNumber });
     }
 
-    if (aadharNumber) {
-        identifierQuery.push({ aadharNumber });
+    if (normalizedAadhaar) {
+        identifierQuery.push({ aadharHash: buildAadhaarRecord(normalizedAadhaar).aadharHash });
+        identifierQuery.push({ aadharNumber: normalizedAadhaar });
     }
 
     const existingPatient = await findExistingPatientByIdentifiers(identifierQuery);
@@ -113,18 +121,24 @@ const createPatientOnboarding = async ({
         password: hashedPassword,
         date: Date.now(),
     };
+    const aadharRecord = normalizedAadhaar ? buildAadhaarRecord(normalizedAadhaar) : {};
 
     const parsedAddress = parseStructuredValue(address, 'address');
     const parsedEmergencyContact = parseStructuredValue(emergencyContact, 'emergency contact');
 
     if (medicalRecordNumber) patientData.medicalRecordNumber = medicalRecordNumber;
-    if (aadharNumber) patientData.aadharNumber = aadharNumber;
+    if (aadharRecord.aadharHash) patientData.aadharHash = aadharRecord.aadharHash;
+    if (aadharRecord.aadharMasked) patientData.aadharMasked = aadharRecord.aadharMasked;
     if (insuranceProvider) patientData.insuranceProvider = insuranceProvider;
     if (insuranceId) patientData.insuranceId = insuranceId;
     if (parsedAddress) patientData.address = parsedAddress;
     if (parsedEmergencyContact) patientData.emergencyContact = parsedEmergencyContact;
     if (patientCategory) patientData.patientCategory = patientCategory;
     if (chronicConditions) patientData.chronicConditions = chronicConditions;
+    if (createdByEmail) {
+        patientData.createdVia = createdByRole;
+        patientData.createdByEmail = createdByEmail;
+    }
 
     const patient = await createPatientRecord(patientData);
 

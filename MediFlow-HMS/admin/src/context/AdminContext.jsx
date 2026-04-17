@@ -7,6 +7,8 @@ import { persistStoredSession, readStoredValue } from "@shared/utils/sessionStor
 
 export const AdminContext = createContext()
 
+const SESSION_PLACEHOLDER = '__cookie_session__';
+
 const AdminContextProvider = (props) => {
 
     const { backendUrl } = createClientConfig(import.meta.env)
@@ -19,12 +21,13 @@ const AdminContextProvider = (props) => {
     const [staff, setStaff] = useState([])
     const [dashData, setDashData] = useState(false)
 
-    const persistAdminSession = (nextAccessToken, nextRefreshToken) => {
+    const persistAdminSession = (nextAccessToken = SESSION_PLACEHOLDER, nextRefreshToken = SESSION_PLACEHOLDER) => {
+        const hasSession = Boolean(nextAccessToken || nextRefreshToken);
         const { accessToken, refreshToken } = persistStoredSession({
             accessKey: 'aToken',
             refreshKey: 'aRefreshToken',
-            accessToken: nextAccessToken,
-            refreshToken: nextRefreshToken,
+            accessToken: hasSession ? SESSION_PLACEHOLDER : '',
+            refreshToken: hasSession ? SESSION_PLACEHOLDER : '',
         })
 
         setAToken(accessToken)

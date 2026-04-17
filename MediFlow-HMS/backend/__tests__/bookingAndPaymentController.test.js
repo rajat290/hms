@@ -103,6 +103,7 @@ jest.unstable_mockModule('../services/auth/userAuthService.js', () => ({
   registerUserAccount: jest.fn(),
   requestUserPasswordReset: jest.fn(),
   resetUserPassword: jest.fn(),
+  verifyUserPasswordResetOtp: jest.fn(),
   verifyUserEmail: jest.fn(),
   verifyUserTwoFactor: jest.fn(),
 }));

@@ -6,8 +6,19 @@ import { cancelAppointmentRecord, ensureInvoiceForAppointmentId, normalizeAppoin
 import { transitionAppointmentVisitStatus, VISIT_STATUS } from "../utils/appointmentLifecycle.js";
 import { parsePaginationQuery, sendPaginatedResponse } from "../utils/pagination.js";
 import { runInTransaction } from "../utils/transaction.js";
+import {
+    sanitizeAppointmentForClient,
+    sanitizeStaffForClient,
+    sanitizeUserForClient,
+} from "../utils/clientSanitizers.js";
+import {
+    clearBackofficeSessionCookies,
+    clearSessionCookies,
+    getRefreshTokenFromRequest,
+    setSessionCookies,
+} from "../utils/sessionCookies.js";
 import { createRoleAuthRepository } from "../repositories/roleAuthRepository.js";
-import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail } from "../services/auth/roleAccountService.js";
+import { loginRoleAccount, logoutRoleSession, refreshRoleSession, requestRolePasswordReset, resetRolePassword, verifyRoleEmail, verifyRolePasswordResetOtp } from "../services/auth/roleAccountService.js";
 import { createPatientOnboarding } from "../services/patients/patientOnboardingService.js";
 
 const staffAccountRepository = createRoleAuthRepository(staffModel);
@@ -45,6 +56,12 @@ const loginStaff = async (req, res) => {
                 body: 'Please click the button below to verify your staff account.',
             },
         });
+
+        if (response.success && response.token && response.refreshToken) {
+            clearBackofficeSessionCookies(res);
+            setSessionCookies(res, 'staff', response);
+        }
+
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -56,8 +73,8 @@ const loginStaff = async (req, res) => {
 const getProfile = async (req, res) => {
     try {
         const { staffId } = req.body;
-        const staff = await staffModel.findById(staffId).select('-password');
-        res.json({ success: true, staff });
+        const staff = await staffModel.findById(staffId);
+        res.json({ success: true, staff: sanitizeStaffForClient(staff) });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -96,7 +113,7 @@ const getAllAppointments = async (req, res) => {
         sendPaginatedResponse(res, {
             message: 'Staff appointments fetched successfully',
             itemKey: 'appointments',
-            items: appointments,
+            items: appointments.map((appointment) => sanitizeAppointmentForClient(appointment)),
             page,
             limit,
             totalItems,
@@ -132,7 +149,6 @@ const getAllPatients = async (req, res) => {
         const [totalItems, patients] = await Promise.all([
             userModel.countDocuments(query),
             userModel.find(query)
-                .select('-password')
                 .sort({ _id: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -141,7 +157,7 @@ const getAllPatients = async (req, res) => {
         sendPaginatedResponse(res, {
             message: 'Patients fetched successfully',
             itemKey: 'patients',
-            items: patients,
+            items: patients.map((patient) => sanitizeUserForClient(patient, { viewer: 'staff' })),
             page,
             limit,
             totalItems,
@@ -155,19 +171,33 @@ const getAllPatients = async (req, res) => {
 // API to create patient (Staff)
 const createPatient = async (req, res) => {
     try {
-        const { credentials } = await createPatientOnboarding({
+        const staff = await staffModel.findById(req.body.staffId).select('email');
+
+        const { patient, credentials } = await createPatientOnboarding({
             input: req.body,
             files: req.files,
             options: {
-                requiredFields: ['name', 'email', 'phone', 'dob', 'gender'],
-                missingFieldsMessage: 'Name, Email, Phone, DOB and Gender are required',
-                duplicateMessage: 'Patient with this details already exists',
+                requiredFields: ['name', 'email', 'phone', 'dob', 'gender', 'medicalRecordNumber', 'aadharNumber', 'address'],
+                missingFieldsMessage: 'All required fields must be provided',
+                duplicateMessage: 'Patient with this email, phone, MRN, or Aadhaar already exists',
+                createdByEmail: staff?.email || '',
+                createdByRole: 'staff',
             },
         });
 
         res.json({
             success: true,
             message: 'Patient created successfully',
+            patient: sanitizeUserForClient({
+                _id: patient._id,
+                name: patient.name,
+                email: patient.email,
+                phone: patient.phone,
+                medicalRecordNumber: patient.medicalRecordNumber,
+                aadharMasked: patient.aadharMasked,
+                insuranceId: patient.insuranceId,
+                accountStatus: patient.accountStatus,
+            }, { viewer: 'staff' }),
             credentials,
         });
 
@@ -193,7 +223,7 @@ const staffDashboard = async (req, res) => {
             appointments: appointments.length,
             patients: patients.length,
             totalCollections,
-            latestAppointments: appointments.reverse().slice(0, 5)
+            latestAppointments: appointments.reverse().slice(0, 5).map((appointment) => sanitizeAppointmentForClient(appointment))
         }
 
         res.json({ success: true, dashData })
@@ -230,7 +260,7 @@ const getDailyAppointments = async (req, res) => {
         sendPaginatedResponse(res, {
             message: 'Daily appointments fetched successfully',
             itemKey: 'appointments',
-            items: appointments,
+            items: appointments.map((appointment) => sanitizeAppointmentForClient(appointment)),
             page,
             limit,
             totalItems,
@@ -386,19 +416,27 @@ const forgotPassword = async (req, res) => {
     try {
         const response = await requestRolePasswordReset({
             email: req.body.email,
-            origin: req.headers.origin,
             repository: staffAccountRepository,
             emailConfig: {
-                role: 'staff',
-                subject: 'Password Reset - Mediflow Staff Panel',
-                accountLabel: 'Staff account',
+                subject: 'Password Reset Code - Mediflow Staff Panel',
+                accountLabel: 'staff account',
             },
-            notFoundMessage: 'Staff member not found',
         });
-        res.json({
-            ...response,
-            message: response.success ? 'Reset link sent' : response.message,
+        res.json(response);
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+const verifyResetOtp = async (req, res) => {
+    try {
+        const response = await verifyRolePasswordResetOtp({
+            email: req.body.email,
+            code: req.body.code,
+            repository: staffAccountRepository,
         });
+        res.json(response);
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -411,10 +449,14 @@ const resetPassword = async (req, res) => {
         const response = await resetRolePassword({
             token: req.body.token,
             newPassword: req.body.newPassword,
-            req,
             role: 'staff',
             repository: staffAccountRepository,
         });
+
+        if (response.success && response.token && response.refreshToken) {
+            setSessionCookies(res, 'staff', response);
+        }
+
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -425,10 +467,11 @@ const resetPassword = async (req, res) => {
 const refreshSession = async (req, res) => {
     try {
         const response = await refreshRoleSession({
-            refreshToken: req.body.refreshToken,
+            refreshToken: getRefreshTokenFromRequest(req, 'staff'),
             role: 'staff',
             req,
         });
+        setSessionCookies(res, 'staff', response);
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -442,6 +485,7 @@ const logoutStaff = async (req, res) => {
             sessionId: req.auth?.sessionId,
             reason: 'Staff logout',
         });
+        clearSessionCookies(res, 'staff');
         res.json(response);
     } catch (error) {
         console.log(error);
@@ -449,4 +493,4 @@ const logoutStaff = async (req, res) => {
     }
 }
 
-export { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead, forgotPassword, resetPassword, refreshSession, logoutStaff, verifyEmail }
+export { loginStaff, getProfile, updateProfile, getAllAppointments, cancelAppointment, getAllPatients, createPatient, staffDashboard, getDailyAppointments, markCheckIn, updatePayment, getStaffNotifications, markNotificationRead, forgotPassword, verifyResetOtp, resetPassword, refreshSession, logoutStaff, verifyEmail }

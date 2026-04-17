@@ -16,6 +16,9 @@ describe('appConfig', () => {
       EMAIL_PASS: 'email-password',
       CORS_ORIGINS: 'https://one.test, https://two.test',
       FRONTEND_URL: 'https://patient.mediflow.test',
+      COOKIE_DOMAIN: '.mediflow.test',
+      COOKIE_SAME_SITE: 'strict',
+      COOKIE_SECURE: 'true',
     });
 
     expect(config.server).toEqual({
@@ -27,6 +30,9 @@ describe('appConfig', () => {
     expect(config.auth.refreshTokenTtl).toBe('14d');
     expect(config.security.corsOrigins).toEqual(['https://one.test', 'https://two.test']);
     expect(config.security.frontendUrl).toBe('https://patient.mediflow.test');
+    expect(config.security.cookieDomain).toBe('.mediflow.test');
+    expect(config.security.cookieSameSite).toBe('strict');
+    expect(config.security.cookieSecure).toBe(true);
   });
 
   it('fails validation when required environment variables are missing', () => {
