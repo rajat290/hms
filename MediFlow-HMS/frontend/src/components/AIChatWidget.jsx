@@ -5,7 +5,10 @@ import { AppContext } from '../context/AppContext';
 
 const initialMessage = {
   role: 'model',
-  parts: [{ text: "Hello. I am MediFlow's assistant. Ask about symptoms, booking steps, or finding the right doctor." }],
+  parts: [{
+    text: "I can help with booking, visit preparation, care navigation, and general symptom next steps. I do not diagnose conditions or prescribe treatment. If someone has chest pain, trouble breathing, severe bleeding, or feels unsafe, seek urgent help now.",
+  }],
+  meta: { category: 'intro', requiresUrgentCare: false },
 };
 
 const AIChatWidget = () => {
@@ -50,6 +53,10 @@ const AIChatWidget = () => {
         {
           role: 'model',
           parts: [{ text: data.success ? data.message : 'The assistant is unavailable right now. Please try again shortly.' }],
+          meta: {
+            category: data.guardrailCategory || 'assistant',
+            requiresUrgentCare: Boolean(data.requiresUrgentCare),
+          },
         },
       ]);
     } catch (error) {
@@ -58,6 +65,7 @@ const AIChatWidget = () => {
         {
           role: 'model',
           parts: [{ text: error?.response?.data?.message || 'I could not connect just now. Please try again in a moment.' }],
+          meta: { category: 'error', requiresUrgentCare: false },
         },
       ]);
     } finally {
@@ -68,12 +76,12 @@ const AIChatWidget = () => {
   return (
     <div className="fixed bottom-24 right-4 z-[45] sm:bottom-8 sm:right-8">
       {isOpen ? (
-        <div className="glass-panel absolute bottom-20 right-0 flex h-[560px] w-[min(92vw,400px)] flex-col overflow-hidden">
+        <div className="glass-panel absolute bottom-20 right-0 flex h-[600px] w-[min(92vw,400px)] flex-col overflow-hidden">
           <div className="bg-gradient-primary px-5 py-4 text-white">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Virtual care assistant</p>
-                <h3 className="mt-1 text-lg font-bold">Ask about symptoms or booking</h3>
+                <h3 className="mt-1 text-lg font-bold">Ask about symptoms, booking, or care prep</h3>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
@@ -87,20 +95,30 @@ const AIChatWidget = () => {
             </div>
           </div>
 
+          <div className="border-b border-slate-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-900">
+            This assistant gives general guidance only. It cannot diagnose illness, prescribe medicines, or safely handle emergencies in chat.
+          </div>
+
           <div className="flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,#f9fcfd_0%,#eef5f7_100%)] px-4 py-5">
-            {chatHistory.map((item, index) => (
-              <div key={`${item.role}-${index}`} className={`flex ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[82%] rounded-[22px] px-4 py-3 text-sm leading-6 shadow-sm ${
-                    item.role === 'user'
-                      ? 'rounded-br-md bg-secondary text-white'
-                      : 'rounded-bl-md border border-white/90 bg-white text-slate-600'
-                  }`}
-                >
-                  {item.parts[0].text}
+            {chatHistory.map((item, index) => {
+              const isUrgentModelMessage = item.role === 'model' && item.meta?.requiresUrgentCare;
+
+              return (
+                <div key={`${item.role}-${index}`} className={`flex ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`max-w-[82%] rounded-[22px] px-4 py-3 text-sm leading-6 shadow-sm ${
+                      item.role === 'user'
+                        ? 'rounded-br-md bg-secondary text-white'
+                        : isUrgentModelMessage
+                          ? 'rounded-bl-md border border-rose-200 bg-rose-50 text-rose-950'
+                          : 'rounded-bl-md border border-white/90 bg-white text-slate-600'
+                    }`}
+                  >
+                    {item.parts[0].text}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {isLoading ? (
               <div className="flex justify-start">
@@ -118,12 +136,15 @@ const AIChatWidget = () => {
           </div>
 
           <form onSubmit={handleSendMessage} className="border-t border-white/70 bg-white/80 p-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Best topics: symptom next steps, specialties, appointments, billing, and visit prep
+            </div>
             <div className="flex gap-3">
               <input
                 type="text"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder="Type your question..."
+                placeholder="Ask about symptoms, booking, or care prep..."
                 className="app-input flex-1"
               />
               <button disabled={isLoading || !message.trim()} className="app-button disabled:cursor-not-allowed disabled:opacity-60">

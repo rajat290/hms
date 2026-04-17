@@ -190,6 +190,30 @@ const validateTimeSlotFormat = (field, source = 'body') => (req) => {
     return null
 }
 
+const validateCalendarDate = (field, source = 'body') => (req) => {
+    const value = getValue(req, source, field)
+    if (!hasValue(value)) return null
+
+    const stringValue = String(value)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) {
+        return `${field} must be in YYYY-MM-DD format`
+    }
+
+    const [year, month, day] = stringValue.split('-').map(Number)
+    const parsed = new Date(year, month - 1, day)
+
+    if (
+        Number.isNaN(parsed.getTime()) ||
+        parsed.getFullYear() !== year ||
+        parsed.getMonth() !== month - 1 ||
+        parsed.getDate() !== day
+    ) {
+        return `${field} must be a valid calendar date`
+    }
+
+    return null
+}
+
 const validatePaginationQuery = validate([
     validateNumberField('page', { min: 1, max: 100000, integer: true }, 'query'),
     validateNumberField('limit', { min: 1, max: 100, integer: true }, 'query'),
@@ -483,7 +507,7 @@ const validateAISymptoms = validate([
 const validateAISchedule = validate([
     requireFields(['doctorId', 'date']),
     validateObjectIdField('doctorId'),
-    validateStringLength('date', { min: 4, max: 50 }),
+    validateCalendarDate('date'),
 ])
 
 const validatePrivacyRequestCreate = validate([

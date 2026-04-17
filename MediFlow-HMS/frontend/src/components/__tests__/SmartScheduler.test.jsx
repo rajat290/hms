@@ -14,7 +14,19 @@ vi.mock('react-toastify', () => ({
 
 const renderScheduler = () =>
   render(
-    <AppContext.Provider value={{ backendUrl: 'http://localhost:4000' }}>
+    <AppContext.Provider
+      value={{
+        backendUrl: 'http://localhost:4000',
+        doctorsLoading: false,
+        doctors: [
+          {
+            _id: 'doctor-123',
+            name: 'Dr. Shah',
+            speciality: 'General medicine',
+          },
+        ],
+      }}
+    >
       <SmartScheduler />
     </AppContext.Provider>
   );
@@ -27,28 +39,40 @@ describe('SmartScheduler', () => {
   it('renders the scheduler form', () => {
     renderScheduler();
 
-    expect(screen.getByText('AI Smart Scheduler')).toBeInTheDocument();
-    expect(screen.getByText('Get optimal appointment time')).toBeInTheDocument();
+    expect(screen.getByText('Choose a doctor and review the best opening')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /get suggestion/i })).toBeInTheDocument();
   });
 
-  it('requests and displays a suggested time', async () => {
+  it('requests and displays a schedule suggestion', async () => {
     axios.post.mockResolvedValueOnce({
-      data: { success: true, suggestedTime: '10:30' },
+      data: {
+        success: true,
+        message: 'Suggested 10:30 on Tue, Apr 20 for Dr. Shah.',
+        suggestion: {
+          suggestedTime: '10:30',
+          doctorName: 'Dr. Shah',
+          displayDate: 'Tue, Apr 20',
+          rationale: 'This slot is close to mid-morning, which is often a steady time for check-in and consultation flow.',
+          alternativeTimes: ['09:30', '11:00'],
+        },
+      },
     });
 
     renderScheduler();
 
-    await userEvent.type(screen.getByLabelText(/doctor id/i), 'doctor-123');
-    await userEvent.type(screen.getByLabelText(/date/i), '2026-04-10');
+    await userEvent.selectOptions(screen.getByLabelText(/doctor/i), 'doctor-123');
+    await userEvent.type(screen.getByLabelText(/date/i), '2026-04-20');
     await userEvent.click(screen.getByRole('button', { name: /get suggestion/i }));
 
     await waitFor(() => {
       expect(axios.post).toHaveBeenCalledWith(
         'http://localhost:4000/api/ai/smart-schedule',
-        { doctorId: 'doctor-123', date: '2026-04-10' }
+        { doctorId: 'doctor-123', date: '2026-04-20' }
       );
     });
 
     expect(screen.getByText('Suggested Time: 10:30')).toBeInTheDocument();
+    expect(screen.getAllByText(/Dr\. Shah/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Other nearby times/i)).toBeInTheDocument();
   });
 });
