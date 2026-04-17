@@ -5,15 +5,23 @@ import { assets } from '../../assets/assets.js'
 import { StaffContext } from '../../context/StaffContext'
 import { AppContext } from '../../context/AppContext'
 
+const defaultForm = {
+    name: '',
+    email: '',
+    phone: '',
+    dob: '',
+    gender: 'Not Selected',
+    address1: '',
+    address2: '',
+    patientCategory: 'Standard',
+    chronicConditions: '',
+}
+
 const StaffAddPatient = () => {
     const { sToken } = useContext(StaffContext)
     const { backendUrl } = useContext(AppContext)
 
-    const [form, setForm] = useState({
-        name: '', email: '', phone: '', dob: '', gender: 'Not Selected',
-        address1: '', address2: '',
-        patientCategory: 'Standard', chronicConditions: ''
-    })
+    const [form, setForm] = useState(defaultForm)
 
     const [profileImg, setProfileImg] = useState(null)
     const [creating, setCreating] = useState(false)
@@ -25,7 +33,7 @@ const StaffAddPatient = () => {
     }
 
     const validate = () => {
-        if (!form.name || !form.email || !form.phone || !form.dob || !form.gender) {
+        if (!form.name || !form.email || !form.phone || !form.dob || !form.gender || form.gender === 'Not Selected') {
             toast.error('Please fill required fields (Name, Email, Phone, DOB, Gender)')
             return false
         }
@@ -53,7 +61,7 @@ const StaffAddPatient = () => {
             if (data.success) {
                 toast.success(data.message)
                 setCreatedCredentials(data.credentials)
-                setForm({ name: '', email: '', phone: '', dob: '', gender: 'Not Selected', address1: '', address2: '' })
+                setForm(defaultForm)
                 setProfileImg(null)
             } else {
                 toast.error(data.message)
@@ -88,23 +96,23 @@ const StaffAddPatient = () => {
 
                     <div>
                         <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Full Name *</label>
-                        <input name='name' value={form.name} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='e.g. John Doe' />
+                        <input aria-label='Full Name' name='name' value={form.name} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='e.g. John Doe' />
                     </div>
                     <div>
                         <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Phone Number *</label>
-                        <input name='phone' value={form.phone} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='e.g. 9876543210' />
+                        <input aria-label='Phone Number' name='phone' value={form.phone} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='e.g. 9876543210' />
                     </div>
                     <div>
-                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Email (Optional)</label>
-                        <input name='email' value={form.email} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='john@example.com' />
+                        <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Email *</label>
+                        <input aria-label='Email' name='email' value={form.email} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='john@example.com' />
                     </div>
                     <div>
                         <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Date of Birth *</label>
-                        <input type='date' name='dob' value={form.dob} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' />
+                        <input aria-label='Date of Birth' type='date' name='dob' value={form.dob} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' />
                     </div>
                     <div>
                         <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Gender *</label>
-                        <select name='gender' value={form.gender} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white'>
+                        <select aria-label='Gender' name='gender' value={form.gender} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white'>
                             <option>Not Selected</option>
                             <option>Male</option>
                             <option>Female</option>
@@ -113,7 +121,7 @@ const StaffAddPatient = () => {
                     </div>
                     <div>
                         <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Patient Category</label>
-                        <select name='patientCategory' value={form.patientCategory} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white'>
+                        <select aria-label='Patient Category' name='patientCategory' value={form.patientCategory} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white'>
                             <option>Standard</option>
                             <option>VIP</option>
                             <option>High-risk</option>
@@ -122,11 +130,11 @@ const StaffAddPatient = () => {
                     </div>
                     <div>
                         <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Location / Address</label>
-                        <input name='address1' value={form.address1} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='Area / City' />
+                        <input aria-label='Location / Address' name='address1' value={form.address1} onChange={onInput} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='Area / City' />
                     </div>
                     <div className='md:col-span-2'>
                         <label className='block text-xs font-bold text-gray-700 uppercase mb-1'>Chronic Conditions / Allergies</label>
-                        <textarea name='chronicConditions' value={form.chronicConditions} onChange={onInput} rows={2} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='List any allergies or chronic conditions...' />
+                        <textarea aria-label='Chronic Conditions / Allergies' name='chronicConditions' value={form.chronicConditions} onChange={onInput} rows={2} className='w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none' placeholder='List any allergies or chronic conditions...' />
                     </div>
                 </div>
 
