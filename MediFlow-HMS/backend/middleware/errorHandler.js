@@ -10,7 +10,7 @@ const errorHandler = (error, req, res, next) => {
     }
 
     if ((error?.statusCode || 500) >= 500) {
-        console.error(error);
+        logger.error(error);
     }
 
     return sendError(res, error, error?.statusCode || 500);
